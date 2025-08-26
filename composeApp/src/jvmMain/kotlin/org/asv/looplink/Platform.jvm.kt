@@ -11,8 +11,11 @@ class JVMPlatform: Platform {
 
 actual fun getPlatform(): Platform = JVMPlatform()
 
-actual class DriverFactory {
+actual class DriverFactory actual constructor(){
     actual fun createDriver(): SqlDriver {
-        return JdbcSqliteDriver("jdbc:sqlite:Database.sq", Properties(), LLData.Schema)
+        val driver =  JdbcSqliteDriver("jdbc:sqlite:LLData.sq", Properties(),
+            schema = LLData.Schema
+        )
+        return driver
     }
 }

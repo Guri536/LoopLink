@@ -100,7 +100,7 @@ kotlin {
         databases{
             create("LLData"){
                 packageName = "com.db"
-                generateAsync = true
+                generateAsync = false
             }
         }
     }
@@ -108,12 +108,12 @@ kotlin {
 
 android {
     namespace = "org.asv.looplink"
-    compileSdk = libs.versions.android.compileSdk.get().toInt()
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "org.asv.looplink"
         minSdk = libs.versions.android.minSdk.get().toInt()
-        targetSdk = libs.versions.android.targetSdk.get().toInt()
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
     }

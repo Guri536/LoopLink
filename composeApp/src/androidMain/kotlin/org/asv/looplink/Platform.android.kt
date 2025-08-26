@@ -4,7 +4,7 @@ import android.content.Context
 import android.os.Build
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
-import com.jetbrains.looplink.db.Database
+import com.db.LLData // Assuming this is your generated database class
 
 class AndroidPlatform : Platform {
     override val name: String = "Android ${Build.VERSION.SDK_INT}"
@@ -12,8 +12,14 @@ class AndroidPlatform : Platform {
 
 actual fun getPlatform(): Platform = AndroidPlatform()
 
-actual class DriverFactory(private val context: Context) {
+// This is the actual implementation of the DriverFactory expected from commonMain
+actual class DriverFactory actual constructor() {
+    private var context: Context? = null
+    constructor( Appcontext: Context): this(){
+        context = Appcontext
+    }
+
     actual fun createDriver(): SqlDriver {
-        return AndroidSqliteDriver(Database.Schema, context, "Database.sq")
+        return AndroidSqliteDriver(LLData.Schema, context!!, "LLData.db") // Use a .db extension
     }
 }

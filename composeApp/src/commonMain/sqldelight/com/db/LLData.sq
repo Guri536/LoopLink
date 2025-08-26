@@ -14,3 +14,6 @@ SELECT LoopLinkUser.* FROM LoopLinkUser;
 
 delete:
 DELETE FROM LoopLinkUser;
+
+getSize:
+SELECT COUNT(*) FROM LoopLinkUser;

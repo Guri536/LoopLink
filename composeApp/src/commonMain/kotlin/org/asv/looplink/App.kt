@@ -24,9 +24,21 @@ import looplink.composeapp.generated.resources.compose_multiplatform
 
 @Composable
 @Preview
-fun App() {
+fun App(database: DatabaseMng) {
+
     MaterialTheme {
         var showContent by remember { mutableStateOf(false) }
+        val showSize = remember { mutableStateOf("Press") }
+
+        fun updateShow(){
+            if(showContent) {
+                showContent = false
+                showContent = true
+            }
+        }
+        fun updateSize(){
+            showSize.value = database.getSize().toString()
+        }
         Column(
             modifier = Modifier
                 .background(MaterialTheme.colorScheme.primaryContainer)
@@ -40,8 +52,31 @@ fun App() {
                 textAlign = TextAlign.Center
             )
 
-            Button(onClick = { showContent = true }) {
+            Button(onClick = {
+                database.deleteUser()
+                updateShow()
+                updateSize()
+            }){
+                Text("Delete Content")
+            }
+            Button(onClick = { showContent = !showContent }) {
                 Text("Show Content")
+            }
+            Button(onClick = {
+                database.insertIntoDatabase("A", database.getAllFromDatabase().size.toString())
+                updateShow()
+                updateSize()
+            }) {
+                Text("Add Content")
+            }
+            Button(onClick = { showSize.value = database.getSize().toString() }) {
+                Text("Current Size: ${showSize.value}")
+            }
+
+            if (showContent){
+                Text("Let's see")
+                val data = database.getAllFromDatabase()
+                Text(data.toString().prependIndent("What: "))
             }
 
         }

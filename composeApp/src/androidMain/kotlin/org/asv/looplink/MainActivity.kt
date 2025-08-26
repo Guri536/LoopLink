@@ -12,14 +12,16 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
+        val database = DatabaseMng(DriverFactory(this).createDriver())
+
         setContent {
-            App()
+            App(database)
         }
     }
 }
 
-@Preview
-@Composable
-fun AppAndroidPreview() {
-    App()
-}
+//@Preview
+//@Composable
+//fun AppAndroidPreview() {
+//    App()
+//}
