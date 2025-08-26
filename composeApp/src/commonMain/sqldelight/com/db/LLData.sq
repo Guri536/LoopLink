@@ -1,0 +1,16 @@
+CREATE TABLE LoopLinkUser (
+    name TEXT NOT NULL,
+    uid TEXT NOT NULL
+);
+
+CREATE INDEX USERNAME ON LoopLinkUser(name);
+
+insert:
+INSERT INTO LoopLinkUser (name, uid) VALUES
+(?, ?);
+
+selectAll:
+SELECT LoopLinkUser.* FROM LoopLinkUser;
+
+delete:
+DELETE FROM LoopLinkUser;
