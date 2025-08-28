@@ -6,7 +6,8 @@ import kotlinx.browser.document
 
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
+    val database = null
     ComposeViewport(document.body!!) {
-        App()
+//        App(database)
     }
 }

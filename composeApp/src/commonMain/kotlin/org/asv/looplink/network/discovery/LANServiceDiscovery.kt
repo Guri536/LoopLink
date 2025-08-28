@@ -14,4 +14,5 @@ expect class LANServiceDiscovery constructor(){
     suspend fun unregistedService()
 
     fun stopDiscovery()
+    fun stopDiscovery(serviceType: String?)
 }

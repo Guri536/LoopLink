@@ -11,24 +11,39 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.coroutineScope
 import org.asv.looplink.network.discovery.LANServiceDiscovery
-import org.asv.looplink.network.
+import org.asv.looplink.network.AndroidKtorServer
 
 class MainActivity : ComponentActivity() {
 
-    private lateinit var serviceDiscovery: LANServiceDiscovery
-    private val serverScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private var registeredServerPort: Int? = null
+    private lateinit var serverManager: AndroidKtorServer
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
-        AndroidKtorServer.start(serverScope)
+        serverManager = AndroidKtorServer(applicationContext)
+        serverManager.onServerPortChanged = {
+            port ->
+            if(port > 0){
+                println("Mainactivity: Server started on port $port")
+            } else {
+                println("Mainactivity: Server failed to start or port not available")
+            }
+        }
+
+        println("Mainactivity: Starting server...")
+        serverManager.start(port = 8080)
 
         val database = DatabaseMng(DriverFactory(this).createDriver())
         setContent {
             App(database)
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        println("Mainactivity: Stopping server...")
+        serverManager.close()
     }
 }
 

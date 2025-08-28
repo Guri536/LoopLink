@@ -41,7 +41,6 @@ koin-androidx-compose = { module = "io.insert-koin:koin-androidx-compose", versi
 koin-core = { module = "io.insert-koin:koin-core", version.ref = "koin" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutinesVersion" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "dateTimeVersion" }
-ktor-client-android = { module = "io.ktor:ktor-client-android", version.ref = "ktor" }
 ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktor" }
 native-driver = { module = "app.cash.sqldelight:native-driver", version.ref = "sqlDelight" }
 runtime = { module = "app.cash.sqldelight:runtime", version.ref = "sqlDelight" }
@@ -59,13 +58,16 @@ ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx
 ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
 
 # Ktor Client Engines (Platform-specific)
-ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" } # For Android
-ktor-client-java = { module = "io.ktor:ktor-client-java", version.ref = "ktor" }   # For JVM/Desktop
+ktor-client-android = { module = "io.ktor:ktor-client-android", version.ref = "ktor" } # For Android
+ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }   # For JVM/Desktop
 
 # Ktor Server Engine (JVM/Desktop only)
 ktor-server-core = { module = "io.ktor:ktor-server-core-jvm", version.ref = "ktor" }
 ktor-server-netty = { module = "io.ktor:ktor-server-netty-jvm", version.ref = "ktor" }
+ktor-server-content-negotiation = { module = "io.ktor:ktor-server-content-negotiation-jvm", version.ref = "ktor" }
 ktor-server-websockets = { module = "io.ktor:ktor-server-websockets-jvm", version.ref = "ktor" }
+ktor-server-cio-jvm = { module = "io.ktor:ktor-server-cio-jvm", version.ref = "ktor" } # For JVM/Desktop
+ktor-server-cio-android = { module = "io.ktor:ktor-server-cio", version.ref = "ktor" } # For Android
 
 ktor-logging = { module = "io.ktor:ktor-client-logging", version.ref= "ktor" }
 

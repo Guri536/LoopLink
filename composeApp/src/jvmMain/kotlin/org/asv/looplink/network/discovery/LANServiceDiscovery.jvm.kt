@@ -164,4 +164,8 @@ actual class LANServiceDiscovery actual constructor(){
             jmDnsInstance = null
         }
     }
+
+    actual fun stopDiscovery(serviceType: String?) {
+        stopDiscovery()
+    }
 }

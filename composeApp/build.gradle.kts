@@ -27,25 +27,25 @@ kotlin {
     
     jvm()
     
-    @OptIn(ExperimentalWasmDsl::class)
-    wasmJs {
-        outputModuleName.set("composeApp")
-        browser {
-            val rootDirPath = project.rootDir.path
-            val projectDirPath = project.projectDir.path
-            commonWebpackConfig {
-                outputFileName = "composeApp.js"
-                devServer = (devServer ?: KotlinWebpackConfig.DevServer()).apply {
-                    static = (static ?: mutableListOf()).apply {
-                        // Serve sources to debug inside browser
-                        add(rootDirPath)
-                        add(projectDirPath)
-                    }
-                }
-            }
-        }
-        binaries.executable()
-    }
+//    @OptIn(ExperimentalWasmDsl::class)
+//    wasmJs {
+//        outputModuleName.set("composeApp")
+//        browser {
+//            val rootDirPath = project.rootDir.path
+//            val projectDirPath = project.projectDir.path
+//            commonWebpackConfig {
+//                outputFileName = "composeApp.js"
+//                devServer = (devServer ?: KotlinWebpackConfig.DevServer()).apply {
+//                    static = (static ?: mutableListOf()).apply {
+//                        // Serve sources to debug inside browser
+//                        add(rootDirPath)
+//                        add(projectDirPath)
+//                    }
+//                }
+//            }
+//        }
+//        binaries.executable()
+//    }
     
     sourceSets {
         androidMain.dependencies {
@@ -56,7 +56,7 @@ kotlin {
             // Ktor
             implementation(libs.ktor.client.android)
             implementation(libs.jmdns)
-            implementation(libs.ktor.server.core)
+            implementation(libs.ktor.server.cio.android)
 
         }
         commonMain.dependencies {
@@ -80,6 +80,10 @@ kotlin {
             implementation(libs.ktor.client.content.negotiation) // Already here
             implementation(libs.ktor.serialization.kotlinx.json) // Already here
             implementation(libs.ktor.logging)
+
+            implementation(libs.ktor.server.core)
+            implementation(libs.ktor.server.websockets)
+            implementation(libs.ktor.server.content.negotiation)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -88,22 +92,20 @@ kotlin {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutinesSwing)
             implementation(libs.sqldelight.jvm)
+            implementation(libs.jmdns)
 
             // Ktor
             implementation(libs.ktor.server.core)
             implementation(libs.ktor.server.netty)
             implementation(libs.ktor.server.websockets)
-            implementation(libs.ktor.client.java)
             implementation(libs.ktor.client.websockets)
+            implementation(libs.ktor.client.cio)
+            implementation(libs.ktor.server.cio.jvm)
             implementation(libs.ktor.client.content.negotiation)
             implementation(libs.ktor.serialization.kotlinx.json)
         }
 
         wasmJsMain.dependencies {
-            // ... wasmJs dependencies ...
-            // If you need Ktor client for WasmJS (you likely will for consistency)
-            // implementation(libs.ktor.client.js) // You'd need to add 'ktor-client-js' to toml
-            // Make sure to add the content negotiation and serialization as well if needed.
         }
 
     }

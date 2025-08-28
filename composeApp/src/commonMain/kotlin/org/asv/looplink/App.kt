@@ -16,15 +16,47 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
+import io.ktor.client.plugins.websocket.webSocket
+import io.ktor.http.HttpMethod
+import io.ktor.websocket.Frame
+import io.ktor.websocket.readText
+import io.ktor.websocket.readBytes
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import looplink.composeapp.generated.resources.Res
 import looplink.composeapp.generated.resources.compose_multiplatform
+import org.asv.looplink.network.createKtorClient
+
 //import com.jetbrains.looplink.database
 
 @Composable
 @Preview
 fun App(database: DatabaseMng) {
+
+    val webSocketClient = createKtorClient()
+
+    suspend fun sendMessage(
+        peerIp: String,
+        peerPort: Int,
+        message: String
+    ){
+        try{
+            webSocketClient.webSocket(
+                method = HttpMethod.Get,
+                host = peerIp,
+                port = peerPort,
+                path = "/chat"
+            ){
+                send(Frame.Text(message))
+                for(frame in incoming){
+                    println("Recieved from server: ${frame.readBytes().decodeToString()}")
+                }
+            }
+        } catch (e: Exception){
+            println("Error sending message to $peerIp, $peerPort: ${e.message}")
+        }
+
+    }
 
     MaterialTheme {
         var showContent by remember { mutableStateOf(false) }
