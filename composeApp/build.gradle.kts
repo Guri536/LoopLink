@@ -51,11 +51,13 @@ kotlin {
         androidMain.dependencies {
             implementation(compose.preview)
             implementation(libs.androidx.activity.compose)
-            implementation(libs.ktor.client.android)
-//            implementation(libs.android.driver)
             implementation(libs.sqldelight.android)
-//            implementation("app.cash.sqldelight:android-driver:2.1.0")
-//            implementation(libs.plugins.sqldelight)
+
+            // Ktor
+            implementation(libs.ktor.client.android)
+            implementation(libs.jmdns)
+            implementation(libs.ktor.server.core)
+
         }
         commonMain.dependencies {
             implementation(compose.runtime)
@@ -67,13 +69,17 @@ kotlin {
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
             implementation(libs.kotlinx.coroutines.core)
-            implementation(libs.ktor.client.core)
-            implementation(libs.ktor.client.content.negotiation)
-            implementation(libs.ktor.serialization.kotlinx.json)
-            implementation(libs.runtime)
+            implementation(libs.runtime) // SQLDelight runtime
             implementation(libs.kotlinx.datetime)
-            implementation(libs.koin.core)
+            implementation(libs.koin.core) // Koin for DI
             implementation(libs.sqldelight.coroutines)
+
+            // Ktor
+            implementation(libs.ktor.client.core) // Already here
+            implementation(libs.ktor.client.websockets)
+            implementation(libs.ktor.client.content.negotiation) // Already here
+            implementation(libs.ktor.serialization.kotlinx.json) // Already here
+            implementation(libs.ktor.logging)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -81,17 +87,23 @@ kotlin {
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutinesSwing)
-            implementation(libs.ktor.client.core)
-//            implementation("app.cash.sqldelight:sqlite-driver:2.1.0")
             implementation(libs.sqldelight.jvm)
+
+            // Ktor
+            implementation(libs.ktor.server.core)
+            implementation(libs.ktor.server.netty)
+            implementation(libs.ktor.server.websockets)
+            implementation(libs.ktor.client.java)
+            implementation(libs.ktor.client.websockets)
+            implementation(libs.ktor.client.content.negotiation)
+            implementation(libs.ktor.serialization.kotlinx.json)
         }
 
         wasmJsMain.dependencies {
-//            implementation(npm("@cashapp/sqldelight-sqljs-worker", "2.0.2"))
-//            implementation(npm("sql.js", "1.8.0"))
-//            implementation(devNpm("copy-webpack-plugin", "9.1.0"))
-//            implementation(libs.ktor.client.core)
-//            implementation(npm("@cashapp/sqldelight-sqljs-worker", "2.0.2"))
+            // ... wasmJs dependencies ...
+            // If you need Ktor client for WasmJS (you likely will for consistency)
+            // implementation(libs.ktor.client.js) // You'd need to add 'ktor-client-js' to toml
+            // Make sure to add the content negotiation and serialization as well if needed.
         }
 
     }
@@ -158,12 +170,3 @@ repositories{
     mavenCentral()
 }
 
-//sqldelight{
-//    databases{
-//
-//        create("LLData"){
-//            packageName.set("com.db")
-//            generateAsync.set(true)
-//        }
-//    }
-//}
