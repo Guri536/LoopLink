@@ -5,6 +5,9 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.targets.js.WASM
 import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig
 
+
+
+
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidApplication)
@@ -55,6 +58,7 @@ kotlin {
 
             // Ktor
             implementation(libs.ktor.client.android)
+            implementation(libs.ktor.client.cio)
             implementation(libs.jmdns)
             implementation(libs.ktor.server.cio.android)
 
@@ -103,6 +107,7 @@ kotlin {
             implementation(libs.ktor.server.cio.jvm)
             implementation(libs.ktor.client.content.negotiation)
             implementation(libs.ktor.serialization.kotlinx.json)
+            implementation(libs.ktor.logging)
         }
 
         wasmJsMain.dependencies {

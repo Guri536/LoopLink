@@ -83,7 +83,7 @@ class AndroidKtorServer(private val context: Context) {
                 println("Service '${this@AndroidKtorServer.serviceInstanceName}' registered on port $currentPort")
 
                 while (this.isActive) {
-                    delay(1000L)
+                    delay(60_000L)
                 }
             } catch (e: Exception){
                 println("Error starting server: ${e.message}")

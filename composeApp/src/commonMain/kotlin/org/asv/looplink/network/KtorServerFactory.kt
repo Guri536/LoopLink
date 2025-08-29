@@ -28,7 +28,10 @@ fun Application.configureLoopLinkServer() {
     }
 
     install(WebSockets) {
-
+//        pingPeriodMillis = 60_000 // Disabled (null) by default
+        timeoutMillis = 15_000
+        maxFrameSize = Long.MAX_VALUE // Disabled (max value). The connection will be closed if surpassed this length.
+        masking = false
     }
 
     routing {

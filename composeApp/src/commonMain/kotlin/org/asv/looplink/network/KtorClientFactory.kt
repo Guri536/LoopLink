@@ -28,7 +28,7 @@ fun createKtorClient(): HttpClient {
         }
 
         install(WebSockets){
-
+            maxFrameSize = Long.MAX_VALUE // Disabled (max value). The connection will be closed if surpassed this length.
         }
 
         // Logging (optional, but helpful for debugging)

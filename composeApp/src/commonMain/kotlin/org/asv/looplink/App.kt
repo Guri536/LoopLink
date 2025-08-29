@@ -8,9 +8,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.safeContentPadding
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -21,6 +23,7 @@ import io.ktor.http.HttpMethod
 import io.ktor.websocket.Frame
 import io.ktor.websocket.readText
 import io.ktor.websocket.readBytes
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import looplink.composeapp.generated.resources.Res
@@ -33,26 +36,27 @@ import org.asv.looplink.network.createKtorClient
 @Preview
 fun App(database: DatabaseMng) {
 
+    val coroutineScope = rememberCoroutineScope()
     val webSocketClient = createKtorClient()
 
     suspend fun sendMessage(
         peerIp: String,
         peerPort: Int,
         message: String
-    ){
-        try{
+    ) {
+        try {
             webSocketClient.webSocket(
                 method = HttpMethod.Get,
                 host = peerIp,
                 port = peerPort,
-                path = "/chat"
-            ){
+                path = "/looplink/sync"
+            ) {
                 send(Frame.Text(message))
-                for(frame in incoming){
+                for (frame in incoming) {
                     println("Recieved from server: ${frame.readBytes().decodeToString()}")
                 }
             }
-        } catch (e: Exception){
+        } catch (e: Exception) {
             println("Error sending message to $peerIp, $peerPort: ${e.message}")
         }
 
@@ -61,14 +65,16 @@ fun App(database: DatabaseMng) {
     MaterialTheme {
         var showContent by remember { mutableStateOf(false) }
         val showSize = remember { mutableStateOf("Press") }
+        var message by remember { mutableStateOf(("Send Message")) }
 
-        fun updateShow(){
-            if(showContent) {
+        fun updateShow() {
+            if (showContent) {
                 showContent = false
                 showContent = true
             }
         }
-        fun updateSize(){
+
+        fun updateSize() {
             showSize.value = database.getSize().toString()
         }
         Column(
@@ -79,7 +85,8 @@ fun App(database: DatabaseMng) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             val plat = getPlatform()
-            Text("Hello there, you are on ${plat.name}\nLets see how this goes",
+            Text(
+                "Hello there, you are on ${plat.name}\nLets see how this goes",
                 modifier = Modifier,
                 textAlign = TextAlign.Center
             )
@@ -88,7 +95,7 @@ fun App(database: DatabaseMng) {
                 database.deleteUser()
                 updateShow()
                 updateSize()
-            }){
+            }) {
                 Text("Delete Content")
             }
             Button(onClick = { showContent = !showContent }) {
@@ -105,7 +112,37 @@ fun App(database: DatabaseMng) {
                 Text("Current Size: ${showSize.value}")
             }
 
-            if (showContent){
+            Button(onClick = {
+                coroutineScope.launch {
+                    sendMessage(
+                        "192.168.29.137",
+                        8080,
+                        message
+                    )
+                }
+            }) {
+                Text("Send Message to JVM")
+            }
+
+            Button(onClick = {
+                coroutineScope.launch {
+                    sendMessage(
+                        "192.168.29.191",
+                        8080,
+                        message
+                    )
+                }
+            }) {
+                Text("Send Message to Android")
+            }
+            TextField(
+                value = message,
+                onValueChange = { newText ->
+                    message = newText
+                }
+            )
+
+            if (showContent) {
                 Text("Let's see")
                 val data = database.getAllFromDatabase()
                 Text(data.toString().prependIndent("What: "))

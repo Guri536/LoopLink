@@ -25,7 +25,7 @@ object jvmKtorServerRunner{
         LANServiceDiscovery()
     }
 
-    private const val SERVICE_TYPE = "_looplink._tcp.local."
+    private const val SERVICE_TYPE = "_looplink._tcp"
     private var serviceInstanceName = "LoopLinkJVM-${System.currentTimeMillis()}"
 
     fun start(
