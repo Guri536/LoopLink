@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">LoopLink</string>
+    <string name="timeout_error">You got timed out, please try again or continue as guest</string>
 </resources>

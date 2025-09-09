@@ -1,3 +1,4 @@
+import org.gradle.kotlin.dsl.implementation
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
@@ -16,6 +17,7 @@ plugins {
     alias(libs.plugins.composeHotReload)
     alias(libs.plugins.kotlinxSerialization)
     alias(libs.plugins.sqldelight)
+    id("com.google.gms.google-services")
 //    id("app.cash.sqldelight") version "2.1.0"
 //    alias(libs.plugins.kotlinAndroid)
 }
@@ -88,6 +90,14 @@ kotlin {
             implementation(libs.ktor.server.core)
             implementation(libs.ktor.server.websockets)
             implementation(libs.ktor.server.content.negotiation)
+
+//            implementation(project.dependencies.platform("com.google.firebase:firebase-bom:34.2.0"))
+//            implementation(libs.firebase.analytics)
+
+            // Web Driver (selenium)
+            implementation(libs.seleniumhq.selenium)
+            implementation(libs.jsoup)
+
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -131,7 +141,7 @@ android {
 
     defaultConfig {
         applicationId = "org.asv.looplink"
-        minSdk = libs.versions.android.minSdk.get().toInt()
+        minSdk = 26
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"

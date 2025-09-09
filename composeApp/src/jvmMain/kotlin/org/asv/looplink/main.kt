@@ -9,9 +9,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.window.WindowPlacement
 
 fun main() = application {
-    val windowState = rememberWindowState()
+    val windowState = rememberWindowState(
+        placement = WindowPlacement.Maximized,
+
+    )
     val database = DatabaseMng(DriverFactory().createDriver())
 
     println("Attempting to start JVM Ktor Server")
@@ -25,7 +29,7 @@ fun main() = application {
             exitApplication()
         },
         state = windowState,
-        title = "LoopLink",
+        title = "LoopLink"
     ) {
         App(database)
     }
