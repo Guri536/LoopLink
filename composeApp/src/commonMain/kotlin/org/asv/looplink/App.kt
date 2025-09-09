@@ -1,6 +1,7 @@
 package org.asv.looplink
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -24,18 +25,32 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
+import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.graphics.toComposeImageBitmap
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -44,17 +59,30 @@ import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.http.HttpMethod
 import io.ktor.websocket.Frame
 import io.ktor.websocket.readBytes
+import looplink.composeapp.generated.resources.DefaultCapthcaImg
+import looplink.composeapp.generated.resources.Res
+import looplink.composeapp.generated.resources.defaultcapthcaimg
+import org.asv.looplink.components.CustomOutlinedTextField
 import org.asv.looplink.errors.errorsLL
 import org.asv.looplink.network.createKtorClient
 import org.asv.looplink.theme.Colors
 import org.asv.looplink.webDriver.cuimsAPI
+import org.jetbrains.compose.resources.DrawableResource
+import org.jetbrains.compose.resources.imageResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.skia.Bitmap
+import org.jetbrains.skia.ColorSpace
+import ui.theme.RobotFont
+import ui.theme.StoryScriptFont
 import java.io.File
+import ui.theme.AppTheme
+import org.jetbrains.skia.Image
+import java.awt.image.BufferedImage
+import java.nio.file.Files
+import java.nio.file.Path
 
 @Composable
 fun App(database: DatabaseMng) {
-
     val coroutineScope = rememberCoroutineScope()
     val webSocketClient = createKtorClient()
 
@@ -81,7 +109,7 @@ fun App(database: DatabaseMng) {
 
     }
 
-    MaterialTheme {
+    AppTheme {
         var showContent by remember { mutableStateOf(false) }
         val showSize = remember { mutableStateOf("Press") }
         var message by remember { mutableStateOf(("Send Message")) }
@@ -113,6 +141,7 @@ fun App(database: DatabaseMng) {
 
 @Composable
 fun LoginFields() {
+
     var uidField by remember { mutableStateOf("") }
     var passField by remember { mutableStateOf("") }
     val interactionSource = remember { MutableInteractionSource() }
@@ -122,13 +151,22 @@ fun LoginFields() {
     var errorMessage by remember { mutableStateOf("") }
     val isHovered by interactionSource.collectIsHoveredAsState()
 
-    var captchaFile by remember { mutableStateOf(ImageBitmap(width = 0, height = 0)) }
+    var captchaFile by remember {
+        mutableStateOf(
+            ImageBitmap(
+                width = 110,
+                height = 48,
+            )
+        )
+    }
+
     var captchaField by remember { mutableStateOf("") }
     var showCaptcha by remember { mutableStateOf(false) }
     var isCaptchaError by remember { mutableStateOf(false) }
     var webDriver by remember { mutableStateOf(cuimsAPI()) }
 
     val fontSize = 20.sp
+    val fontFamily = FontFamily.Monospace
 
     val colors = TextFieldDefaults.colors(
         focusedContainerColor = Color.White,
@@ -137,10 +175,12 @@ fun LoginFields() {
         focusedIndicatorColor = Color.Transparent,
         unfocusedIndicatorColor = Color.Transparent,
         disabledIndicatorColor = Color.Transparent,
+        focusedLabelColor = Color.Black
     )
     val textStyle = TextStyle(
         fontWeight = FontWeight.Bold,
-        fontSize = fontSize
+        fontSize = fontSize,
+        fontFamily = fontFamily
     )
 
     Column(
@@ -158,31 +198,42 @@ fun LoginFields() {
             Column(
                 modifier = Modifier
                     .wrapContentHeight()
-                    .width(IntrinsicSize.Max)
+                    .width(IntrinsicSize.Max),
+                horizontalAlignment = Alignment.End
             ) {
 
                 Row(
                     modifier = Modifier
                         .padding(Dp(5f))
                         .fillMaxWidth(),
-                    Arrangement.spacedBy(10.dp, Alignment.End),
+                    Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
                     Alignment.CenterVertically
 
                 ) {
                     Text(
                         text = "UID     ",
                         fontSize = fontSize,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = fontFamily,
+                        modifier = Modifier.alignByBaseline()
                     )
 
-
-                    TextField(
-                        modifier = Modifier,
+                    CustomOutlinedTextField(
+                        modifier = Modifier.alignByBaseline(),
+                        label = {
+                            Text(
+                                "UID", fontSize = fontSize,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = fontFamily,
+                                modifier = Modifier.background(Color.Red)
+                            )
+                        },
                         value = uidField,
                         placeholder = {
                             Text(
                                 "Enter UID",
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodyLarge
                             )
                         },
                         onValueChange = {
@@ -214,11 +265,21 @@ fun LoginFields() {
                     ) {
 
                     Text(
-                        text = "Password",
+                        text = "Password  ",
                         fontSize = fontSize,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = fontFamily,
+                        modifier = Modifier.alignByBaseline()
                     )
-                    TextField(
+                    CustomOutlinedTextField(
+                        label = {
+                            Text(
+                                "Password", fontSize = fontSize,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = fontFamily,
+                            )
+                        },
+                        modifier = Modifier.alignByBaseline(),
                         value = passField,
                         placeholder = {
                             Text(
@@ -244,70 +305,87 @@ fun LoginFields() {
                         shape = MaterialTheme.shapes.large
                     )
                 }
-
-            }
-
-            if (showCaptcha) {
+                Spacer(modifier = Modifier.width(20.dp))
                 Row(
-                    modifier = Modifier.background(Color.Red)
-//                        .wrapContentHeight()
-                    ,
-                    Arrangement.Center,
-                    Alignment.Top
-                ) {
-                    TextField(
-                        value = captchaField,
-                        placeholder = {
-                            Text(
-                                "Enter Captcha",
-                                fontWeight = FontWeight.Bold
-                            )
-                        },
-                        onValueChange = { it ->
-                            captchaField = it
-                        },
-                        singleLine = true,
-                        colors = colors,
-                        textStyle = textStyle,
-                        isError = isCaptchaError || isError,
-                        supportingText = {
-                            if (isCaptchaError) {
-                                TextFieldFooterErrorMsg("Captcha cannot be empty")
-                            } else if (isError) {
-                                TextFieldFooterErrorMsg(errorMessage)
-                            }
-                        },
-                        shape = RoundedCornerShape(
-                            topStart = 16.dp,
-                            topEnd = 0.dp,
-                            bottomEnd = 0.dp,
-                            bottomStart = 16.dp
-                        ),
-                        modifier = Modifier
-                            .background(Color.Yellow)
-                            .height(IntrinsicSize.Min)
-                    )
-                    Box(
-                        modifier = Modifier
-//                            .aspectRatio(3.33f)
-//                            .border(
-//                                border = BorderStroke(2.dp, Color.Red),
-//                                shape = RoundedCornerShape(
-//                                    topStart = 0.dp,
-//                                    topEnd = 16.dp,
-//                                    bottomEnd = 16.dp,
-//                                    bottomStart = 0.dp
-//                                )
-//                            )
-                            .background(Color.Blue),
-                        contentAlignment = Alignment.Center
+                    modifier = Modifier
+                        .padding(Dp(5f))
+                        .fillMaxWidth()
+                        .wrapContentHeight(),
+                    Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+                    Alignment.CenterVertically,
 
                     ) {
-                        Image(
-                            bitmap = captchaFile,
-                            contentDescription = "Captcha Image",
+
+                    Text(
+                        text = "Captcha   ",
+                        fontSize = fontSize,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = fontFamily,
+                        modifier = Modifier.alignByBaseline()
+                    )
+
+                    Row(
+                        modifier = Modifier.alignByBaseline()
+                    ) {
+                        CustomOutlinedTextField(
+                            value = captchaField,
+                            placeholder = {
+                                Text(
+                                    "Enter Captcha",
+                                    fontWeight = FontWeight.Bold
+                                )
+                            },
+                            onValueChange = { it ->
+                                captchaField = it
+                            },
+                            singleLine = true,
+                            colors = colors,
+                            textStyle = textStyle,
+                            isError = isCaptchaError || isError,
+                            supportingText = {
+                                if (isCaptchaError) {
+                                    TextFieldFooterErrorMsg("Captcha cannot be empty")
+                                } else if (isError) {
+                                    TextFieldFooterErrorMsg(errorMessage)
+                                }
+                            },
+                            shape = RoundedCornerShape(
+                                topStart = 16.dp,
+                                topEnd = 0.dp,
+                                bottomEnd = 0.dp,
+                                bottomStart = 16.dp
+                            ),
+                            modifier = Modifier
+                                .height(56.dp)
+                                .width(150.dp)
+                                .padding(0.dp)
+                                .alignByBaseline(),
+                            enabled = showCaptcha
                         )
+                        Box(
+                            modifier = Modifier
+                                .height(40.dp)
+                                .clip(
+                                    RoundedCornerShape(
+                                        topStart = 0.dp,
+                                        topEnd = 16.dp,
+                                        bottomEnd = 16.dp,
+                                        bottomStart = 0.dp
+                                    )
+                                )
+                                .background(Color.LightGray)
+                                .alignByBaseline(),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Image(
+                                bitmap = captchaFile,
+                                contentDescription = "Captcha Image",
+                                modifier = Modifier
+                                    .fillMaxHeight()
+                            )
+                        }
                     }
+
                 }
 
             }
@@ -377,8 +455,8 @@ fun LoginFields() {
             webDriver.endSession()
         }
     }
-
 }
+
 
 @Composable
 fun TextFieldFooterErrorMsg(text: String = "Error") {
@@ -390,3 +468,8 @@ fun TextFieldFooterErrorMsg(text: String = "Error") {
         fontSize = 15.sp,
     )
 }
+
+//@Composable
+//fun imageResource(resource: DrawableResource): ImageBitmap {
+//    imageResource(resource)
+//}

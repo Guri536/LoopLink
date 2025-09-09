@@ -136,10 +136,10 @@ fun CustomOutlinedTextField(
                         },
                         // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                         contentPadding = OutlinedTextFieldDefaults.contentPadding(
-                            start=0.dp,
-                            top=0.dp,
-                            end=0.dp,
-                            bottom=0.dp
+                            start=8.dp,
+                            top=2.dp,
+                            end= 8.dp,
+                            bottom=2.dp
                         )
                     )
                 }

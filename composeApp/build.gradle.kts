@@ -98,6 +98,9 @@ kotlin {
             implementation(libs.seleniumhq.selenium)
             implementation(libs.jsoup)
 
+            // Resources
+            implementation(compose.components.resources)
+
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -168,6 +171,11 @@ android {
 dependencies {
     implementation(libs.core.ktx)
     debugImplementation(compose.uiTooling)
+}
+
+compose.resources{
+    publicResClass = true
+    generateResClass = auto
 }
 
 compose.desktop {
