@@ -9,7 +9,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.window.WindowPlacement
+import org.jetbrains.compose.resources.painterResource
+import looplink.composeapp.generated.resources.Res
 
 fun main() = application {
     val windowState = rememberWindowState(
@@ -29,7 +32,8 @@ fun main() = application {
             exitApplication()
         },
         state = windowState,
-        title = "LoopLink"
+        title = "LoopLink",
+        icon = painterResource("icons/icon.svg")
     ) {
         App(database)
     }

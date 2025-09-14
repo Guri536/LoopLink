@@ -1,5 +1,6 @@
 package org.asv.looplink.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.defaultMinSize
@@ -16,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.takeOrElse
@@ -86,6 +88,7 @@ fun CustomOutlinedTextField(
                                 // padding is considered part of the text field.
                                 .semantics(mergeDescendants = true) {}
                                 .padding(top = with(density) { 8.sp.toDp() })
+                                .background(Color.Transparent)
                         } else {
                             Modifier
                         }

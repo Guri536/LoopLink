@@ -186,6 +186,9 @@ compose.desktop {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "org.asv.looplink"
             packageVersion = "1.0.0"
+            windows{
+                iconFile.set(project.file("D:\\Work\\College\\Projects\\Log Chat\\LoopLink\\LoopLink\\composeApp\\src\\commonMain\\composeResources\\drawable\\icon.ico"))
+            }
         }
     }
 }
