@@ -13,6 +13,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.window.WindowPlacement
 import org.jetbrains.compose.resources.painterResource
 import looplink.composeapp.generated.resources.Res
+import org.asv.looplink.webDriver.cuimsAPI
 
 fun main() = application {
     val windowState = rememberWindowState(
@@ -20,6 +21,7 @@ fun main() = application {
 
     )
     val database = DatabaseMng(DriverFactory().createDriver())
+    val cuimsAPI = cuimsAPI()
 
     println("Attempting to start JVM Ktor Server")
     jvmKtorServerRunner.start(port = 8080, instanceName = "MyLoopLinkJVMInstance")
@@ -35,7 +37,7 @@ fun main() = application {
         title = "LoopLink",
         icon = painterResource("icons/icon.svg")
     ) {
-        App(database)
+        App(database, cuimsAPI)
     }
 
     Runtime.getRuntime().addShutdownHook(Thread {

@@ -9,13 +9,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -44,13 +47,17 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.asv.looplink.errors.errorsLL
 import org.asv.looplink.webDriver.cuimsAPI
+import org.asv.looplink.webDriver.getWebViewer
 import org.asv.looplink.webDriver.successLog
 
 @Composable
-fun LoginFields() {
+fun LoginFields(
+    cuimsAPI: cuimsAPI,
+    loginSuccess: () -> Unit
+) {
 
-    var uidField by remember { mutableStateOf("") }
-    var passField by remember { mutableStateOf("") }
+    var uidField by remember { mutableStateOf("23BSC10022") }
+    var passField by remember { mutableStateOf("19May2005!") }
     val interactionSource = remember { MutableInteractionSource() }
     var isUIDError by remember { mutableStateOf(false) }
     var isPassError by remember { mutableStateOf(false) }
@@ -93,7 +100,9 @@ fun LoginFields() {
     Column(
         modifier = Modifier
             .fillMaxHeight()
-            .fillMaxWidth(),
+            .fillMaxWidth()
+//            .verticalScroll(rememberScrollState())
+        ,
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -131,12 +140,10 @@ fun LoginFields() {
                     colors = colors,
                     singleLine = true,
                     textStyle = textStyle,
-                    isError = isUIDError || isError,
+                    isError = isUIDError,
                     supportingText = {
                         if (isUIDError) {
                             TextFieldFooterErrorMsg("UID cannot be empty")
-                        } else if (isError) {
-                            TextFieldFooterErrorMsg(errorMessage)
                         }
                     },
                     shape = MaterialTheme.shapes.large,
@@ -164,12 +171,10 @@ fun LoginFields() {
                     colors = colors,
                     visualTransformation = PasswordVisualTransformation(),
                     textStyle = textStyle,
-                    isError = isPassError || isError,
+                    isError = isPassError,
                     supportingText = {
                         if (isPassError) {
                             TextFieldFooterErrorMsg("Password cannot be empty")
-                        } else if (isError) {
-                            TextFieldFooterErrorMsg(errorMessage)
                         }
                     },
                     shape = MaterialTheme.shapes.large
@@ -198,14 +203,8 @@ fun LoginFields() {
                         singleLine = true,
                         colors = colors,
                         textStyle = textStyle,
-                        isError = isCaptchaError || isError,
-                        supportingText = {
-                            if (isCaptchaError) {
-                                TextFieldFooterErrorMsg("Captcha cannot be empty")
-                            } else if (isError) {
-                                TextFieldFooterErrorMsg(errorMessage)
-                            }
-                        },
+                        isError = isCaptchaError,
+
                         shape = RoundedCornerShape(
                             topStart = 16.dp,
                             topEnd = 0.dp,
@@ -213,9 +212,10 @@ fun LoginFields() {
                             bottomStart = 16.dp
                         ),
                         modifier = Modifier
-                            .height(64.dp)
+                            .height(49.dp)
                             .width(190.dp)
-                            .padding(0.dp),
+//                            .padding(0.dp)
+                        ,
                         enabled = showCaptcha
                     )
                     Box(
@@ -247,8 +247,7 @@ fun LoginFields() {
                                 modifier = Modifier
                                     .padding(4.dp)
                                     .height(20.dp)
-                                    .width(20.dp)
-                                ,
+                                    .width(20.dp),
                                 color = Color.Black,
                                 strokeWidth = 2.dp
                             )
@@ -263,7 +262,7 @@ fun LoginFields() {
             Button(
                 enabled = !webDriverInstance,
                 onClick = {
-                    scope.launch(Dispatchers.IO) {
+                    scope.launch {
                         webDriverInstance = true
                         isUIDError = false
                         isPassError = false
@@ -302,10 +301,12 @@ fun LoginFields() {
                                 }
                             } catch (e: Exception) {
                                 isError = true
-                                errorMessage = errorsLL.internet_error
+                                errorMessage = errorsLL.internet_error + e.message
+                                throw (e)
                             }
                         } else {
                             if (captchaField.isBlank()) {
+                                isError = true
                                 isCaptchaError = true
                                 errorMessage = "Captcha cannot be empty"
                                 webDriverInstance = false
@@ -318,6 +319,34 @@ fun LoginFields() {
                                     isError = true
                                     errorMessage = success.message
                                     webDriverInstance = false
+
+                                    when (errorMessage) {
+                                        "Invalid Captcha" -> {
+                                            errorMessage = "Invalid Captcha"
+                                            isCaptchaError = true
+                                            val imgFile = cuimsAPI.getCaptcha()
+                                            if (!imgFile.first.success) {
+                                                isError = true
+                                                errorMessage = imgFile.first.message
+                                            } else {
+                                                captchaFile = imgFile.second!!
+                                                showCaptcha = true
+                                            }
+                                        }
+
+                                        "User Id or Password In Correct" -> {
+                                            errorMessage = "Either UID or Password is incorrect"
+                                            isPassError = true
+                                            isUIDError = true
+                                            showCaptcha = false
+                                            cuimsAPI.endSession()
+                                        }
+
+                                        else -> {
+                                            isCaptchaError = true
+                                        }
+                                    }
+                                    loginSuccess()
                                     return@launch
                                 }
                             } catch (e: Exception) {
@@ -334,7 +363,18 @@ fun LoginFields() {
                     fontSize = 20.sp
                 )
             }
+
         }
+        Spacer(modifier = Modifier.height(16.dp))
+        if (isError) {
+            Text(
+                text = errorMessage,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center,
+                fontSize = 15.sp,
+            )
+        }
+        Spacer(modifier = Modifier.height(16.dp))
     }
 
     DisposableEffect(Unit) {

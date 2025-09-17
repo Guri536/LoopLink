@@ -50,7 +50,10 @@ import org.asv.looplink.webDriver.successLog
 import ui.theme.AppTheme
 
 @Composable
-fun App(database: DatabaseMng) {
+fun App(
+    database: DatabaseMng,
+    cuimsAPI: cuimsAPI
+) {
     val coroutineScope = rememberCoroutineScope()
     val webSocketClient = createKtorClient()
 
@@ -102,14 +105,10 @@ fun App(database: DatabaseMng) {
                 .fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            LoginFields()
+            LoginFields(
+                cuimsAPI,
+                loginSuccess = {}
+            )
         }
     }
 }
-
-
-
-//@Composable
-//fun imageResource(resource: DrawableResource): ImageBitmap {
-//    imageResource(resource)
-//}

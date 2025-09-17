@@ -1,3 +1,4 @@
+import com.android.build.gradle.internal.cxx.configure.gradleLocalProperties
 import org.gradle.kotlin.dsl.implementation
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
@@ -5,8 +6,7 @@ import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.targets.js.WASM
 import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig
-
-
+import java.util.Properties
 
 
 plugins {
@@ -17,7 +17,7 @@ plugins {
     alias(libs.plugins.composeHotReload)
     alias(libs.plugins.kotlinxSerialization)
     alias(libs.plugins.sqldelight)
-    id("com.google.gms.google-services")
+//    id("com.google.gms.google-services")
 //    id("app.cash.sqldelight") version "2.1.0"
 //    alias(libs.plugins.kotlinAndroid)
 }
@@ -29,9 +29,9 @@ kotlin {
             jvmTarget.set(JvmTarget.JVM_11)
         }
     }
-    
+
     jvm()
-    
+
 //    @OptIn(ExperimentalWasmDsl::class)
 //    wasmJs {
 //        outputModuleName.set("composeApp")
@@ -51,7 +51,7 @@ kotlin {
 //        }
 //        binaries.executable()
 //    }
-    
+
     sourceSets {
         androidMain.dependencies {
             implementation(compose.preview)
@@ -63,7 +63,7 @@ kotlin {
             implementation(libs.ktor.client.cio)
             implementation(libs.jmdns)
             implementation(libs.ktor.server.cio.android)
-
+            implementation(compose.ui)
         }
         commonMain.dependencies {
             implementation(compose.runtime)
@@ -128,9 +128,9 @@ kotlin {
 
     }
 
-    sqldelight{
-        databases{
-            create("LLData"){
+    sqldelight {
+        databases {
+            create("LLData") {
                 packageName = "com.db"
                 generateAsync = false
             }
@@ -142,12 +142,21 @@ android {
     namespace = "org.asv.looplink"
     compileSdk = 36
 
+    buildFeatures {
+        buildConfig = true
+    }
+
     defaultConfig {
         applicationId = "org.asv.looplink"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
+
+        val props = Properties()
+        props.load(project.rootProject.file("local.properties").reader())
+        val ocrKey = props.getProperty("ocrSpaceAPIKEY")
+        buildConfigField("String", "ocrSpaceAPIKEY", "\"$ocrKey\"")
     }
     packaging {
         resources {
@@ -157,6 +166,7 @@ android {
     buildTypes {
         getByName("release") {
             isMinifyEnabled = false
+
         }
     }
     compileOptions {
@@ -173,7 +183,7 @@ dependencies {
     debugImplementation(compose.uiTooling)
 }
 
-compose.resources{
+compose.resources {
     publicResClass = true
     generateResClass = auto
 }
@@ -186,14 +196,14 @@ compose.desktop {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "org.asv.looplink"
             packageVersion = "1.0.0"
-            windows{
+            windows {
                 iconFile.set(project.file("D:\\Work\\College\\Projects\\Log Chat\\LoopLink\\LoopLink\\composeApp\\src\\commonMain\\composeResources\\drawable\\icon.ico"))
             }
         }
     }
 }
 
-repositories{
+repositories {
     google()
     mavenCentral()
 }
