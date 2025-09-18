@@ -23,6 +23,7 @@ import org.asv.looplink.webDriver.cuimsAPI
 class MainActivity : ComponentActivity() {
 
     private lateinit var serverManager: AndroidKtorServer
+    private lateinit var cuimsAPI: cuimsAPI
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -42,7 +43,7 @@ class MainActivity : ComponentActivity() {
         serverManager.start(port = 8080)
 
         val database = DatabaseMng(DriverFactory(this).createDriver())
-        val cuimsAPI = cuimsAPI(WebView(this))
+        cuimsAPI = cuimsAPI(WebView(this))
         setContent {
             App(database, cuimsAPI)
         }
@@ -51,6 +52,7 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
         println("Mainactivity: Stopping server...")
         serverManager.close()
+        cuimsAPI.destroySession()
     }
 
 }

@@ -25,7 +25,8 @@ data class successLog constructor(
 expect fun ByteArray.toImageBitmap(): ImageBitmap
 expect fun ImageBitmap.toBase64(): String
 
-data class studentInfo constructor(val uid: String, val pass: String) {
+data class studentInfo(val uid: String, val pass: String) {
+    lateinit var studentUID: String
     lateinit var fullName: String
     lateinit var currentSection: String
     lateinit var programCode: String
@@ -49,10 +50,11 @@ expect class cuimsAPI{
     suspend fun getCaptcha(): Pair<successLog, ImageBitmap?>
     suspend fun fillCaptcha(captcha: String): successLog
     fun endSession()
-    fun processCaptcha(imgBase64: String): String
+    suspend fun processCaptcha(imgBase64: String): String
     suspend fun autoFillCaptcha(): successLog
     fun getWebView(): Any
-
+    suspend fun loadStudentData(): Pair<successLog, studentInfo?>
+    fun destroySession()
 }
 
 @Composable

@@ -26,6 +26,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,7 +49,9 @@ import kotlinx.coroutines.launch
 import org.asv.looplink.errors.errorsLL
 import org.asv.looplink.webDriver.cuimsAPI
 import org.asv.looplink.webDriver.getWebViewer
+import org.asv.looplink.webDriver.studentInfo
 import org.asv.looplink.webDriver.successLog
+import kotlin.reflect.full.memberProperties
 
 @Composable
 fun LoginFields(
@@ -257,6 +260,7 @@ fun LoginFields(
             }
         }
 
+
         Box(
         ) {
             Button(
@@ -346,9 +350,20 @@ fun LoginFields(
                                             isCaptchaError = true
                                         }
                                     }
-                                    loginSuccess()
-                                    return@launch
                                 }
+                                val data = cuimsAPI.loadStudentData()
+                                println(
+                                    """
+                                ${data.second?.uid}
+                                ${data.second?.fullName}
+                                ${data.second?.currentSection}
+                                ${data.second?.programCode}
+                                ${data.second?.studentContact}
+                                ${data.second?.cGPA}
+                                ${data.second?.studentUID}
+                            """.trimIndent()
+                                )
+                                return@launch
                             } catch (e: Exception) {
                                 isError = true
                                 errorMessage = errorsLL.unknownError
@@ -374,7 +389,12 @@ fun LoginFields(
                 fontSize = 15.sp,
             )
         }
-        Spacer(modifier = Modifier.height(16.dp))
+//        Spacer(modifier = Modifier.height(16.dp))
+//        getWebViewer(
+//            cuimsAPI, modifier = Modifier
+//                .fillMaxWidth()
+//                .padding(30.dp)
+//        )
     }
 
     DisposableEffect(Unit) {

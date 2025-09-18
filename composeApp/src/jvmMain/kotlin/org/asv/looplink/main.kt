@@ -46,5 +46,6 @@ fun main() = application {
             jvmKtorServerRunner.stop()
             jvmKtorServerRunner.closeDiscovery()
         }
+        cuimsAPI.destroySession()
     })
 }

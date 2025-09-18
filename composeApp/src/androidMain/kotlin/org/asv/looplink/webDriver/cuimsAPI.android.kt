@@ -24,6 +24,7 @@ import kotlinx.coroutines.launch
 import org.asv.looplink.MainActivity
 import org.asv.looplink.secrets.APIKeys
 import org.jsoup.Jsoup
+import org.openqa.selenium.By
 import java.io.ByteArrayOutputStream
 import kotlin.io.encoding.Base64
 
@@ -87,12 +88,13 @@ actual class cuimsAPI(private val webView: WebView) {
         initDriver()
         this.uid = uid
         this.pass = pass
-
+        student = studentInfo(uid, pass)
 //        return withContext(Dispatchers.Main) {
         try {
             loadUrlAndWait(BASEURL)
 //            println(webView.height)
             if (!waitForElement("txtUserId")) return successLog(false, errorsLL.internet_error)
+
             withContext(Dispatchers.Main) {
                 eval("document.getElementById('txtUserId').value = '$uid';")
                 eval("document.getElementById('btnNext').click();")
@@ -277,7 +279,7 @@ actual class cuimsAPI(private val webView: WebView) {
 
     private suspend fun waitForElement(
         ele: String,
-        timeout: Long = 2000L,
+        timeout: Long = 5000L,
     ): Boolean {
         val startTime = System.currentTimeMillis()
         val checkEle = "document.getElementById('$ele') != null"
@@ -289,7 +291,7 @@ actual class cuimsAPI(private val webView: WebView) {
         return false
     }
 
-    actual fun processCaptcha(imgBase64: String): String {
+    actual suspend fun processCaptcha(imgBase64: String): String {
         var captcha: String? = null
         val base64Img = "data:image/png;base64,$imgBase64"
 
@@ -302,34 +304,112 @@ actual class cuimsAPI(private val webView: WebView) {
             "base64Image" to base64Img,
             "isOverlayRequired" to "True"
         )
+        return withContext(Dispatchers.IO) {
+            while (captcha == null || captcha == "" || captcha == " " || !captcha.all { it.isLetterOrDigit() }) {
+                val ocrRes = Jsoup.connect(ocrURL)
+                    .userAgent(USER_AGENT)
+                    .data(ocrData)
+                    .ignoreContentType(true)
+                    .timeout(50000)
+                    .post()
+                val jsonOcrRes = (ocrRes.body().text())
 
-        while (captcha == null || captcha == "" || captcha == " " || !captcha.all { it.isLetterOrDigit() }) {
-            val ocrRes = Jsoup.connect(ocrURL)
-                .userAgent(USER_AGENT)
-                .data(ocrData)
-                .ignoreContentType(true)
-                .timeout(50000)
-                .post()
-            val jsonOcrRes = (ocrRes.body().text())
-
-            captcha =
-                jsonOcrRes.substringAfter("ParsedText\":\"").substringBefore("\"")
-                    .substringBefore("\\")
-            ocrData["OCREngine"] = "2"
-            println(jsonOcrRes)
-            println(captcha)
+                captcha =
+                    jsonOcrRes.substringAfter("ParsedText\":\"").substringBefore("\"")
+                        .substringBefore("\\")
+                ocrData["OCREngine"] = "2"
+                println(jsonOcrRes)
+                println(captcha)
+            }
+            return@withContext captcha
         }
-        return captcha
     }
 
     actual suspend fun autoFillCaptcha(): successLog {
-        var imageBitmap = getCaptcha()
-        if (imageBitmap.second == null) return successLog(false, "Unable to fill captcha")
-        var captcha = processCaptcha(imageBitmap.second!!.toBase64())
-        fillCaptcha(captcha)
-        return successLog(true)
+        return withContext(Dispatchers.Main) {
+            val imageBitmap = getCaptcha()
+            if (imageBitmap.second == null) return@withContext successLog(
+                false,
+                "Unable to fill captcha"
+            )
+            val captcha = processCaptcha(imageBitmap.second!!.toBase64())
+            fillCaptcha(captcha)
+            return@withContext successLog(true)
+        }
     }
 
+    suspend fun loadResults() {
+        webView.loadUrl(BASEURL + endPoints["Marks"])
+        pageLoadDeferred = CompletableDeferred()
+        pageLoadDeferred?.await()
+        val eleList = mapOf<String, String>(
+            "CGPA" to ("ContentPlaceHolder1_wucResult1_lblCGPA"),
+        )
+        for (i in eleList) {
+            try {
+                var ele: String = ""
+                withContext(Dispatchers.Main) {
+                    waitForElement(i.value)
+                    ele = eval("document.getElementById('${i.value}').innerText")
+                }
+                when (i.key) {
+                    "CGPA" -> student!!.cGPA = ele
+                    else -> {}
+                }
+            } catch (e: Exception) {
+                println(e)
+            }
+        }
+    }
+
+    suspend fun loadProfile() {
+        webView.loadUrl(BASEURL + endPoints["Profile"])
+        pageLoadDeferred = CompletableDeferred()
+        pageLoadDeferred?.await()
+
+        val eleList = mapOf<String, String>(
+            "UID" to ("lbstuUID"),
+            "Name" to ("ContentPlaceHolder1_lblName"),
+            "Section" to ("ContentPlaceHolder1_lblCurrentSection"),
+            "Program" to ("ContentPlaceHolder1_lblProgramCode"),
+            "Contact" to ("ContentPlaceHolder1_gvStudentContacts_lblMobile_2"),
+        )
+        for (i in eleList) {
+            try {
+                var ele: String = ""
+
+                withContext(Dispatchers.Main) {
+                    waitForElement(i.value)
+                    ele = eval("document.getElementById('${i.value}')?.innerText || ''").trim('"')
+                }
+                when (i.key) {
+                    "UID" -> student!!.studentUID = ele
+                    "Name" -> student!!.fullName = ele
+                    "Section" -> student!!.currentSection = ele
+                    "Program" -> student!!.programCode = ele
+                    "Contact" -> student!!.studentContact = ele
+                    else -> {}
+                }
+            } catch (e: Exception) {
+                println(e)
+            }
+        }
+    }
+
+    actual suspend fun loadStudentData(): Pair<successLog, studentInfo?> {
+        return withContext(Dispatchers.Main) {
+            loadProfile()
+            loadResults()
+            return@withContext if (student == null) Pair(
+                successLog(false, "Unable to load student data"),
+                null
+            ) else Pair(successLog(true), student)
+        }
+    }
+
+    actual fun destroySession() {
+        webView.destroy()
+    }
 
 }
 
@@ -352,7 +432,7 @@ actual fun getWebViewer(webView: cuimsAPI, modifier: Modifier) {
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
                 if (url.isNullOrEmpty()) {
-                    loadUrl(webView.BASEURL) // show the login page immediately
+                    loadUrl("about:blank")
                 }
             }
         }

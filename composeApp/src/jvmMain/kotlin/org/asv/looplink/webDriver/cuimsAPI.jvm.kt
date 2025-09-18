@@ -2,6 +2,7 @@ package org.asv.looplink.webDriver
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.awt.SwingPanel
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.graphics.toComposeImageBitmap
@@ -123,7 +124,7 @@ actual class cuimsAPI {
         }
     }
 
-    actual fun processCaptcha(imgBase64: String): String {
+    actual suspend fun processCaptcha(imgBase64: String): String {
         var captcha: String? = null
         val base64Img = "data:image/png;base64,$imgBase64"
 
@@ -138,23 +139,27 @@ actual class cuimsAPI {
             "isOverlayRequired" to "True"
         )
 
-        while (captcha == null || captcha == "" || captcha == " " || !captcha.all { it.isLetterOrDigit() }) {
-            val ocrRes = Jsoup.connect(ocrURL)
-                .userAgent(USER_AGENT)
-                .data(ocrData)
-                .ignoreContentType(true)
-                .timeout(50000)
-                .post()
-            val jsonOcrRes = (ocrRes.body().text())
+        return withContext(Dispatchers.Main) {
+            while (captcha == null || captcha == "" || captcha == " " || !captcha.all { it.isLetterOrDigit() }) {
+                val ocrRes = Jsoup.connect(ocrURL)
+                    .userAgent(USER_AGENT)
+                    .data(ocrData)
+                    .ignoreContentType(true)
+                    .timeout(50000)
+                    .post()
+                val jsonOcrRes = (ocrRes.body().text())
 
-            captcha =
-                jsonOcrRes.substringAfter("ParsedText\":\"").substringBefore("\"").substringBefore("\\")
-            ocrData["OCREngine"] = "2"
-            println(jsonOcrRes)
-            println(captcha)
+                captcha =
+                    jsonOcrRes.substringAfter("ParsedText\":\"").substringBefore("\"")
+                        .substringBefore("\\")
+                ocrData["OCREngine"] = "2"
+                println(jsonOcrRes)
+                println(captcha)
+            }
+            return@withContext captcha
         }
-        return captcha
     }
+
     actual suspend fun fillCaptcha(captcha: String): successLog {
         return withContext(Dispatchers.IO) {
             try {
@@ -198,18 +203,86 @@ actual class cuimsAPI {
     }
 
     actual suspend fun autoFillCaptcha(): successLog {
-        var imageBitmap = getCaptcha()
-        if(imageBitmap.second == null) return successLog(false, "Unable to fill captcha")
-        var captcha = processCaptcha(imageBitmap.second!!.toBase64())
-        fillCaptcha(captcha)
-        return successLog(true)
+        return withContext(Dispatchers.IO) {
+            val imageBitmap = getCaptcha()
+            if (imageBitmap.second == null) return@withContext successLog(false, "Unable to fill captcha")
+            val captcha = processCaptcha(imageBitmap.second!!.toBase64())
+            fillCaptcha(captcha)
+            return@withContext successLog(true)
+        }
     }
 
     actual fun getWebView(): Any {
         TODO("Not yet implemented")
     }
 
+    suspend fun loadProfile() {
+        withContext(Dispatchers.IO) {
+            driver!!.get(BASEURL + endPoints["Profile"])
 
+            val eleList = mapOf<String, By>(
+                "UID" to By.id("lbstuUID"),
+                "Name" to By.id("ContentPlaceHolder1_lblName"),
+                "Section" to By.id("ContentPlaceHolder1_lblCurrentSection"),
+                "Program" to By.id("ContentPlaceHolder1_lblProgramCode"),
+                "Contact" to By.id("ContentPlaceHolder1_gvStudentContacts_lblMobile_2"),
+            )
+            for (i in eleList) {
+                try {
+                    val ele = wait!!.until {
+                        driver!!.findElement(i.value)
+                    }
+                    when (i.key) {
+                        "UID" -> student!!.studentUID = ele.text
+                        "Name" -> student!!.fullName = ele.text
+                        "Section" -> student!!.currentSection = ele.text
+                        "Program" -> student!!.programCode = ele.text
+                        "Contact" -> student!!.studentContact = ele.text
+                        else -> {}
+                    }
+                } catch (e: Exception) {
+                    println(e)
+                }
+            }
+        }
+    }
+
+    suspend fun loadResults() {
+        withContext(Dispatchers.IO) {
+            driver!!.get(BASEURL + endPoints["Marks"])
+            val eleList = mapOf<String, By>(
+                "CGPA" to By.id("ContentPlaceHolder1_wucResult1_lblCGPA"),
+            )
+            for (i in eleList) {
+                try {
+                    val ele = wait!!.until {
+                        driver!!.findElement(i.value)
+                    }
+                    when (i.key) {
+                        "CGPA" -> student!!.cGPA = ele.text
+                        else -> {}
+                    }
+                } catch (e: Exception) {
+                    println(e)
+                }
+            }
+        }
+    }
+
+    actual suspend fun loadStudentData(): Pair<successLog, studentInfo?> {
+        return withContext(Dispatchers.IO) {
+            loadProfile()
+            loadResults()
+            return@withContext if (student == null) Pair(
+                successLog(false, "Unable to load student data"),
+                null
+            ) else Pair(successLog(true), student)
+        }
+    }
+
+    actual fun destroySession() {
+        driver?.close()
+    }
 }
 
 actual fun ImageBitmap.toBase64(): String {
@@ -220,6 +293,6 @@ actual fun ImageBitmap.toBase64(): String {
 }
 
 @Composable
-actual fun getWebViewer(webView: cuimsAPI, modifier: Modifier){
+actual fun getWebViewer(webView: cuimsAPI, modifier: Modifier) {
 
 }
