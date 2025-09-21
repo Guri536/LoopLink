@@ -33,6 +33,7 @@ data class studentInfo(val uid: String, val pass: String) {
     lateinit var studentContact: String
     var studentEmail: String = "$uid@cuchd.in"
     lateinit var cGPA: String
+    lateinit var pfpBytes: ByteArray
 }
 
 expect class cuimsAPI{

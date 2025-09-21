@@ -64,6 +64,9 @@ kotlin {
             implementation(libs.jmdns)
             implementation(libs.ktor.server.cio.android)
             implementation(compose.ui)
+
+            // Voyager
+            implementation(libs.voyager.hilt)
         }
         commonMain.dependencies {
             implementation(compose.runtime)
@@ -100,6 +103,12 @@ kotlin {
 
             // Resources
             implementation(compose.components.resources)
+
+            //Voyager
+            implementation(libs.voyager.navigator)
+            implementation(libs.voyager.transitions)
+            implementation(libs.voyager.screenModel)
+            implementation(libs.voyager.kodein)
 
         }
         commonTest.dependencies {

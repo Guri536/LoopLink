@@ -21,7 +21,6 @@ import kotlin.coroutines.resume
 import androidx.core.graphics.createBitmap
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.launch
-import org.asv.looplink.MainActivity
 import org.asv.looplink.secrets.APIKeys
 import org.jsoup.Jsoup
 import org.openqa.selenium.By
@@ -393,6 +392,12 @@ actual class cuimsAPI(private val webView: WebView) {
             } catch (e: Exception) {
                 println(e)
             }
+        }
+
+        val pfpImageEle = "ContentPlaceHolder1_imgStu"
+        withContext(Dispatchers.Main){
+            val pfpBase64 = eval("document.getElementById('$pfpImageEle')?.src || ''").trim('"')
+            student!!.pfpBytes = Base64.decode(pfpBase64.removePrefix("data:image/png;base64,"))
         }
     }
 

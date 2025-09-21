@@ -18,7 +18,6 @@ import org.asv.looplink.webDriver.cuimsAPI
 fun main() = application {
     val windowState = rememberWindowState(
         placement = WindowPlacement.Maximized,
-
     )
     val database = DatabaseMng(DriverFactory().createDriver())
     val cuimsAPI = cuimsAPI()

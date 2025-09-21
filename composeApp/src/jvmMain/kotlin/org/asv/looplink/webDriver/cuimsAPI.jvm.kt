@@ -244,6 +244,13 @@ actual class cuimsAPI {
                     println(e)
                 }
             }
+
+            wait!!.until {
+                val pfpBase64 = driver!!.findElement(By.id("ContentPlaceHolder1_imgStu")).getDomAttribute("src")
+                if (pfpBase64 != null) {
+                    student!!.pfpBytes = Base64.getDecoder().decode(pfpBase64.removePrefix("data:image/png;base64,"))
+                }
+            }
         }
     }
 
@@ -281,7 +288,7 @@ actual class cuimsAPI {
     }
 
     actual fun destroySession() {
-        driver?.close()
+        endSession()
     }
 }
 
