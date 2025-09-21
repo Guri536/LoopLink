@@ -82,6 +82,9 @@ kotlin {
             implementation(libs.kotlinx.datetime)
             implementation(libs.koin.core) // Koin for DI
             implementation(libs.sqldelight.coroutines)
+            implementation(compose.material)
+            implementation(compose.materialIconsExtended)
+
 
             // Ktor
             implementation(libs.ktor.client.core) // Already here
@@ -142,6 +145,7 @@ kotlin {
             create("LLData") {
                 packageName = "com.db"
                 generateAsync = false
+                version = 1.0
             }
         }
     }

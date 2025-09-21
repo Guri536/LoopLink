@@ -24,10 +24,11 @@ class PeerDiscoveryViewModel(
     private val _isDiscovering = MutableStateFlow(false)
     val isDiscovering: StateFlow<Boolean> = _isDiscovering.asStateFlow()
 
-    private val JMDNS_SERVICE_TYPE = "_looplink._tcp.local."
-    private val NSD_SERVICE_TYPE = "_looplink._tcp"
+    private val JMDNS_SERVICE_TYPE = "_looplink._tcp.local." // Keep for reference if needed
+    private val NSD_SERVICE_TYPE = "_looplink._tcp" // Platform-agnostic type
 
-    val currentDiscoveryServiceType = NSD_SERVICE_TYPE
+    // Use this as the primary service type for discovery requests
+    val currentDiscoveryServiceType = NSD_SERVICE_TYPE 
 
     fun startDiscovery() {
         if (_isDiscovering.value) return
@@ -54,5 +55,13 @@ class PeerDiscoveryViewModel(
         println("PDVM: Clearing")
         stopDiscovery()
         if(externalScope == null) viewModelScope.cancel()
+    }
+
+    fun connectToService(service: ServiceInfo) {
+        val host = service.hostAddress
+        println("PDVM: Attempting to connect to: ${service.serviceName} at $host:${service.port}")
+        // TODO: Implement Ktor client connection logic here
+        // This will involve creating/using a Ktor HttpClient,
+        // selecting a protocol (e.g., WebSockets), and initiating the connection.
     }
 }

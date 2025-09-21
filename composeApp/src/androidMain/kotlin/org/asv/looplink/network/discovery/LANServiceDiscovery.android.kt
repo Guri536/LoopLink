@@ -126,7 +126,7 @@ actual class LANServiceDiscovery actual constructor() {
             )
             awaitClose {
                 println("NSD: Closing discovery for $serviceType")
-                stopPreviousDiscovery()
+                stopPreviousDiscovery(serviceType)
             }
         }.stateIn(
             CoroutineScope(Dispatchers.IO),

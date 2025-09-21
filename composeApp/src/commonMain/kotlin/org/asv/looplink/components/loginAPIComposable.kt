@@ -51,6 +51,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.asv.looplink.errors.errorsLL
+import org.asv.looplink.operations.insertUserDataFromProfile
 import org.asv.looplink.webDriver.cuimsAPI
 import org.asv.looplink.webDriver.getWebViewer
 import org.asv.looplink.webDriver.studentInfo
@@ -58,17 +59,16 @@ import org.asv.looplink.webDriver.successLog
 import kotlin.math.log
 import kotlin.reflect.full.memberProperties
 
-data class LoginFields(
-    val cuimsAPI: cuimsAPI,
-    val loginSuccess: (studentInfo) -> Unit
-): Screen {
+class LoginFields: Screen {
 
     @Composable
     override fun Content() {
+        val cuimsAPI = LocalCuimsApi.current
+        val database = LocalDatabase.current
         val navigator = LocalNavigator.currentOrThrow
 
-        var uidField by remember { mutableStateOf("23BSC10001") }
-        var passField by remember { mutableStateOf("123@Khush") }
+        var uidField by remember { mutableStateOf("23BSC10022") }
+        var passField by remember { mutableStateOf("19May2005!") }
         val interactionSource = remember { MutableInteractionSource() }
         var isUIDError by remember { mutableStateOf(false) }
         var isPassError by remember { mutableStateOf(false) }
@@ -358,25 +358,17 @@ data class LoginFields(
                                                 isCaptchaError = true
                                             }
                                         }
+                                        return@launch
                                     }
+
                                     val data = cuimsAPI.loadStudentData()
                                     if (data.first.success) {
-                                        loginSuccess(data.second!!)
+                                        insertUserDataFromProfile(
+                                            database,
+                                            data.second!!)
                                     }
-//                                    println(
-//                                        """
-//                                ${data.second?.uid}
-//                                ${data.second?.fullName}
-//                                ${data.second?.currentSection}
-//                                ${data.second?.programCode}
-//                                ${data.second?.studentContact}
-//                                ${data.second?.cGPA}
-//                                ${data.second?.studentUID}
-//                            """.trimIndent()
-//                                    )
                                     navigator.replaceAll(SettingsPage())
                                     cuimsAPI.destroySession()
-                                    return@launch
                                 } catch (e: Exception) {
                                     isError = true
                                     errorMessage = errorsLL.unknownError

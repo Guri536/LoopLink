@@ -413,7 +413,7 @@ actual class cuimsAPI(private val webView: WebView) {
     }
 
     actual fun destroySession() {
-        webView.destroy()
+        endSession()
     }
 
 }

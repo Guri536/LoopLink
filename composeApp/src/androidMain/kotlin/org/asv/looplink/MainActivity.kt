@@ -1,64 +1,69 @@
 package org.asv.looplink
 
+import android.content.Context
 import android.os.Bundle
-import android.view.ViewGroup
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.width
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
+import androidx.activity.viewModels
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.launch
 import org.asv.looplink.network.AndroidKtorServer
 import org.asv.looplink.webDriver.cuimsAPI
 
+class MainViewModel(applicationContext: Context) : ViewModel() {
+    val serverManager: AndroidKtorServer
+    val database: DatabaseMng
+    val cuimsAPI: cuimsAPI
+
+    // 'init' is called only once when the ViewModel is first created
+    init {
+        println("MainViewModel: Initializing...")
+        serverManager = AndroidKtorServer(applicationContext)
+        database = DatabaseMng(DriverFactory(applicationContext).createDriver())
+        cuimsAPI = cuimsAPI(WebView(applicationContext))
+
+        // Start the server from a coroutine
+        viewModelScope.launch {
+            println("MainViewModel: Starting server...")
+            serverManager.start(port = 8080)
+        }
+    }
+
+    override fun onCleared() {
+        println("MainViewModel: Stopping server...")
+        serverManager.close()
+        cuimsAPI.destroySession()
+        super.onCleared()
+    }
+}
+
 class MainActivity : ComponentActivity() {
 
-    private lateinit var serverManager: AndroidKtorServer
-    private lateinit var cuimsAPI: cuimsAPI
+    private val viewModel: MainViewModel by viewModels {
+        object : ViewModelProvider.Factory {
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                return MainViewModel(applicationContext) as T
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
-        serverManager = AndroidKtorServer(applicationContext)
-        serverManager.onServerPortChanged = {
-            port ->
-            if(port > 0){
-                println("Mainactivity: Server started on port $port")
-            } else {
-                println("Mainactivity: Server failed to start or port not available")
-            }
-        }
-
-        println("Mainactivity: Starting server...")
-        serverManager.start(port = 8080)
-
-        val database = DatabaseMng(DriverFactory(this).createDriver())
-        cuimsAPI = cuimsAPI(WebView(this))
-        setContent {
-            App(database, cuimsAPI)
+        println(viewModel.database.getAllFromDatabase())
+        setContent()
+        {
+            App(viewModel.database, viewModel.cuimsAPI, peerDiscoveryViewModel)
         }
     }
+
     override fun onDestroy() {
         super.onDestroy()
-        println("Mainactivity: Stopping server...")
-        serverManager.close()
-        cuimsAPI.destroySession()
     }
 
 }
-
-//@Preview
-//@Composable
-//fun AppAndroidPreview() {
-//    App()
-//}
