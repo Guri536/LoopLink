@@ -15,6 +15,7 @@ import org.asv.looplink.components.LoginFields
 import org.asv.looplink.components.SettingsPage
 import org.asv.looplink.network.createKtorClient // Keep for now, though sendMessage is unused in this snippet
 import org.asv.looplink.theme.Colors
+import org.asv.looplink.ui.MainScreen
 import org.asv.looplink.viewmodel.PeerDiscoveryViewModel
 import org.asv.looplink.webDriver.cuimsAPI
 import ui.theme.AppTheme
@@ -26,6 +27,8 @@ fun App(
     cuimsAPI: cuimsAPI,
     peerDiscoveryViewModel: PeerDiscoveryViewModel
 ) {
+    createKtorClient()
+
     CompositionLocalProvider(
         LocalDatabase provides database,
         LocalCuimsApi provides cuimsAPI,
@@ -39,11 +42,11 @@ fun App(
                     .fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // println(database.getAllFromDatabase())
+                 println(database.getAllFromDatabase())
                 if (database.getSize() == 0) {
                     Navigator(LoginFields())
                 } else {
-                    Navigator(SettingsPage())
+                    Navigator(MainScreen())
                 }
             }
         }

@@ -5,9 +5,15 @@ import com.db.LLData
 import com.db.LLDataQueries
 import org.asv.looplink.components.userInfo
 
+enum class PlatformType{
+    ANDROID,
+    DESKTOP
+}
 interface Platform {
     val name: String
 }
+
+expect fun getPlatformType(): PlatformType
 
 expect fun getPlatform(): Platform
 

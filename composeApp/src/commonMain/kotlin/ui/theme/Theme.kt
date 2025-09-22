@@ -1,7 +1,10 @@
 package ui.theme
 
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 
 @Composable
@@ -24,8 +27,13 @@ fun AppTheme(content: @Composable () -> Unit) {
         displaySmall = MaterialTheme.typography.displaySmall.copy(fontFamily = RobotFont),
     )
 
+//    val colorScheme = ColorScheme(
+//        primary =
+//    )
+
     MaterialTheme(
         typography = AppTypography,
+        colorScheme = darkColorScheme(),
         content = content
     )
 }

@@ -23,3 +23,7 @@ actual class DriverFactory actual constructor() {
         return AndroidSqliteDriver(LLData.Schema, context!!, "LLData.db") // Use a .db extension
     }
 }
+
+actual fun getPlatformType(): PlatformType {
+    return PlatformType.ANDROID
+}

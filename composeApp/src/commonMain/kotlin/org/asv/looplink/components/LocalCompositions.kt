@@ -1,6 +1,7 @@
 package org.asv.looplink.components
 
 import androidx.compose.runtime.staticCompositionLocalOf
+import cafe.adriel.voyager.navigator.tab.TabNavigator
 import org.asv.looplink.DatabaseMng
 import org.asv.looplink.viewmodel.PeerDiscoveryViewModel
 import org.asv.looplink.webDriver.cuimsAPI
@@ -14,3 +15,5 @@ val LocalCuimsApi = staticCompositionLocalOf<cuimsAPI> {
 }
 
 val LocalPeerDiscoveryViewModel = staticCompositionLocalOf<PeerDiscoveryViewModel?> { null }
+
+val LocalTabNavigator = staticCompositionLocalOf<TabNavigator?> { null }

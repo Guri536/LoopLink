@@ -19,3 +19,7 @@ actual class DriverFactory actual constructor(){
         return driver
     }
 }
+
+actual fun getPlatformType(): PlatformType{
+    return PlatformType.DESKTOP
+}

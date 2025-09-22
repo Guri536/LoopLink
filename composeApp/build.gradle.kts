@@ -112,6 +112,7 @@ kotlin {
             implementation(libs.voyager.transitions)
             implementation(libs.voyager.screenModel)
             implementation(libs.voyager.kodein)
+            implementation(libs.voyager.tabNavigator)
 
         }
         commonTest.dependencies {
