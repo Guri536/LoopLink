@@ -4,11 +4,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
@@ -40,9 +43,10 @@ fun Triangle(risingToTheRight: Boolean, background: Color) {
 }
 
 @Composable
-inline fun ChatMessage(isMyMessage: Boolean, message: Message) {
+fun ChatMessage(isMyMessage: Boolean, message: Message) {
     Box(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth()
+        ,
         contentAlignment = if (isMyMessage) Alignment.CenterEnd else Alignment.CenterStart
     ) {
 
@@ -68,7 +72,8 @@ inline fun ChatMessage(isMyMessage: Boolean, message: Message) {
                         )
                     )
                         .background(color = if (!isMyMessage) ChatColors.OTHERS_MESSAGE else ChatColors.MY_MESSAGE)
-                        .padding(start = 10.dp, top = 5.dp, end = 10.dp, bottom = 5.dp),
+                        .padding(start = 10.dp, top = 5.dp, end = 10.dp, bottom = 5.dp)
+                        .widthIn(max = 900.dp),
                 ) {
                     Column {
                         if(!isMyMessage) {
@@ -80,7 +85,8 @@ inline fun ChatMessage(isMyMessage: Boolean, message: Message) {
                                         letterSpacing = 0.sp,
                                         fontSize = 14.sp
                                     ),
-                                    color = message.user.color
+                                    color = message.user.color,
+                                    modifier = Modifier
                                 )
                             }
                         }

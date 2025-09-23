@@ -6,6 +6,13 @@ import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
+import org.asv.looplink.theme.Colors
+import org.asv.looplink.theme.Colors.DarkBackground
+import org.asv.looplink.theme.Colors.DarkGrayButton
+import org.asv.looplink.theme.Colors.DarkSurface
+import org.asv.looplink.theme.Colors.DarkTextColor
+import org.asv.looplink.theme.Colors.WhitePrimary
 
 @Composable
 fun AppTheme(content: @Composable () -> Unit) {
@@ -27,13 +34,10 @@ fun AppTheme(content: @Composable () -> Unit) {
         displaySmall = MaterialTheme.typography.displaySmall.copy(fontFamily = RobotFont),
     )
 
-//    val colorScheme = ColorScheme(
-//        primary =
-//    )
 
     MaterialTheme(
         typography = AppTypography,
-        colorScheme = darkColorScheme(),
+        colorScheme = Colors.DarkColorScheme,
         content = content
     )
 }

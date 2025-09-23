@@ -57,6 +57,8 @@ kotlin {
             implementation(compose.preview)
             implementation(libs.androidx.activity.compose)
             implementation(libs.sqldelight.android)
+            implementation(libs.androidx.compose.ui.text.android)
+
 
             // Ktor
             implementation(libs.ktor.client.android)

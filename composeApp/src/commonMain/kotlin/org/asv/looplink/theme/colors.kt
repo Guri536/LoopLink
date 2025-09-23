@@ -11,11 +11,11 @@ data object Colors {
     val LightSurface = Color(0xFFFFFFFF)
     val LightTextColor = Color(0xFF333333)
 
-    // Dark Theme Colors
+    // * Dark Theme Colors
     val WhitePrimary = Color(0xFFFFFFFF)
     val DarkGrayButton = Color(0xFF4A4A4A)
     val DarkBackground = Color(0xFF1C1C1C)
-    val DarkSurface = Color(0xFF00897B)
+    val DarkSurface = Color.White
     val DarkTextColor = Color(0xFFE0E0E0)
 
     internal val LightColorScheme = lightColorScheme(
@@ -30,6 +30,7 @@ data object Colors {
 
     internal val DarkColorScheme = darkColorScheme(
         primary = WhitePrimary,
+//        tertiary = Color(0xFFEAFF47),
         background = DarkBackground,
         onBackground = DarkTextColor,
         surface = DarkSurface,

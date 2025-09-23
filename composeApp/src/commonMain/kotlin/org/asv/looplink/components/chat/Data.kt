@@ -29,7 +29,9 @@ data class Message(
     )
 }
 
-
+data class MessageList(
+    val messages: MutableList<Message> = mutableListOf<Message>()
+)
 
 object ColorProvider {
     val colors = mutableListOf(
@@ -39,7 +41,7 @@ object ColorProvider {
     )
     val allColors = colors.toList()
     fun getColor(): Color {
-        if(colors.size == 0) {
+        if(colors.isEmpty()) {
             colors.addAll(allColors)
         }
         val idx = Random.nextInt(colors.indices)

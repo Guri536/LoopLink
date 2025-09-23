@@ -44,9 +44,15 @@ import org.asv.looplink.PlatformType
 import org.asv.looplink.components.LocalTabNavigator
 import org.asv.looplink.components.SettingsPage
 import org.asv.looplink.components.chat.ChatAppWithScaffold
+import org.asv.looplink.components.chat.MessageList
 import org.asv.looplink.getPlatformType
 
-data class RoomItem(val id: String, val label: String, val unread: Int = 0)
+data class RoomItem(
+    val id: Int,
+    val label: String,
+    val unread: Int = 0,
+)
+
 data class TopTab(val id: String, val label: String)
 
 class MainScreen : Screen {
@@ -66,14 +72,14 @@ class MainScreen : Screen {
                             .fillMaxHeight(),
                         rooms = listOf(
                             RoomItem(
-                                id = "1",
+                                id = 1,
                                 label = "Room 1",
                                 unread = 5
                             ),
                             RoomItem(
-                                id = "2",
+                                id = 2,
                                 label = "Room 2",
-                                unread = 0
+                                unread = 0,
                             )
                         ),
                         onRoomClick = { room ->
@@ -183,7 +189,7 @@ private fun SidebarRoomItem(room: RoomItem, onClick: () -> Unit) {
                 .background(Color(0xFFF7A8A8), shape = CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Text(room.id.take(2), color = Color.Black, fontWeight = FontWeight.Bold)
+            Text(room.id.toString().take(2), color = Color.Black, fontWeight = FontWeight.Bold)
         }
         Spacer(modifier = Modifier.width(10.dp))
         Column {

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import cafe.adriel.voyager.navigator.Navigator
 import org.asv.looplink.components.LocalCuimsApi
 import org.asv.looplink.components.LocalDatabase
@@ -37,7 +38,7 @@ fun App(
         AppTheme {
             Column(
                 modifier = Modifier
-                    .background(Colors.DarkColorScheme.surface)
+                    .background(Color.Transparent)
                     .safeContentPadding()
                     .fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally
