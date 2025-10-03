@@ -175,6 +175,8 @@ actual class cuimsAPI {
                 wait!!.until(
                     ExpectedConditions.or(
                         ExpectedConditions.visibilityOfElementLocated(successLocator),
+                        ExpectedConditions.urlContains("LandingPage.aspx"),
+                        ExpectedConditions.urlContains("StudentHome.aspx"),
                         ExpectedConditions.visibilityOfElementLocated(errorLocator)
                     )
                 )

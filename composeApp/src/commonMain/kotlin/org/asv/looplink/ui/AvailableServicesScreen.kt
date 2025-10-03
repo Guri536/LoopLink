@@ -104,7 +104,7 @@ class AvailableServicesScreen(
                 } else {
                     items(discoveredServices) { service ->
                         ServiceListItem(service) {
-                            viewModel.connectToService(service)
+                            viewModel.connectToService(service, navigator)
                         }
                         Spacer(modifier = Modifier.height(8.dp))
                         HorizontalDivider(
@@ -133,7 +133,7 @@ fun ServiceListItem(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-            .clickable {  },
+            .clickable { onConnectClick() },
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(

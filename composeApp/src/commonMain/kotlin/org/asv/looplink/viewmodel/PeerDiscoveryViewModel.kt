@@ -1,5 +1,9 @@
 package org.asv.looplink.viewmodel
 
+import cafe.adriel.voyager.navigator.Navigator
+import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
+import io.ktor.client.plugins.websocket.webSocketSession
+import io.ktor.http.HttpMethod
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -10,8 +14,18 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
+import org.asv.looplink.network.createKtorClient
 import org.asv.looplink.network.discovery.LANServiceDiscovery
 import org.asv.looplink.network.discovery.ServiceInfo
+import org.asv.looplink.ui.ChatScreen
+
+sealed class ConnectionStatus {
+    object Idle : ConnectionStatus()
+    object Connecting : ConnectionStatus()
+    data class Connected(val session: DefaultClientWebSocketSession) : ConnectionStatus()
+    data class Error(val message: String) : ConnectionStatus()
+}
 
 class PeerDiscoveryViewModel(
     private val serviceDiscovery: LANServiceDiscovery,
@@ -24,11 +38,14 @@ class PeerDiscoveryViewModel(
     private val _isDiscovering = MutableStateFlow(false)
     val isDiscovering: StateFlow<Boolean> = _isDiscovering.asStateFlow()
 
+    private val _connectionStatus = MutableStateFlow<ConnectionStatus>(ConnectionStatus.Idle)
+    val connectionStatus = _connectionStatus.asStateFlow()
+
     private val JMDNS_SERVICE_TYPE = "_looplink._tcp.local." // Keep for reference if needed
     private val NSD_SERVICE_TYPE = "_looplink._tcp" // Platform-agnostic type
 
     // Use this as the primary service type for discovery requests
-    val currentDiscoveryServiceType = NSD_SERVICE_TYPE 
+    val currentDiscoveryServiceType = NSD_SERVICE_TYPE
 
     fun startDiscovery() {
         if (_isDiscovering.value) return
@@ -39,29 +56,45 @@ class PeerDiscoveryViewModel(
         serviceDiscovery.discoverServices(currentDiscoveryServiceType).onEach { services ->
             println("PDVM: Discovered services: ${services.map { it.instanceName }}")
             _discoveredServices.value = services
-        }.catch{
-            e -> println("PDVM: Error discovering services: ${e.message}")
+        }.catch { e ->
+            println("PDVM: Error discovering services: ${e.message}")
             _isDiscovering.value = false
         }.launchIn(viewModelScope)
     }
 
-    fun stopDiscovery(){
+    fun stopDiscovery() {
         println("PDVM: Stopping discovery")
         serviceDiscovery.stopDiscovery(currentDiscoveryServiceType)
         _isDiscovering.value = false
     }
 
-    fun clear(){
+    fun clear() {
         println("PDVM: Clearing")
         stopDiscovery()
-        if(externalScope == null) viewModelScope.cancel()
+        if (externalScope == null) viewModelScope.cancel()
     }
 
-    fun connectToService(service: ServiceInfo) {
+    fun connectToService(service: ServiceInfo, navigator: Navigator) {
         val host = service.hostAddress
         println("PDVM: Attempting to connect to: ${service.serviceName} at $host:${service.port}")
-        // TODO: Implement Ktor client connection logic here
-        // This will involve creating/using a Ktor HttpClient,
-        // selecting a protocol (e.g., WebSockets), and initiating the connection.
+
+        viewModelScope.launch {
+            _connectionStatus.value = ConnectionStatus.Connecting
+            try {
+                val client = createKtorClient()
+                val session = client.webSocketSession(
+                    method = HttpMethod.Get,
+                    host = host,
+                    port = service.port,
+                    path = "/looplink/sync"
+                )
+                _connectionStatus.value = ConnectionStatus.Connected(session)
+                println("PDVM: WebSocket connection established.")
+                navigator.push(ChatScreen(service, session))
+            } catch (e: Exception) {
+                _connectionStatus.value = ConnectionStatus.Error("Failed to connect: ${e.message}")
+                println("PDVM: WebSocket connection failed: ${e.message}")
+            }
+        }
     }
 }

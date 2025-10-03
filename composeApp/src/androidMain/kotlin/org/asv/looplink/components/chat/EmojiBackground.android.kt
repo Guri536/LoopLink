@@ -6,3 +6,6 @@ import androidx.compose.ui.text.PlatformTextStyle
 actual fun getPlatformTextStyle(): PlatformTextStyle {
     return PlatformTextStyle(EmojiSupportMatch.None)
 }
+
+actual fun openEmojiPanel(x: Int, y: Int) {
+}

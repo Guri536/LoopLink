@@ -12,12 +12,16 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
 import org.asv.looplink.network.AndroidKtorServer
+import org.asv.looplink.network.discovery.LANServiceDiscovery
+import org.asv.looplink.viewmodel.PeerDiscoveryViewModel
 import org.asv.looplink.webDriver.cuimsAPI
 
 class MainViewModel(applicationContext: Context) : ViewModel() {
     val serverManager: AndroidKtorServer
     val database: DatabaseMng
     val cuimsAPI: cuimsAPI
+    val lanServiceDiscovery: LANServiceDiscovery
+    val peerDiscoveryViewModel: PeerDiscoveryViewModel
 
     // 'init' is called only once when the ViewModel is first created
     init {
@@ -25,6 +29,8 @@ class MainViewModel(applicationContext: Context) : ViewModel() {
         serverManager = AndroidKtorServer(applicationContext)
         database = DatabaseMng(DriverFactory(applicationContext).createDriver())
         cuimsAPI = cuimsAPI(WebView(applicationContext))
+        lanServiceDiscovery = LANServiceDiscovery(applicationContext)
+        peerDiscoveryViewModel = PeerDiscoveryViewModel(lanServiceDiscovery, viewModelScope)
 
         // Start the server from a coroutine
         viewModelScope.launch {
@@ -36,6 +42,7 @@ class MainViewModel(applicationContext: Context) : ViewModel() {
     override fun onCleared() {
         println("MainViewModel: Stopping server...")
         serverManager.close()
+        lanServiceDiscovery.close()
         cuimsAPI.destroySession()
         super.onCleared()
     }
@@ -55,10 +62,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
-        println(viewModel.database.getAllFromDatabase())
         setContent()
         {
-            App(viewModel.database, viewModel.cuimsAPI, peerDiscoveryViewModel)
+            App(viewModel.database, viewModel.cuimsAPI, viewModel.peerDiscoveryViewModel)
         }
     }
 

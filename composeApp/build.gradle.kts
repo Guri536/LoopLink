@@ -2,9 +2,7 @@ import com.android.build.gradle.internal.cxx.configure.gradleLocalProperties
 import org.gradle.kotlin.dsl.implementation
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
-import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.targets.js.WASM
 import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig
 import java.util.Properties
 
@@ -17,9 +15,6 @@ plugins {
     alias(libs.plugins.composeHotReload)
     alias(libs.plugins.kotlinxSerialization)
     alias(libs.plugins.sqldelight)
-//    id("com.google.gms.google-services")
-//    id("app.cash.sqldelight") version "2.1.0"
-//    alias(libs.plugins.kotlinAndroid)
 }
 
 kotlin {
@@ -31,31 +26,10 @@ kotlin {
     }
 
     jvm()
-
-//    @OptIn(ExperimentalWasmDsl::class)
-//    wasmJs {
-//        outputModuleName.set("composeApp")
-//        browser {
-//            val rootDirPath = project.rootDir.path
-//            val projectDirPath = project.projectDir.path
-//            commonWebpackConfig {
-//                outputFileName = "composeApp.js"
-//                devServer = (devServer ?: KotlinWebpackConfig.DevServer()).apply {
-//                    static = (static ?: mutableListOf()).apply {
-//                        // Serve sources to debug inside browser
-//                        add(rootDirPath)
-//                        add(projectDirPath)
-//                    }
-//                }
-//            }
-//        }
-//        binaries.executable()
-//    }
-
     sourceSets {
         androidMain.dependencies {
             implementation(compose.preview)
-            implementation(libs.androidx.activity.compose)
+            implementation(libs.androidx.activity.compose   )
             implementation(libs.sqldelight.android)
             implementation(libs.androidx.compose.ui.text.android)
 
@@ -99,9 +73,6 @@ kotlin {
             implementation(libs.ktor.server.websockets)
             implementation(libs.ktor.server.content.negotiation)
 
-//            implementation(project.dependencies.platform("com.google.firebase:firebase-bom:34.2.0"))
-//            implementation(libs.firebase.analytics)
-
             // Web Driver (selenium)
             implementation(libs.seleniumhq.selenium)
             implementation(libs.jsoup)
@@ -136,9 +107,6 @@ kotlin {
             implementation(libs.ktor.client.content.negotiation)
             implementation(libs.ktor.serialization.kotlinx.json)
             implementation(libs.ktor.logging)
-        }
-
-        wasmJsMain.dependencies {
         }
 
     }
@@ -189,9 +157,6 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-//    kotlinOptions {
-//        jvmTarget = "21"
-//    }
 }
 
 dependencies {
@@ -210,10 +175,11 @@ compose.desktop {
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            packageName = "org.asv.looplink"
-            packageVersion = "1.0.0"
+            packageName = "Looplink"
+            packageVersion = "1.0.6"
             windows {
                 iconFile.set(project.file("D:\\Work\\College\\Projects\\Log Chat\\LoopLink\\LoopLink\\composeApp\\src\\commonMain\\composeResources\\drawable\\icon.ico"))
+                includeAllModules = true
             }
         }
     }

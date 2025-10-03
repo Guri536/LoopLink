@@ -50,8 +50,10 @@ import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import org.asv.looplink.components.chat.myUser
 import org.asv.looplink.errors.errorsLL
 import org.asv.looplink.operations.insertUserDataFromProfile
+import org.asv.looplink.ui.MainScreen
 import org.asv.looplink.webDriver.cuimsAPI
 import org.asv.looplink.webDriver.getWebViewer
 import org.asv.looplink.webDriver.studentInfo
@@ -98,9 +100,14 @@ class LoginFields: Screen {
             focusedContainerColor = Color.White,
             unfocusedContainerColor = Color(0xFFFAFAFA),
             disabledContainerColor = Color.Gray,
-            focusedLabelColor = Color.DarkGray,
+            focusedLabelColor = Color.Gray,
             errorContainerColor = Color.White,
-            unfocusedBorderColor = Color.Transparent
+            unfocusedBorderColor = Color.Transparent,
+            unfocusedTextColor = Color.Black,
+            focusedTextColor = Color.Black,
+            errorTextColor = MaterialTheme.colorScheme.error,
+            cursorColor = Color.DarkGray,
+            errorBorderColor = MaterialTheme.colorScheme.error,
         )
         val textStyle = TextStyle(
             fontWeight = FontWeight.Bold,
@@ -112,6 +119,7 @@ class LoginFields: Screen {
             modifier = Modifier
                 .fillMaxHeight()
                 .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.background)
 //            .verticalScroll(rememberScrollState())
             ,
             verticalArrangement = Arrangement.Center,
@@ -365,9 +373,11 @@ class LoginFields: Screen {
                                     if (data.first.success) {
                                         insertUserDataFromProfile(
                                             database,
-                                            data.second!!)
+                                            data.second!!,
+                                            myUser
+                                            )
                                     }
-                                    navigator.replaceAll(SettingsPage())
+                                    navigator.replaceAll(MainScreen())
                                     cuimsAPI.destroySession()
                                 } catch (e: Exception) {
                                     isError = true

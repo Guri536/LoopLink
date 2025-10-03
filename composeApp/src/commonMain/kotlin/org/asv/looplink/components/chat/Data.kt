@@ -8,10 +8,31 @@ import kotlin.random.Random
 import kotlin.random.nextInt
 
 data class User(
-    val name: String,
+    var name: String,
     val color: Color = ColorProvider.getColor(),
-    val picture: DrawableResource?
-)
+    var picture: ByteArray?
+) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as User
+
+        if (name != other.name) return false
+        if (color != other.color) return false
+        if (!picture.contentEquals(other.picture)) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = name.hashCode()
+        result = 31 * result + color.hashCode()
+        result = 31 * result + (picture?.contentHashCode() ?: 0)
+        return result
+    }
+}
+
 data class Message(
     val user: User,
     val text: String,
@@ -27,6 +48,7 @@ data class Message(
         seconds = Clock.System.now().epochSeconds,
         id = Random.nextLong()
     )
+
 }
 
 data class MessageList(

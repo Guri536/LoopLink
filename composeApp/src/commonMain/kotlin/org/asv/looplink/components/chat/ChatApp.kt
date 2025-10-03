@@ -121,21 +121,6 @@ fun ChatApp(
 ) {
     val state by store.stateFlow.collectAsState()
 
-    repeat(10) {
-        store.send(Action.SendMessage(room.id, Message(myUser, "Hello")))
-        store.send(
-            Action.SendMessage(
-                room.id, Message(
-                    User(
-                        "Some",
-                        ColorProvider.getColor(),
-                        null
-                    ), "Hello"
-                )
-            )
-        )
-    }
-
     AppTheme {
         Surface(
             modifier = Modifier
@@ -173,26 +158,5 @@ fun ChatApp(
                 }
             }
         }
-    }
-    LaunchedEffect(Unit) {
-//        var lastFriend = friends.random()
-//        var lastMessage = friendMessages.random()
-//        while (true) {
-//            val thisFriend = friends.random()
-//            val thisMessage = friendMessages.random()
-//            if (thisFriend == lastFriend) continue
-//            if (thisMessage == lastMessage) continue
-//            lastFriend = thisFriend
-//            lastMessage = thisMessage
-//            store.send(
-//                Action.SendMessage(
-//                    message = Message(
-//                        user = thisFriend,
-//                        text = thisMessage
-//                    )
-//                )
-//            )
-//            delay(5000)
-//        }
     }
 }

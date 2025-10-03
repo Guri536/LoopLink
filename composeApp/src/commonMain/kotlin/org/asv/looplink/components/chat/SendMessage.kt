@@ -6,7 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -32,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.isCtrlPressed
@@ -39,9 +40,12 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.rememberWindowState
 
 @Composable
 fun SendMessage(
@@ -53,6 +57,7 @@ fun SendMessage(
 
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
+    val windowState = rememberWindowState()
 
     fun send() {
         if (inputText.isNotBlank() && inputText.isNotEmpty()) {
@@ -92,6 +97,7 @@ fun SendMessage(
                 }
                 .border(BorderStroke(0.dp, color = Color.Transparent))
                 .padding(10.dp)
+                .focusRequester(focusRequester)
                 .align(alignment = Alignment.CenterHorizontally),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedContainerColor = Color.White,
@@ -119,7 +125,9 @@ fun SendMessage(
                     contentDescription = "Emoji Picker",
                     modifier = Modifier
                         .padding(end = 8.dp)
-                        .clickable { showEmojiPanel = !showEmojiPanel }
+                        .clickable{
+                            showEmojiPanel = !showEmojiPanel
+                        }
                         .pointerHoverIcon(PointerIcon.Hand)
                 )
             },

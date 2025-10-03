@@ -43,7 +43,6 @@ fun App(
                     .fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                 println(database.getAllFromDatabase())
                 if (database.getSize() == 0) {
                     Navigator(LoginFields())
                 } else {

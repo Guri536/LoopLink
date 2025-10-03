@@ -1,11 +1,13 @@
 package org.asv.looplink.operations
 
 import org.asv.looplink.DatabaseMng
+import org.asv.looplink.components.chat.User
 import org.asv.looplink.webDriver.studentInfo
 
 fun insertUserDataFromProfile(
     databaseMng: DatabaseMng,
-    it: studentInfo
+    it: studentInfo,
+    myUser: User
 ){
   databaseMng.insertUserData(
       it.fullName,
@@ -17,4 +19,7 @@ fun insertUserDataFromProfile(
       it.studentEmail,
       it.pfpBytes
   )
+    myUser.name = it.fullName
+    myUser.picture = it.pfpBytes
+    // In the future, you may want to load the user's picture here as well.
 }

@@ -139,13 +139,15 @@ actual class cuimsAPI(private val webView: WebView) {
     private suspend fun waitForEitherElement(
         successCssSelector: String,
         errorCssSelector: String,
-        timeout: Long = 10000L
+        timeout: Long = 10000L,
+        customCode: String = ""
     ): WaitResult {
         val startTime = System.currentTimeMillis()
         val checkScript = """
     (function() {
         if (document.querySelector('$successCssSelector')) return "SUCCESS";
         if (document.querySelector('$errorCssSelector')) return "ERROR";
+        $customCode
         return "NONE";
     })();
 """.trimIndent()
@@ -173,7 +175,11 @@ actual class cuimsAPI(private val webView: WebView) {
             val successSelector = "header"
             val errorSelector = ".sweet-alert.showSweetAlert.visible"
 
-            val result = waitForEitherElement(successSelector, errorSelector)
+            val result = waitForEitherElement(successSelector, errorSelector,
+                customCode = """
+                    if(document.URL.include('StudentHome.aspx')) return "SUCCESS";
+                    if(document.URL.include('LandingPage.aspx')) return "SUCCESS";                    
+                """.trimIndent())
 
             return when (result) {
                 WaitResult.SUCCESS -> {

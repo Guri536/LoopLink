@@ -4,10 +4,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -35,7 +36,7 @@ import androidx.compose.ui.unit.sp
 fun Triangle(risingToTheRight: Boolean, background: Color) {
     Box(
         Modifier
-            .padding(bottom = 10.dp, start = 0.dp)
+//            .padding(bottom = 10.dp, start = 0.dp)
             .clip(TriangleEdgeShape(risingToTheRight))
             .background(background)
             .size(6.dp)
@@ -43,14 +44,29 @@ fun Triangle(risingToTheRight: Boolean, background: Color) {
 }
 
 @Composable
-fun ChatMessage(isMyMessage: Boolean, message: Message) {
+fun ChatMessage(isMyMessage: Boolean, message: Message, sameUser: Boolean = false) {
     Box(
         modifier = Modifier.fillMaxWidth()
+//            .background(
+//                listOf<Color>(
+//                    Color.Red,
+//                    Color.Blue,
+//                    Color.Yellow,
+//                    Color.Gray
+//                ).random()
+//            )
+            .padding(top = (if(sameUser) 2.dp else 8.dp))
         ,
         contentAlignment = if (isMyMessage) Alignment.CenterEnd else Alignment.CenterStart
     ) {
 
-        Row(verticalAlignment = Alignment.Bottom) {
+        Row(
+            verticalAlignment = Alignment.Bottom,
+            modifier = Modifier
+                .padding(
+                    end = if (isMyMessage) 12.dp else 0.dp
+                )
+        ) {
             if (!isMyMessage) {
                 Column {
                     UserPic(message.user)
@@ -76,7 +92,7 @@ fun ChatMessage(isMyMessage: Boolean, message: Message) {
                         .widthIn(max = 900.dp),
                 ) {
                     Column {
-                        if(!isMyMessage) {
+                        if (!isMyMessage) {
                             Row(verticalAlignment = Alignment.Bottom) {
                                 Text(
                                     text = message.user.name,
@@ -112,9 +128,9 @@ fun ChatMessage(isMyMessage: Boolean, message: Message) {
                         }
                     }
                 }
-                Box(Modifier.size(10.dp))
+//                Box(Modifier.height(10.dp))
             }
-            if(isMyMessage) {
+            if (isMyMessage) {
                 Column {
                     Triangle(false, ChatColors.MY_MESSAGE)
                 }
@@ -124,14 +140,13 @@ fun ChatMessage(isMyMessage: Boolean, message: Message) {
 }
 
 
-
 class TriangleEdgeShape(val risingToTheRight: Boolean) : Shape {
     override fun createOutline(
         size: Size,
         layoutDirection: LayoutDirection,
         density: Density
     ): Outline {
-        val trianglePath = if(risingToTheRight) {
+        val trianglePath = if (risingToTheRight) {
             Path().apply {
                 moveTo(x = 0f, y = size.height)
                 lineTo(x = size.width, y = 0f)

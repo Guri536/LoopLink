@@ -44,7 +44,6 @@ import org.asv.looplink.PlatformType
 import org.asv.looplink.components.LocalTabNavigator
 import org.asv.looplink.components.SettingsPage
 import org.asv.looplink.components.chat.ChatAppWithScaffold
-import org.asv.looplink.components.chat.MessageList
 import org.asv.looplink.getPlatformType
 
 data class RoomItem(
@@ -60,7 +59,7 @@ class MainScreen : Screen {
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
 
-        val showSideScreen = getPlatformType() == PlatformType.DESKTOP
+        val isWideScreen = getPlatformType() == PlatformType.DESKTOP
         TabNavigator(EmptyChatTab) { tabNavigator ->
             CompositionLocalProvider(
                 LocalTabNavigator provides tabNavigator
@@ -68,7 +67,7 @@ class MainScreen : Screen {
                 Row(modifier = Modifier.fillMaxSize()) {
                     Sidebar(
                         modifier = Modifier
-                            .fillMaxWidth(if (showSideScreen) 0.15f else 1f)
+                            .fillMaxWidth(if (isWideScreen) 0.15f else 1f)
                             .fillMaxHeight(),
                         rooms = listOf(
                             RoomItem(
@@ -91,7 +90,7 @@ class MainScreen : Screen {
                         }
                     )
 
-                    if (showSideScreen) {
+                    if (isWideScreen) {
                         Column(
                             modifier = Modifier
                                 .weight(1f, fill = true)

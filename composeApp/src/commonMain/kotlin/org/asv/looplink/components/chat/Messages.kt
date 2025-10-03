@@ -25,11 +25,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 import org.jetbrains.compose.resources.painterResource
+import org.asv.looplink.webDriver.toImageBitmap
 
 @Composable
 internal fun Messages(
@@ -37,6 +39,7 @@ internal fun Messages(
     messages: List<Message>
 ) {
     val listState = rememberLazyListState()
+    var lastChat: Message? = null
 
     if (messages.isNotEmpty()) {
         LaunchedEffect(messages.last()) {
@@ -47,22 +50,22 @@ internal fun Messages(
         modifier = modifier
             .fillMaxSize()
     ) {
-
         LazyColumn(
             modifier = Modifier
                 .fillMaxHeight()
-                .padding(start = 10.dp, end = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(start = 10.dp, end = 10.dp)
+                ,
+//            verticalArrangement = Arrangement.spacedBy(8.dp),
             state = listState,
         ) {
             item { Spacer(Modifier.size(20.dp)) }
             items(messages, key = { it.id }) {
-                ChatMessage(isMyMessage = it.user == myUser, it)
+                val space = lastChat?.user?.name == it.user.name
+                lastChat = it
+                ChatMessage(isMyMessage = it.user == myUser, it, space)
             }
-            item {
-                Box(Modifier.height(10.dp)
-                )
-            }
+            item { Box(Modifier.height(10.dp)) }
+
         }
         VerticalScrollbar(
             adapter = rememberScrollbarAdapter(listState),
@@ -87,7 +90,7 @@ internal fun Messages(
 fun UserPic(user: User) {
     val imageSize = 48f
     val painter = user.picture?.let {
-        painterResource(it)
+        BitmapPainter(it.toImageBitmap())
     } ?: object : Painter() {
         override val intrinsicSize: Size = Size(imageSize, imageSize)
         override fun DrawScope.onDraw() {
