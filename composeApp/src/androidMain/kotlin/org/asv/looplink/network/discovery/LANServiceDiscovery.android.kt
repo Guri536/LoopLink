@@ -1,17 +1,15 @@
 package org.asv.looplink.network.discovery
 
-import kotlinx.coroutines.flow.Flow
 import android.content.Context
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -33,106 +31,113 @@ actual class LANServiceDiscovery actual constructor() {
     private var activeRegistrationListener: NsdManager.RegistrationListener? = null
     private var registrationNsdServiceInfo: NsdServiceInfo? = null
 
+    private val services = MutableStateFlow<List<ServiceInfo>>(emptyList())
+
     actual fun discoverServices(serviceType: String): Flow<List<ServiceInfo>> {
         val manager = nsdManager ?: return MutableStateFlow(emptyList())
 
-        stopPreviousDiscovery()
+        stopPreviousDiscovery(serviceType)
         this.activeServiceType = serviceType
 
-        return callbackFlow<List<ServiceInfo>> {
-            val discoveredServicesMap = mutableMapOf<String, ServiceInfo>()
+        val discoveredServicesMap = mutableMapOf<String, ServiceInfo>()
 
-            val discoveryListener = object : NsdManager.DiscoveryListener {
-                override fun onDiscoveryStarted(p0: String?) {
-                    println("Started NsD discovery for $p0")
-                }
-
-                override fun onServiceFound(p0: NsdServiceInfo?) {
-                    if (p0?.serviceType != serviceType || p0?.serviceName == registrationNsdServiceInfo?.serviceName) {
-                        return
-                    }
-                    println("NSD: Service Found: ${p0.serviceName}, type: ${p0.serviceType}")
-
-                    manager.resolveService(
-                        p0,
-                        object : NsdManager.ResolveListener {
-                            override fun onResolveFailed(
-                                p0: NsdServiceInfo?,
-                                p1: Int
-                            ) {
-                                println("Couldn't resolve service ${p0?.serviceName}")
-                            }
-
-                            @Suppress("DEPRECATION")
-                            override fun onServiceResolved(p0: NsdServiceInfo?) {
-                                val attributes = mutableMapOf<String, String>()
-
-                                p0?.attributes?.forEach { attribute ->
-                                    attributes[attribute.key] =
-                                        attribute.value.toString(Charsets.UTF_8)
-                                }
-
-                                val service = ServiceInfo(
-                                    instanceName = p0?.serviceName ?: "Unknown",
-                                    serviceName = p0?.serviceName ?: "Unknown",
-                                    port = p0?.port ?: 0,
-                                    hostAddress = p0?.host?.hostAddress ?: "Unknown",
-                                    attributes = attributes
-                                )
-
-                                if (service.hostAddress.isNotBlank() && service.port > 0) {
-                                    synchronized(discoveredServicesMap) {
-                                        discoveredServicesMap[service.serviceName] = service
-                                        trySend(discoveredServicesMap.values.toList())
-                                    }
-                                }
-                            }
-
-                        })
-                }
-
-                override fun onServiceLost(p0: NsdServiceInfo?) {
-                    if (p0?.serviceType != serviceType) return
-                    println("NSD: Service Lost ${p0?.serviceName}")
-                    synchronized(discoveredServicesMap) {
-                        discoveredServicesMap.remove(p0?.serviceName)
-                        trySend(discoveredServicesMap.values.toList())
-                    }
-                }
-
-                override fun onDiscoveryStopped(p0: String?) {
-                    println("NSD: Discovery stopped for $p0")
-                    activeDiscoveryListener.remove(p0)
-                }
-
-
-                override fun onStartDiscoveryFailed(p0: String?, p1: Int) {
-                    println("NSD: Start Discovery Failed for $p0 on error $p1")
-                    close(RuntimeException("Discovery failed due to $p1"))
-                    activeDiscoveryListener.remove(p0)
-                }
-
-                override fun onStopDiscoveryFailed(p0: String?, p1: Int) {
-                    println("NSD: Stop Discovery Failed for $p0 on error $p1")
-//                    activeDiscoveryListener.remove(p0)
-                }
+        val discoveryListener = object : NsdManager.DiscoveryListener {
+            override fun onDiscoveryStarted(p0: String?) {
+                println("Started NsD discovery for $p0")
             }
 
-            activeDiscoveryListener[serviceType] = discoveryListener
-            manager.discoverServices(
-                serviceType,
-                NsdManager.PROTOCOL_DNS_SD,
-                discoveryListener
-            )
-            awaitClose {
-                println("NSD: Closing discovery for $serviceType")
-                stopPreviousDiscovery(serviceType)
+            override fun onServiceFound(p0: NsdServiceInfo?) {
+                if (p0?.serviceType != serviceType || p0.serviceName == registrationNsdServiceInfo?.serviceName) {
+                    return
+                }
+                println("NSD: Service Found: ${p0.serviceName}, type: ${p0.serviceType}")
+
+                manager.resolveService(
+                    p0,
+                    object : NsdManager.ResolveListener {
+                        override fun onResolveFailed(
+                            p0: NsdServiceInfo?,
+                            p1: Int
+                        ) {
+                            println("Couldn't resolve service ${p0?.serviceName}")
+                        }
+
+                        @Suppress("DEPRECATION")
+                        override fun onServiceResolved(p0: NsdServiceInfo?) {
+                            val attributes = mutableMapOf<String, String>()
+
+                            p0?.attributes?.forEach { attribute ->
+                                attributes[attribute.key] =
+                                    attribute.value.toString(Charsets.UTF_8)
+                            }
+
+                            val service = ServiceInfo(
+                                instanceName = p0?.serviceName ?: "Unknown",
+                                serviceName = p0?.serviceName ?: "Unknown",
+                                port = p0?.port ?: 0,
+                                hostAddress = p0?.host?.hostAddress ?: "Unknown",
+                                attributes = attributes
+                            )
+
+                            if (service.hostAddress.isNotBlank() && service.port > 0) {
+                                discoveredServicesMap[p0?.serviceName as String] = service
+                                services.value = discoveredServicesMap.values.toList()
+                                println("NSD: Service resolved: $service")
+                            }
+                        }
+
+                    }
+                )
             }
-        }.stateIn(
-            CoroutineScope(Dispatchers.IO),
-            SharingStarted.WhileSubscribed(5000),
-            emptyList()
+
+            override fun onServiceLost(p0: NsdServiceInfo?) {
+                if (p0?.serviceType != serviceType) return
+                println("NSD: Service Lost ${p0.serviceName}")
+                discoveredServicesMap.remove(p0.serviceName)
+                services.value = discoveredServicesMap.values.toList()
+            }
+
+            override fun onDiscoveryStopped(p0: String?) {
+                println("NSD: Discovery stopped for $p0")
+                activeDiscoveryListener.remove(p0)
+//                services.value = discoveredServicesMap.values.toList()
+
+            }
+
+
+            override fun onStartDiscoveryFailed(p0: String?, p1: Int) {
+                println("NSD: Start Discovery Failed for $p0 on error $p1")
+                activeDiscoveryListener.remove(p0)
+//                manager.stopServiceDiscovery(this)
+            }
+
+            override fun onStopDiscoveryFailed(p0: String?, p1: Int) {
+                println("NSD: Stop Discovery Failed for $p0 on error $p1")
+                activeDiscoveryListener.remove(p0)
+            }
+        }
+
+//        return callbackFlow<List<ServiceInfo>> {
+        activeDiscoveryListener[serviceType] = discoveryListener
+        manager.discoverServices(
+            serviceType,
+            NsdManager.PROTOCOL_DNS_SD,
+            discoveryListener
         )
+        return services.asStateFlow()
+
+//            trySend(
+//                services.asStateFlow()
+//            )
+//            awaitClose {
+//                println("NSD: Closing discovery for $serviceType")
+//                stopPreviousDiscovery(serviceType)
+//            }
+//        }.stateIn(
+//            CoroutineScope(Dispatchers.IO),
+//            SharingStarted.WhileSubscribed(5000),
+//            emptyList()
+//        )
     }
 
     private fun stopPreviousDiscovery() {
@@ -149,15 +154,8 @@ actual class LANServiceDiscovery actual constructor() {
         serviceType: String,
         port: Int,
         attributes: Map<String, String>
-    ) = suspendCancellableCoroutine { continuation ->
-        val manager = nsdManager ?: run {
-            continuation.resumeWithException(
-                RuntimeException("NSDManager not available")
-            )
-            return@suspendCancellableCoroutine
-        }
-
-        unregisterServiceInternal()
+    ) {
+        unregisterService()
 
         val serviceInfo = NsdServiceInfo().apply {
             this.serviceName = instanceName
@@ -168,57 +166,50 @@ actual class LANServiceDiscovery actual constructor() {
             }
         }
 
-        val registrationListener = object : NsdManager.RegistrationListener {
-            override fun onRegistrationFailed(p0: NsdServiceInfo?, p1: Int) {
-                println("NSD: Registration failed for ${p0?.serviceName}: error $p1")
-                activeRegistrationListener = null
-                registrationNsdServiceInfo = null
-                if (continuation.isActive) {
-                    continuation.resumeWithException(RuntimeException("Registration failed"))
+        suspendCancellableCoroutine { continuation ->
+            activeRegistrationListener = object : NsdManager.RegistrationListener {
+                override fun onRegistrationFailed(p0: NsdServiceInfo?, p1: Int) {
+                    println("NSD: Registration failed for ${p0?.serviceName}: error $p1")
+                    if (continuation.isActive) {
+                        continuation.resumeWithException(RuntimeException("Registration failed"))
+                    }
+                }
+
+                override fun onServiceRegistered(p0: NsdServiceInfo?) {
+                    println("NSD: Service registered: ${p0?.serviceName}")
+                    if (continuation.isActive) continuation.resume(Unit)
+                }
+
+                override fun onServiceUnregistered(p0: NsdServiceInfo?) {
+                    println("NSD: Service unregistered: ${p0?.serviceName}")
+                }
+
+                override fun onUnregistrationFailed(
+                    p0: NsdServiceInfo?,
+                    p1: Int
+                ) {
+                    println("NSD: Unregistration failed for ${p0?.serviceName}: error $p1")
+
                 }
             }
 
-            override fun onServiceRegistered(p0: NsdServiceInfo?) {
-                println("NSD: Service registered: ${p0?.serviceName}")
-                if (continuation.isActive) continuation.resume(Unit)
-            }
-
-            override fun onServiceUnregistered(p0: NsdServiceInfo?) {
-                println("NSD: Service unregistered: ${p0?.serviceName}")
+            try {
+                nsdManager?.registerService(
+                    serviceInfo,
+                    NsdManager.PROTOCOL_DNS_SD,
+                    activeRegistrationListener
+                )
+            } catch (e: Exception) {
                 activeRegistrationListener = null
                 registrationNsdServiceInfo = null
+                println("NSD: Error registering service: ${e.message}")
+                continuation.resumeWithException(e)
             }
-
-            override fun onUnregistrationFailed(
-                p0: NsdServiceInfo?,
-                p1: Int
-            ) {
-                println("NSD: Unregistration failed for ${p0?.serviceName}: error $p1")
-
-            }
-        }
-
-        activeRegistrationListener = registrationListener
-        try {
-            manager.registerService(
-                serviceInfo,
-                NsdManager.PROTOCOL_DNS_SD,
-                registrationListener
-            )
-        } catch (e: Exception) {
-            activeRegistrationListener = null
-            registrationNsdServiceInfo = null
-            println("NSD: Error registering service: ${e.message}")
-            if (continuation.isActive) continuation.resumeWithException(e)
-        }
-
-        continuation.invokeOnCancellation {
-            unregisterServiceInternal()
         }
 
     }
 
-    actual suspend fun unregistedService() {
+    actual suspend fun unregisterService() {
         unregisterServiceInternal()
     }
 
@@ -247,6 +238,7 @@ actual class LANServiceDiscovery actual constructor() {
                 stopPreviousDiscovery(type)
             }
         }
+        services.value = emptyList()
     }
 
     private fun stopPreviousDiscovery(serviceType: String) {
@@ -263,11 +255,15 @@ actual class LANServiceDiscovery actual constructor() {
 
     fun close() {
         stopDiscovery()
-        unregisterServiceInternal()
+        coroutineScope.cancel()
         println("NSD: Closed")
     }
 
     actual fun stopDiscovery() {
-        stopDiscovery(null)
+        activeDiscoveryListener.forEach { it ->
+            nsdManager?.stopServiceDiscovery(it.value)
+            activeDiscoveryListener[it.key] = null
+        }
+        services.value = emptyList()
     }
 }

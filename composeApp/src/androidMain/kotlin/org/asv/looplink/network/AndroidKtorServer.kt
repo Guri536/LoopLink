@@ -90,7 +90,7 @@ class AndroidKtorServer(private val context: Context) {
             } finally {
                 println("Android Ktor Server Coroutine ending")
                 if(isRunning){
-                    serviceDiscovery.unregistedService()
+                    serviceDiscovery.unregisterService()
                     println("Service '${this@AndroidKtorServer.serviceInstanceName}' unregistered")
                 }
                 serverEngine?.stop(1_000, 5_000)

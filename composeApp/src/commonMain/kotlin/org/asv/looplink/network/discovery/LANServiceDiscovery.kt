@@ -11,7 +11,7 @@ expect class LANServiceDiscovery constructor(){
         attributes: Map<String, String>
     )
 
-    suspend fun unregistedService()
+    suspend fun unregisterService()
 
     fun stopDiscovery()
     fun stopDiscovery(serviceType: String?)

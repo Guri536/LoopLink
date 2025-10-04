@@ -20,7 +20,7 @@ class MainViewModel(applicationContext: Context) : ViewModel() {
     val serverManager: AndroidKtorServer
     val database: DatabaseMng
     val cuimsAPI: cuimsAPI
-    val lanServiceDiscovery: LANServiceDiscovery
+    lateinit var lanServiceDiscovery: LANServiceDiscovery
     val peerDiscoveryViewModel: PeerDiscoveryViewModel
 
     // 'init' is called only once when the ViewModel is first created

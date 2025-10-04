@@ -24,20 +24,23 @@ fun main() = application {
 
     val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
-    val clientLanDiscovery = LANServiceDiscovery()
+    val clientLanDiscovery = LANServiceDiscovery().apply { initialize() }
     val peerDiscoveryViewModel = PeerDiscoveryViewModel(
         serviceDiscovery = clientLanDiscovery,
         externalScope = applicationScope
     )
 
     println("Attempting to start JVM Ktor Server")
-    jvmKtorServerRunner.start(port = 8080, instanceName = "MyLoopLinkJVMInstance")
+    jvmKtorServerRunner.start(
+        port = 8080,
+//        serviceDiscovery = clientLanDiscovery
+    )
 
     Window(
         onCloseRequest = {
             println("Window close requested. Cleaning up...")
             jvmKtorServerRunner.stop()
-            jvmKtorServerRunner.closeDiscovery()
+//            jvmKtorServerRunner.closeDiscovery()
 
             peerDiscoveryViewModel.clear()
             clientLanDiscovery.close() // Close the client's LANServiceDiscovery
@@ -59,12 +62,12 @@ fun main() = application {
         println("JVM Shutdown Hook: Cleaning up...")
         if (jvmKtorServerRunner.isRunning()) {
             jvmKtorServerRunner.stop()
-            jvmKtorServerRunner.closeDiscovery()
+//            jvmKtorServerRunner.closeDiscovery()
         }
         peerDiscoveryViewModel.clear()
         clientLanDiscovery.close()
         if (applicationScope.isActive) {
-             applicationScope.cancel("JVM shutting down")
+            applicationScope.cancel("JVM shutting down")
         }
         cuimsApi.destroySession()
         println("JVM Shutdown Hook: Cleanup complete.")

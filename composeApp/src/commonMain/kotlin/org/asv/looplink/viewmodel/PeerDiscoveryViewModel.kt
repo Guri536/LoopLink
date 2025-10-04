@@ -42,14 +42,14 @@ class PeerDiscoveryViewModel(
     val connectionStatus = _connectionStatus.asStateFlow()
 
     private val JMDNS_SERVICE_TYPE = "_looplink._tcp.local." // Keep for reference if needed
-    private val NSD_SERVICE_TYPE = "_looplink._tcp" // Platform-agnostic type
+    private val NSD_SERVICE_TYPE = "_looplink._tcp." // Platform-agnostic type
 
     // Use this as the primary service type for discovery requests
     val currentDiscoveryServiceType = NSD_SERVICE_TYPE
 
     fun startDiscovery() {
         if (_isDiscovering.value) return
-        println("PDVM stated to discover for type: $currentDiscoveryServiceType")
+        println("PDVM started to discover for type: $currentDiscoveryServiceType")
         _isDiscovering.value = true
         _discoveredServices.value = emptyList()
 

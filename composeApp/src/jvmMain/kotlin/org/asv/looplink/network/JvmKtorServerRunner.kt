@@ -18,11 +18,11 @@ object jvmKtorServerRunner{
     private var serverJob: Job? = null
     private val serverScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-    private var currentPort = 0
+    private var currentPort = 8080
     private var isRunning: Boolean = false
 
     private val serviceDiscovery: LANServiceDiscovery by lazy{
-        LANServiceDiscovery()
+        LANServiceDiscovery().apply { initialize() }
     }
 
     private const val SERVICE_TYPE = "_looplink._tcp"
@@ -30,7 +30,8 @@ object jvmKtorServerRunner{
 
     fun start(
         port: Int = 0,
-        instanceName: String = serviceInstanceName
+        instanceName: String = serviceInstanceName,
+//        serviceDiscovery: LANServiceDiscovery
     ): Int {
         if(isRunning){
             println("Server already running on $currentPort")
@@ -62,12 +63,12 @@ object jvmKtorServerRunner{
                     instanceName = this@jvmKtorServerRunner.serviceInstanceName,
                     serviceType = SERVICE_TYPE,
                     port = currentPort,
-                    attributes = mapOf("deviceId" to "jcmDevice-${System.getProperty("user.name")}", "platform" to "jvm")
+                    attributes = mapOf("deviceId" to "jvmDevice-${System.getProperty("user.name")}", "platform" to "jvm")
                 )
-                println("Service '${this@jvmKtorServerRunner.serviceInstanceName}' registered on port $currentPort")
+//                println("Service '${this@jvmKtorServerRunner.serviceInstanceName}' registered on port $currentPort")
 
                 while(this.isActive && serverEngine?.application?.isActive == true){
-                    delay(1000L)
+                    delay(100L)
                 }
 
             } catch (e: Exception) {
@@ -76,7 +77,7 @@ object jvmKtorServerRunner{
             } finally {
                 println("JVM Ktor Server Coroutine ending")
                 if(isRunning){
-                    serviceDiscovery.unregistedService()
+                    serviceDiscovery.unregisterService()
                     println("Service '${this@jvmKtorServerRunner.serviceInstanceName}' unregistered")
                 }
                 serverEngine?.stop(1_000, 5_000)
@@ -104,7 +105,7 @@ object jvmKtorServerRunner{
 
     fun getCurrentPort(): Int = if(isRunning) currentPort else 0
 
-    fun closeDiscovery(){
-        serviceDiscovery.close()
-    }
+//    fun closeDiscovery(){
+//        serviceDiscovery.close()
+//    }
 }
