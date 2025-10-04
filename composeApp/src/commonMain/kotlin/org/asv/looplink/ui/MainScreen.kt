@@ -41,6 +41,7 @@ import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import org.asv.looplink.PlatformType
+import org.asv.looplink.components.LocalMainNavigator
 import org.asv.looplink.components.LocalTabNavigator
 import org.asv.looplink.components.SettingsPage
 import org.asv.looplink.components.chat.ChatAppWithScaffold
@@ -60,37 +61,15 @@ class MainScreen : Screen {
         val navigator = LocalNavigator.currentOrThrow
 
         val isWideScreen = getPlatformType() == PlatformType.DESKTOP
-        TabNavigator(EmptyChatTab) { tabNavigator ->
-            CompositionLocalProvider(
-                LocalTabNavigator provides tabNavigator
-            ) {
-                Row(modifier = Modifier.fillMaxSize()) {
-                    Sidebar(
-                        modifier = Modifier
-                            .fillMaxWidth(if (isWideScreen) 0.15f else 1f)
-                            .fillMaxHeight(),
-                        rooms = listOf(
-                            RoomItem(
-                                id = 1,
-                                label = "Room 1",
-                                unread = 5
-                            ),
-                            RoomItem(
-                                id = 2,
-                                label = "Room 2",
-                                unread = 0,
-                            )
-                        ),
-                        onRoomClick = { room ->
-                            tabNavigator.current = ChatTab(room)
-                        },
-                        onProfileClick = {},
-                        onSettingsClick = {
-                            navigator.push(SettingsPage())
-                        }
-                    )
 
-                    if (isWideScreen) {
+        if (isWideScreen) {
+            TabNavigator(EmptyChatTab) { tabNavigator ->
+                CompositionLocalProvider(
+                    LocalTabNavigator provides tabNavigator,
+                    LocalMainNavigator provides navigator
+                ) {
+                    Row(modifier = Modifier.fillMaxSize()) {
+                        LoadSidebarWideScreen()
                         Column(
                             modifier = Modifier
                                 .weight(1f, fill = true)
@@ -102,16 +81,70 @@ class MainScreen : Screen {
                     }
                 }
             }
-
-
-//            Box(
-//                modifier = Modifier
-//                    .width(28.dp)
-//                    .fillMaxHeight()
-//                    .background(Color(0xFFECE0E4))
-//            )
+        } else {
+            LoadSidebarNarrowScreen()
         }
+
     }
+}
+
+@Composable
+fun LoadSidebarWideScreen() {
+    val tabNavigator = LocalTabNavigator.current
+    val navigator = LocalMainNavigator.current
+    Sidebar(
+        modifier = Modifier
+            .fillMaxWidth(0.15f)
+            .fillMaxHeight(),
+        rooms = listOf(
+            RoomItem(
+                id = 1,
+                label = "Room 1",
+                unread = 5
+            ),
+            RoomItem(
+                id = 2,
+                label = "Room 2",
+                unread = 0,
+            )
+        ),
+        onRoomClick = { room ->
+            tabNavigator?.current = ChatTab(room)
+        },
+        onProfileClick = {},
+        onSettingsClick = {
+            navigator?.push(SettingsPage())
+        }
+    )
+}
+
+@Composable
+fun LoadSidebarNarrowScreen() {
+    val navigator = LocalNavigator.current
+    Sidebar(
+        modifier = Modifier
+            .fillMaxWidth(1f)
+            .fillMaxHeight(),
+        rooms = listOf(
+            RoomItem(
+                id = 1,
+                label = "Room 1",
+                unread = 5
+            ),
+            RoomItem(
+                id = 2,
+                label = "Room 2",
+                unread = 0,
+            )
+        ),
+        onRoomClick = { room ->
+                navigator?.push(ChatTabScreen(room))
+        },
+        onProfileClick = {},
+        onSettingsClick = {
+            navigator?.push(SettingsPage())
+        }
+    )
 }
 
 @Composable
@@ -257,6 +290,14 @@ data class ChatTab(val room: RoomItem) : Tab {
 
     @Composable
     override fun Content() {
+        ChatAppWithScaffold(true, room)
+    }
+}
+
+
+class ChatTabScreen(val room: RoomItem) : Screen {
+    @Composable
+    override fun Content(){
         ChatAppWithScaffold(true, room)
     }
 }

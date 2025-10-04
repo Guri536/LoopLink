@@ -40,12 +40,9 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.rememberWindowState
 
 @Composable
 fun SendMessage(
@@ -57,7 +54,6 @@ fun SendMessage(
 
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
-    val windowState = rememberWindowState()
 
     fun send() {
         if (inputText.isNotBlank() && inputText.isNotEmpty()) {

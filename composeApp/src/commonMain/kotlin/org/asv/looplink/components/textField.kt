@@ -38,7 +38,7 @@ fun textField(
             value = text,
             onValueChange = { it ->
                 text = it
-                onvalueChange
+                onvalueChange(it)
             },
             textStyle = LocalTextStyle.current.copy(color = Color.Black),
             cursorBrush = SolidColor(Color.Black),
