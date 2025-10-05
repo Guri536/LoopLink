@@ -2,14 +2,16 @@
 
 This document provides a detailed overview of the LoopLink project, including its architecture, components, and implementation details.
 
-**Last Updated:** 04-10-2025
+**Last Updated:** 2024-07-27
 <!-- TOC -->
 * [LoopLink Project Documentation](#looplink-project-documentation)
   * [`commonMain`](#commonmain)
     * [`App.kt`](#appkt)
     * [`Greeting.kt`](#greetingkt)
     * [`Platform.kt`](#platformkt)
+    * [`ui/theme/Theme.kt`](#uithemethemekt)
     * [`ui/MainScreen.kt`](#uimainscreenkt)
+    * [`ui/ChatScreen.kt`](#uichatscreenkt)
     * [`theme/colors.kt`](#themecolorskt)
     * [`network/KtorClientFactory.kt`](#networkktorclientfactorykt)
     * [`network/KtorServerFactory.kt`](#networkktorserverfactorykt)
@@ -18,6 +20,7 @@ This document provides a detailed overview of the LoopLink project, including it
     * [`errors/errors.kt`](#errorserrorskt)
     * [`secrets/Secrets.kt`](#secretssecretskt)
     * [`viewmodel/PeerDiscoveryViewModel.kt`](#viewmodelpeerdiscoveryviewmodelkt)
+    * [`viewmodel/ChatViewModel.kt`](#viewmodelchatviewmodelkt)
     * [`webDriver/cuimsAPI.kt`](#webdrivercuimsapikt)
     * [`components/ProfileCard.kt`](#componentsprofilecardkt)
     * [`components/textField.kt`](#componentstextfieldkt)
@@ -36,6 +39,13 @@ This document provides a detailed overview of the LoopLink project, including it
     * [`components/chat/EmojiFactory.kt`](#componentschatemojifactorykt)
     * [`components/chat/EmojiBackground.kt`](#componentschatemojibackgroundkt)
     * [`components/chat/currentTime.common.kt`](#componentschatcurrenttimecommonkt)
+    * [`components/fabButtons/FabButtonSub.kt`](#componentsfabbuttonsfabbuttonsubkt)
+    * [`components/fabButtons/FabButtonState.kt`](#componentsfabbuttonsfabbuttonstatekt)
+    * [`components/fabButtons/FabButtonMain.kt`](#componentsfabbuttonsfabbuttonmainkt)
+    * [`components/fabButtons/FabButtonItem.kt`](#componentsfabbuttonsfabbuttonitemkt)
+    * [`components/fabButtons/ExpandedFabButton.kt`](#componentsfabbuttonsexpandedfabbuttonkt)
+    * [`operations/Logout.kt`](#operationslogoutkt)
+    * [`operations/InsertUserDataFromProfile.kt`](#operationsinsertuserdatafromprofilekt)
   * [`androidMain`](#androidmain)
     * [`MainActivity.kt`](#mainactivitykt)
     * [`Platform.android.kt`](#platformandroidkt)
@@ -144,36 +154,141 @@ This file defines the multiplatform abstractions for LoopLink. It includes expec
     - `deleteUser()`: Deletes the user's data from the database.
     - `getSize(): Int`: Returns the number of user records in the database.
 
+### `ui/theme/Theme.kt`
+
+**Path:** `composeApp/src/commonMain/kotlin/ui/theme/Theme.kt`
+
+**Description:**
+
+This file defines the application's main theme, `AppTheme`, utilizing Jetpack Compose's MaterialTheme. It configures the typography and color scheme for the entire application, ensuring a consistent visual style.
+
+**Composable Functions:**
+
+- **`AppTheme(content: @Composable () -> Unit)`**
+
+  This composable function sets up the `MaterialTheme` for the application.
+
+  - **Parameters:**
+    - `content: @Composable () -> Unit`: The composable content to which the theme will be applied.
+
+  - **Functionality:**
+    - Defines `AppTypography` by overriding default MaterialTheme typography with `RobotFont`.
+    - Applies `AppTypography` and `Colors.DarkColorScheme` to the `MaterialTheme`.
+
 ### `ui/MainScreen.kt`
 
 **Path:** `composeApp/src/commonMain/kotlin/org/asv/looplink/ui/MainScreen.kt`
 
 **Description:**
 
-This file defines the main screen of the LoopLink application, which displays the chat interface. It adapts its layout based on the platform (widescreen for desktop, narrow for mobile) and manages navigation between different chat rooms.
+This file is responsible for rendering the primary user interface that users see after logging in. Its key responsibility is to provide a responsive layout that adapts to different screen sizes, specifically distinguishing between a wide-screen (desktop) and a narrow-screen (mobile) experience. It acts as a central hub, orchestrating the display of the chat list (sidebar) and the chat content area. It leverages the `ViewModel` to manage the list of chat rooms and uses the `Voyager` navigation library to handle all navigation logic, including the dual-pane layout on desktop and the screen-stacking navigation on mobile.
 
-**Data Classes:**
+**Data Classes & Objects:**
 
-- `RoomItem(id: Int, label: String, unread: Int = 0)`: Represents a single chat room in the sidebar.
-- `TopTab(id: String, label: String)`: Represents a tab in the top tab bar (currently unused).
+- **`TopTab(id: String, label: String)`**: A simple data class, currently unused, likely intended for a tab-based UI structure.
 
-**Classes:**
+- **`MainScreen : Screen`**: This is the main entry point for this UI, defined as a `Screen` from the Voyager library. It represents a destination in the navigation graph.
 
-- **`MainScreen : Screen`**: The main screen composable, which determines the layout based on screen width and sets up the appropriate navigation.
+- **`EmptyChatTab : Tab`**: A Voyager `Tab` object that represents the default state in the desktop layout when no chat is selected. It simply displays the `EmptyChatPlaceholder` composable.
+
+- **`ChatTab(val room: RoomItem) : Tab`**: A Voyager `Tab` used in the desktop layout. Each instance represents a specific chat room. When this tab is active, its `Content` (the `ChatAppWithScaffold`) is displayed in the main content area.
+
+- **`ChatTabScreen(val room: RoomItem) : Screen`**: A Voyager `Screen` used for mobile navigation. When a user taps a chat room, the app navigates to this screen, pushing it onto the navigation stack and displaying the chat UI full-screen.
 
 **Composable Functions:**
 
-- `LoadSidebarWideScreen()`: Renders the sidebar for wide screens, using a `TabNavigator` to switch between chat tabs.
-- `LoadSidebarNarrowScreen()`: Renders the sidebar for narrow screens, pushing new screens onto the navigator when a chat room is selected.
-- `Sidebar(...)`: A reusable composable that displays the list of chat rooms, along with buttons for `Profile` and `Settings`.
-- `SidebarRoomItem(room: RoomItem, onClick: () -> Unit)`: Displays a single chat room in the sidebar.
-- `EmptyChatPlaceholder()`: A placeholder composable shown when no chat is selected.
+- **`MainScreen.Content()`**
 
-**Navigation Components:**
+  The primary composable function that builds the screen's UI. Its logic is centered around adapting the layout based on the platform.
 
-- **`EmptyChatTab : Tab`**: A tab that displays the `EmptyChatPlaceholder`.
-- **`ChatTab(room: RoomItem) : Tab`**: A tab that displays the chat screen for a specific room.
-- **`ChatTabScreen(room: RoomItem) : Screen`**: A screen that displays the chat UI for a specific room, used for narrow-screen navigation.
+  - **Functionality:**
+    - **ViewModel Integration:** It obtains an instance of `ChatViewModel` to access and manage the list of chat rooms. It also pre-populates the list with a "Self" chat room and defines a lambda (`addRoom`) for adding new rooms.
+    - **Responsive Layout:** It calls `getPlatformType()` to determine if it's running on a `DESKTOP` or `ANDROID` platform.
+    - **Desktop Layout (isWideScreen = true):**
+      - It sets up a `Row` to create a two-pane layout.
+      - It initializes a `TabNavigator` (from Voyager) which manages the content of the main (right) pane. The `EmptyChatTab` is set as the default.
+      - It places the `InitiateSideBar` in the left pane, occupying 15% of the width.
+      - It places the `CurrentTab()` composable in the right pane, which dynamically displays the content of the currently selected Voyager `Tab`.
+      - It uses `CompositionLocalProvider` to make the `tabNavigator` available to child composables, allowing the sidebar to change the active tab.
+    - **Mobile Layout (isWideScreen = false):**
+      - It displays only the `InitiateSideBar`, which is configured to take up the full screen width.
+      - Navigation to individual chat screens is handled by pushing new `Screen`s onto the stack, not by switching tabs.
+
+- **`InitiateSideBar(isWideScreen: Boolean, rooms: List<RoomItem>, onIconClick: () -> Unit)`**
+
+  This composable acts as a bridge, connecting the top-level navigation logic with the `Sidebar` UI component.
+
+  - **Parameters:**
+    - `isWideScreen: Boolean`: A flag indicating if the wide-screen layout should be used.
+    - `rooms: List<RoomItem>`: The list of chat rooms to be displayed.
+    - `onIconClick: () -> Unit`: A callback function to handle clicks on the "Add Chat" icon.
+
+  - **Functionality:**
+    - **Navigation Logic:** It defines the `onRoomClick` lambda. This is the core of the adaptive navigation. On a wide screen, it changes the active tab in the `TabNavigator` (`tabNavigator?.current = ChatTab(room)`). On a narrow screen, it pushes a new `ChatTabScreen` onto the navigator's stack (`navigator?.push(ChatTabScreen(room))`).
+    - **Component Inflation:** It calls the main `Sidebar` composable, passing down the prepared data (rooms) and navigation callbacks (`onRoomClick`, `onSettingsClick`, etc.).
+
+- **`Sidebar(modifier: Modifier, rooms: List<RoomItem>, onRoomClick: (RoomItem) -> Unit, onProfileClick: () -> Unit, onSettingsClick: () -> Unit, onIconClick: () -> Unit)`**
+
+  This is the main presentational composable for the sidebar UI.
+
+  - **Parameters:**
+    - `modifier: Modifier`: The modifier to be applied to the sidebar's root `Column`.
+    - `rooms: List<RoomItem>`: The list of chat rooms to display.
+    - `onRoomClick: (RoomItem) -> Unit`: Callback invoked when a chat room is clicked.
+    - `onProfileClick: () -> Unit`: Callback for when the "Profile" button is clicked.
+    - `onSettingsClick: () -> Unit`: Callback for when the "Settings" button is clicked.
+    - `onIconClick: () -> Unit`: Callback for the "Add Chat" FAB item.
+
+  - **Functionality:**
+    - **Layout:** It uses a `Scaffold` to easily place a `MultiFloatingActionButton` and a `BottomBar`. The main content area contains the chat list.
+    - **Chat List:** It displays a `LazyColumn` of chat rooms using the `SidebarRoomItem` composable for each item.
+    - **Actions:** It integrates the `MultiFloatingActionButton` for adding new chats and groups, and the `BottomBar` for accessing Profile and Settings.
+
+- **`SidebarRoomItem(room: RoomItem, onClick: () -> Unit)`**
+
+  A simple composable that renders a single row in the chat list.
+
+  - **Parameters:**
+    - `room: RoomItem`: The data for the chat room to render.
+    - `onClick: () -> Unit`: The callback to invoke when the item is clicked.
+
+  - **Functionality:**
+    - Displays the room's name and an icon derived from its label.
+    - Shows the number of unread messages if it's greater than zero.
+    - Has a `clickable` modifier to trigger the `onClick` navigation.
+
+- **`BottomBar(onProfileClick: () -> Unit, onSettingsClick: () -> Unit)`**
+
+  Renders the "Profile" and "Settings" buttons at the bottom of the sidebar.
+
+  - **Parameters:**
+    - `onProfileClick: () -> Unit`: Callback for the "Profile" button.
+    - `onSettingsClick: () -> Unit`: Callback for the "Settings" button.
+
+- **`EmptyChatPlaceholder()`**
+
+  A simple UI shown in the main content area on desktop before any chat has been selected, prompting the user to select a chat.
+
+### `ui/ChatScreen.kt`
+
+**Path:** `composeApp/src/commonMain/kotlin/org/asv/looplink/ui/ChatScreen.kt`
+
+**Description:**
+
+This file defines the `ChatScreen`, which is responsible for displaying the chat interface for a specific service discovered on the network. It manages the WebSocket session for real-time communication and handles incoming messages.
+
+**Classes:**
+
+- **`ChatScreen(private val serviceInfo: ServiceInfo, private val session: DefaultClientWebSocketSession) : Screen`**: A screen composable that displays the chat UI.
+  - **Constructor Parameters:**
+    - `serviceInfo: ServiceInfo`: Information about the discovered service to connect to.
+    - `session: DefaultClientWebSocketSession`: The active WebSocket session for communication.
+  - **Composable `Content()`:**
+    - Manages the lifecycle of the WebSocket connection using `DisposableEffect`.
+    - Listens for incoming text frames from the WebSocket, creates a `Message` object, and sends it to the central `store`.
+    - Closes the WebSocket session when the composable is disposed.
+    - Renders the main chat UI using `ChatAppWithScaffold`.
+
 
 ### `theme/colors.kt`
 
@@ -181,15 +296,16 @@ This file defines the main screen of the LoopLink application, which displays th
 
 **Description:**
 
-This file defines the color palette for the application, providing both light and dark color schemes.
+This file defines the color palette for the application. It contains the `Colors` object, which specifies the colors used in both the light and dark themes.
 
 **Objects:**
 
-- **`Colors`**
+- **`Colors`**: A data object that holds all the color definitions and color schemes.
   - **Properties:**
-    - `DarkGrayPrimary`, `LightGrayButton`, etc.: Individual color values for use in the color schemes.
+    - `DarkGrayPrimary`, `LightGrayButton`, `Charcoal`, `BrandBlue`, etc.: `Color` properties defining the specific colors used in the app.
     - `LightColorScheme`: A `lightColorScheme` for the app's light theme.
-    - `DarkColorScheme`: A `darkColorScheme` for the app's dark theme.
+    - `DarkColorScheme`: A `darkColorScheme` for the app's dark theme, which is used in the `AppTheme`.
+
 
 ### `network/KtorClientFactory.kt`
 
@@ -336,6 +452,29 @@ This view model manages the process of discovering and connecting to peers on th
 - `stopDiscovery()`: Stops the discovery process.
 - `clear()`: Stops discovery and cancels the view model's scope.
 - `connectToService(service: ServiceInfo, navigator: Navigator)`: Attempts to connect to a discovered service via WebSocket and navigates to the `ChatScreen` on success.
+
+### `viewmodel/ChatViewModel.kt`
+
+**Path:** `composeApp/src/commonMain/kotlin/org/asv/looplink/viewmodel/ChatViewModel.kt`
+
+**Description:**
+
+This file defines the `ChatViewModel`, which is responsible for managing the state of the chat rooms in the application. It uses a `MutableStateFlow` to hold the list of rooms and provides a function to add new rooms.
+
+**Data Classes:**
+
+- **`RoomItem(id: Int, label: String, unread: Int = 0)`**: Represents a single chat room.
+  - `id: Int`: A unique identifier for the room.
+  - `label: String`: The display name of the room.
+  - `unread: Int`: The number of unread messages in the room.
+
+**Classes:**
+
+- **`ChatViewModel: ViewModel`**: Manages the list of chat rooms.
+  - **Properties:**
+    - `rooms`: A `StateFlow` that emits the current list of `RoomItem`s.
+  - **Functions:**
+    - `addRoom(roomItem: RoomItem)`: Adds a new room to the list if it doesn't already exist.
 
 ### `webDriver/cuimsAPI.kt`
 
@@ -566,19 +705,51 @@ This file defines a set of colors and gradients for the chat UI.
 
 **Description:**
 
-This file contains the main UI for the chat screen. It includes the message list, input field, and top app bar. It uses a `Scaffold` to provide a consistent layout and handles focus management and keyboard shortcuts.
+This file is central to the application's chat feature. It defines the composable functions responsible for rendering the entire chat screen. It follows a clean architectural pattern by separating the UI into a container composable (`ChatAppWithScaffold`) that handles layout, navigation, and user interactions like keyboard shortcuts, and a content composable (`ChatApp`) that focuses on displaying the chat messages and the input field. The file also initializes and exposes a global `store` for state management, based on a Redux-like pattern, and defines the `myUser` object to represent the current user.
+
+**Global Initializations:**
+
+- **`myUser: User`**: Defines a static `User` object named "Me". This instance is used to identify messages sent by the current user, which allows the UI to render them differently (e.g., align them to the right side of the screen).
+- **`store: Store`**: Creates a global, application-wide instance of the `Store`. This is the single source of truth for the chat state. It's created within a `CoroutineScope` with a `SupervisorJob` to ensure its lifecycle is independent of any single component. All actions, such as sending a message, are dispatched to this store, which then updates the state that the UI observes.
 
 **Composable Functions:**
 
-- **`ChatAppWithScaffold(displayTextField: Boolean, room: RoomItem)`**: A composable that wraps the `ChatApp` with a `Scaffold` and a `TopAppBar`.
+- **`ChatAppWithScaffold(displayTextField: Boolean, room: RoomItem)`**
+
+  This function builds a complete, opinionated chat screen. It uses `Scaffold` to provide a standard Material Design layout structure, which includes a top app bar and a main content area.
+
+  - **Parameters:**
+    - `displayTextField: Boolean`: A flag to control the visibility of the message input field.
+    - `room: RoomItem`: The data object for the current chat room, containing its ID and label.
+
   - **Functionality:**
-    - Handles focus management and the `Escape` key to navigate back.
-    - Displays a `TopAppBar` with the room label and a back button.
-- **`ChatApp(modifier: Modifier, displayTextField: Boolean, room: RoomItem)`**: The core of the chat UI.
+    - **Scaffolding:** Provides a `TopAppBar` and a content area for the `ChatApp` composable.
+    - **Navigation:** The `TopAppBar` includes a back arrow (`IconButton`) that uses the `LocalTabNavigator` to navigate back to the `EmptyChatTab`, effectively closing the current chat view in a wide-screen layout.
+    - **Focus & Keyboard Management:**
+      - It sets up a sophisticated focus management system using `FocusRequester` and `onKeyEvent`.
+      - It listens for the `Escape` key. When pressed, it navigates back, providing a desktop-like user experience.
+      - It also uses `pointerInput` to clear focus from any text field and request focus for the main scaffold area when the user clicks on the background, which is crucial for handling keyboard shortcuts reliably.
+    - **Appearance:** The `TopAppBar` is styled with a semi-transparent background to create a modern look.
+
+  - **Initial State:** Uses a `LaunchedEffect` to request focus for the scaffold as soon as it enters the composition, ensuring that keyboard events are captured immediately.
+
+- **`ChatApp(modifier: Modifier, displayTextField: Boolean, room: RoomItem)`**
+
+  This is the core content of the chat screen, responsible for displaying the message history and the input area. It's designed to be a more reusable component that could be placed in different layouts.
+
+  - **Parameters:**
+    - `modifier: Modifier`: Standard composable modifier.
+    - `displayTextField: Boolean`: Controls whether the `SendMessage` input field is shown.
+    - `room: RoomItem`: The current chat room's data.
+
   - **Functionality:**
-    - Displays the list of messages using the `Messages` composable.
-    - Displays the `SendMessage` composable for user input.
-    - Sends new messages to the `Store`.
+    - **State Observation:** It subscribes to the `store.stateFlow` and collects the latest state as a Compose `State` object. This ensures that the UI automatically recomposes whenever the chat state (e.g., a new message arrives) changes.
+    - **UI Composition:**
+      - It uses a `Column` and `Box` with a weight modifier to structure the screen, ensuring the message list takes up most of the space and the input field is anchored to the bottom.
+      - It renders the `Messages` composable, passing it the list of messages for the current `room.id` from the collected state.
+      - It conditionally renders the `SendMessage` composable at the bottom.
+    - **Action Dispatching:** The `SendMessage` composable provides a callback with the message text. This text is used to create a `Message` object and dispatch a `SendMessage` action to the `store`, which triggers the state update cycle.
+
 
 ### `components/chat/Reducer.kt`
 
@@ -703,6 +874,155 @@ This file contains a utility function to format a timestamp into a human-readabl
 **Functions:**
 
 - **`timeToString(seconds: Long): String`**: Formats a timestamp (in seconds) into a string.
+
+### `components/fabButtons/FabButtonSub.kt`
+
+**Path:** `composeApp/src/commonMain/kotlin/org/asv/looplink/components/fabButtons/FabButtonSub.kt`
+
+**Description:**
+
+This file defines the styling options for the sub-buttons within a multi-action Floating Action Button (FAB). It provides an interface and a composable factory function to create customized sub-button appearances.
+
+**Interfaces:**
+
+- **`FabButtonSub`**: Defines the required styling properties for a FAB sub-item.
+  - `iconTint: Color`: The color of the icon within the sub-button.
+  - `backgroundTint: Color`: The background color of the sub-button.
+
+**Composable Functions:**
+
+- **`FabButtonSub(backgroundTint: Color, iconTint: Color): FabButtonSub`**: A factory function that constructs a `FabButtonSub` instance. It allows for the customization of the background and icon tints, using default colors from the application's `MaterialTheme` if not explicitly provided.
+
+### `components/fabButtons/FabButtonState.kt`
+
+**Path:** `composeApp/src/commonMain/kotlin/org/asv/looplink/components/fabButtons/FabButtonState.kt`
+
+**Description:**
+
+This file defines the state management for the multi-action Floating Action Button (FAB). It provides a sealed class to represent the FAB's collapsed and expanded states, along with a composable function to remember and manage this state.
+
+**Sealed Classes:**
+
+- **`FabButtonState`**: Represents the two possible states of the FAB.
+  - **Objects:**
+    - `Collapsed`: The state where the FAB shows only the main button.
+    - `Expand`: The state where the FAB also shows its sub-action buttons.
+  - **Functions:**
+    - `isExpanded()`: Returns `true` if the state is `Expand`.
+    - `toggleValue()`: Switches the state between `Collapsed` and `Expand`.
+
+**Composable Functions:**
+
+- **`rememberMultiFabState()`**: A composable function that creates and remembers an instance of `MutableState<FabButtonState>`, initialized to `FabButtonState.Collapsed`. This allows the FAB's state to be preserved across recompositions.
+
+### `components/fabButtons/FabButtonMain.kt`
+
+**Path:** `composeApp/src/commonMain/kotlin/org/asv/looplink/components/fabButtons/FabButtonMain.kt`
+
+**Description:**
+
+This file defines the properties and creation of the main Floating Action Button (FAB) in a multi-action FAB component. It specifies the icon for the button and its rotation behavior when the FAB is expanded.
+
+**Interfaces:**
+
+- **`FabButtonMain`**: Defines the properties for the main FAB.
+  - `iconRes: ImageVector`: The icon to be displayed on the main FAB.
+  - `iconRotate: Float?`: The angle in degrees to rotate the icon when the FAB is in its expanded state. A null value means no rotation.
+
+**Functions:**
+
+- **`FabButtonMain(iconRes: ImageVector, iconRotate: Float): FabButtonMain`**: A factory function that creates an instance of `FabButtonMain`. It allows customization of the icon and rotation angle, providing default values for a common "add" icon that rotates 45 degrees.
+
+### `components/fabButtons/FabButtonItem.kt`
+
+**Path:** `composeApp/src/commonMain/kotlin/org/asv/looplink/components/fabButtons/FabButtonItem.kt`
+
+**Description:**
+
+This file defines the data model for an individual item within a multi-action Floating Action Button (FAB) component. Each item represents a specific action that the user can take.
+
+**Data Classes:**
+
+- **`FabButtonItem(iconRes: ImageVector, label: String, onClick: () -> Unit)`**: Represents a single action item in the FAB.
+  - `iconRes: ImageVector`: The icon to be displayed for this action item.
+  - `label: String`: The text label that describes the action.
+  - `onClick: () -> Unit`: The lambda function that is invoked when the user clicks on this action item.
+
+### `components/fabButtons/ExpandedFabButton.kt`
+
+**Path:** `composeApp/src/commonMain/kotlin/org/asv/looplink/components/fabButtons/ExpandedFabButton.kt`
+
+**Description:**
+
+This file contains the core implementation of the multi-action Floating Action Button (FAB). It provides composable functions to build a main FAB that can be expanded to reveal a list of smaller, secondary action buttons. The expansion is animated, and the main FAB icon can be configured to rotate when the state changes.
+
+**Composable Functions:**
+
+- **`MultiFloatingActionButton(...)`**
+
+  This is the main composable for the multi-action FAB.
+
+  - **Parameters:**
+    - `items: List<FabButtonItem>`: A list of `FabButtonItem` objects, each representing a secondary action.
+    - `fabState: MutableState<FabButtonState>`: The state of the FAB (collapsed or expanded).
+    - `fabIcon: FabButtonMain`: The configuration for the main FAB's icon and rotation.
+    - `fabOption: FabButtonSub`: The styling options for the sub-action buttons.
+    - `stateChanged: (fabState: FabButtonState) -> Unit`: A callback invoked when the FAB's state changes.
+
+  - **Functionality:**
+    - Displays a primary `FloatingActionButton`.
+    - Animates the rotation of the main FAB's icon based on the `fabState`.
+    - When `fabState` is `Expand`, it uses `AnimatedVisibility` to show a `LazyColumn` of `MiniFabItem`s with a smooth animation.
+    - Toggles the `fabState` when the main FAB is clicked.
+
+- **`MiniFabItem(item: FabButtonItem, fabOption: FabButtonSub)`**
+
+  This composable renders a single secondary action item.
+
+  - **Parameters:**
+    - `item: FabButtonItem`: The data for the item, including its icon, label, and `onClick` action.
+    - `fabOption: FabButtonSub`: The styling for the sub-button.
+
+  - **Functionality:**
+    - Displays a `Row` containing a text label and a small `FloatingActionButton`.
+    - The `onClick` lambda from the `item` is attached to the button.
+
+
+### `operations/Logout.kt`
+
+**Path:** `composeApp/src/commonMain/kotlin/org/asv/looplink/operations/Logout.kt`
+
+**Description:**
+
+This file defines the `logout` function responsible for clearing user session data.
+
+**Functions:**
+
+- **`logout(database: DatabaseMng)`**
+  - **Parameters:**
+    - `database: DatabaseMng`: An instance of the database manager for local data storage.
+  - **Functionality:**
+    - Deletes all user data from the local database using `database.deleteUser()`.
+    - Resets the `userInfo` singleton to clear any in-memory user data.
+
+### `operations/InsertUserDataFromProfile.kt`
+
+**Path:** `composeApp/src/commonMain/kotlin/org/asv/looplink/operations/InsertUserDataFromProfile.kt`
+
+**Description:**
+
+This file contains a utility function to insert scraped student profile data into the local database and update the current user's in-memory information.
+
+**Functions:**
+
+- **`insertUserDataFromProfile(databaseMng: DatabaseMng, it: studentInfo, myUser: User)`**
+  - **Parameters:**
+    - `databaseMng: DatabaseMng`: An instance of the database manager for local data storage.
+    - `it: studentInfo`: A `studentInfo` object containing the scraped data from the CUIMS portal.
+    - `myUser: User`: The `User` object representing the current user, whose details will be updated.
+  - **Functionality:**
+    - Inserts the student's full details (name, UID, section, program, contact, cGPA, email, profile picture bytes) into the database.
+    - Updates the `myUser` object's `name` and `picture` properties with the corresponding values from the `studentInfo` object.
 
 ## `androidMain`
 

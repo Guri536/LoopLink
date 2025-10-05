@@ -42,7 +42,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import org.asv.looplink.components.LocalTabNavigator
 import org.asv.looplink.ui.EmptyChatTab
-import org.asv.looplink.ui.RoomItem
+import org.asv.looplink.viewmodel.RoomItem
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 import ui.theme.AppTheme
 

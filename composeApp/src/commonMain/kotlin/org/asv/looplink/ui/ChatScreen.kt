@@ -19,6 +19,7 @@ import org.asv.looplink.components.chat.Message
 import org.asv.looplink.components.chat.User
 import org.asv.looplink.components.chat.store
 import org.asv.looplink.network.discovery.ServiceInfo
+import org.asv.looplink.viewmodel.RoomItem
 
 class ChatScreen(
     private val serviceInfo: ServiceInfo,

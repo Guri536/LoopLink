@@ -20,19 +20,26 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.filled.GroupAdd
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -41,35 +48,39 @@ import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import org.asv.looplink.PlatformType
-import org.asv.looplink.components.LocalMainNavigator
 import org.asv.looplink.components.LocalTabNavigator
 import org.asv.looplink.components.SettingsPage
 import org.asv.looplink.components.chat.ChatAppWithScaffold
+import org.asv.looplink.components.fabButtons.FabButtonItem
+import org.asv.looplink.components.fabButtons.FabButtonMain
+import org.asv.looplink.components.fabButtons.FabButtonSub
+import org.asv.looplink.components.fabButtons.MultiFloatingActionButton
 import org.asv.looplink.getPlatformType
-
-data class RoomItem(
-    val id: Int,
-    val label: String,
-    val unread: Int = 0,
-)
+import org.asv.looplink.viewmodel.ChatViewModel
+import org.asv.looplink.viewmodel.RoomItem
 
 data class TopTab(val id: String, val label: String)
 
 class MainScreen : Screen {
     @Composable
     override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
-
+        val chatViewModel: ChatViewModel = viewModel()
         val isWideScreen = getPlatformType() == PlatformType.DESKTOP
+
+        val rooms by chatViewModel.rooms.collectAsState()
+        chatViewModel.addRoom(RoomItem(0, "Self"))
+
+        val addRoom: () -> Unit = {
+            chatViewModel.addRoom(RoomItem(rooms.size, "Room ${rooms.size + 1}"))
+        }
 
         if (isWideScreen) {
             TabNavigator(EmptyChatTab) { tabNavigator ->
                 CompositionLocalProvider(
-                    LocalTabNavigator provides tabNavigator,
-                    LocalMainNavigator provides navigator
+                    LocalTabNavigator provides tabNavigator
                 ) {
                     Row(modifier = Modifier.fillMaxSize()) {
-                        LoadSidebarWideScreen()
+                        InitiateSideBar(true, rooms, addRoom)
                         Column(
                             modifier = Modifier
                                 .weight(1f, fill = true)
@@ -82,78 +93,58 @@ class MainScreen : Screen {
                 }
             }
         } else {
-            LoadSidebarNarrowScreen()
+            InitiateSideBar(false, rooms, addRoom)
         }
 
     }
 }
 
 @Composable
-fun LoadSidebarWideScreen() {
+fun InitiateSideBar(
+    isWideScreen: Boolean,
+    rooms: List<RoomItem>,
+    onIconClick: () -> Unit
+) {
+    val navigator = LocalNavigator.currentOrThrow.parent
     val tabNavigator = LocalTabNavigator.current
-    val navigator = LocalMainNavigator.current
-    Sidebar(
-        modifier = Modifier
-            .fillMaxWidth(0.15f)
-            .fillMaxHeight(),
-        rooms = listOf(
-            RoomItem(
-                id = 1,
-                label = "Room 1",
-                unread = 5
-            ),
-            RoomItem(
-                id = 2,
-                label = "Room 2",
-                unread = 0,
-            )
-        ),
-        onRoomClick = { room ->
-            tabNavigator?.current = ChatTab(room)
-        },
-        onProfileClick = {},
-        onSettingsClick = {
-            navigator?.push(SettingsPage())
-        }
-    )
-}
 
-@Composable
-fun LoadSidebarNarrowScreen() {
-    val navigator = LocalNavigator.current
-    Sidebar(
-        modifier = Modifier
-            .fillMaxWidth(1f)
-            .fillMaxHeight(),
-        rooms = listOf(
-            RoomItem(
-                id = 1,
-                label = "Room 1",
-                unread = 5
-            ),
-            RoomItem(
-                id = 2,
-                label = "Room 2",
-                unread = 0,
-            )
-        ),
-        onRoomClick = { room ->
+    val onRoomClick: (RoomItem) -> Unit = remember(navigator, tabNavigator, isWideScreen) {
+        { room: RoomItem ->
+            if (isWideScreen) {
+                tabNavigator?.current = ChatTab(room)
+            } else {
                 navigator?.push(ChatTabScreen(room))
-        },
-        onProfileClick = {},
-        onSettingsClick = {
+            }
+        }
+    }
+    val onSettingsClick: () -> Unit = remember(navigator) {
+        {
             navigator?.push(SettingsPage())
         }
+    }
+    val onProfileClick: () -> Unit = {}
+    val sidebarModifier = Modifier.fillMaxWidth(if (isWideScreen) 0.15f else 1f).fillMaxHeight()
+
+    Sidebar(
+        modifier = sidebarModifier,
+        rooms = rooms,
+        onRoomClick = onRoomClick,
+        onProfileClick = onProfileClick,
+        onSettingsClick = onSettingsClick,
+        onIconClick = onIconClick
     )
+
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Sidebar(
     modifier: Modifier = Modifier,
     rooms: List<RoomItem>,
     onRoomClick: (RoomItem) -> Unit,
     onProfileClick: () -> Unit,
-    onSettingsClick: () -> Unit
+    onSettingsClick: () -> Unit,
+    onIconClick: () -> Unit
 ) {
     Column(
         modifier = modifier
@@ -161,47 +152,50 @@ fun Sidebar(
             .padding(12.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        Column {
-            Text(
-                "Chats",
-                style = MaterialTheme.typography.titleLarge,
-                color = Color.White,
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
-
-            LazyColumn(
-                modifier = Modifier
-                    .weight(1f, fill = false)
+        Scaffold(
+            floatingActionButton = {
+                MultiFloatingActionButton(
+                    items = listOf(
+                        FabButtonItem(
+                            Icons.Filled.Add,
+                            "Add Chat",
+                            onClick = onIconClick
+                        ),
+                        FabButtonItem(
+                            Icons.Filled.GroupAdd,
+                            "Add Group"
+                        )
+                    ),
+                    fabIcon = FabButtonMain(),
+                    fabOption = FabButtonSub()
+                )
+            },
+            bottomBar = { BottomBar(onProfileClick, onSettingsClick) }
+        ) { paddingValues ->
+            Column(
+                modifier = Modifier.padding(paddingValues)
             ) {
-                items(rooms) { room ->
-                    SidebarRoomItem(room = room, onClick = { onRoomClick(room) })
-                    Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "Chats",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = Color.White,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                ) {
+                    items(rooms) { room ->
+                        SidebarRoomItem(room = room, onClick = { onRoomClick(room) })
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
                 }
-            }
-        }
 
-        Column(
-            modifier = Modifier
-                .fillMaxWidth(),
-            verticalArrangement =
-                Arrangement.spacedBy(8.dp),
-            horizontalAlignment =
-                Alignment.CenterHorizontally
-        ) {
-            Button(
-                onClick = onProfileClick,
-                modifier = Modifier.fillMaxWidth(.8f)
-            ) {
-                Text("Profile")
-            }
-            Button(
-                onClick = onSettingsClick,
-                modifier = Modifier.fillMaxWidth(.8f)
-            ) {
-                Text("Settings")
             }
         }
     }
+
 }
 
 @Composable
@@ -221,7 +215,10 @@ private fun SidebarRoomItem(room: RoomItem, onClick: () -> Unit) {
                 .background(Color(0xFFF7A8A8), shape = CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Text(room.id.toString().take(2), color = Color.Black, fontWeight = FontWeight.Bold)
+            Text(
+                (room.label.take(1) + room.label.takeLast(1)),
+                color = Color.Black, fontWeight = FontWeight.Bold
+            )
         }
         Spacer(modifier = Modifier.width(10.dp))
         Column {
@@ -233,6 +230,34 @@ private fun SidebarRoomItem(room: RoomItem, onClick: () -> Unit) {
                     style = MaterialTheme.typography.bodySmall
                 )
             }
+        }
+    }
+}
+
+@Composable
+fun BottomBar(
+    onProfileClick: () -> Unit,
+    onSettingsClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth(),
+        verticalArrangement =
+            Arrangement.spacedBy(8.dp),
+        horizontalAlignment =
+            Alignment.CenterHorizontally
+    ) {
+        Button(
+            onClick = onProfileClick,
+            modifier = Modifier.fillMaxWidth(.8f)
+        ) {
+            Text("Profile")
+        }
+        Button(
+            onClick = onSettingsClick,
+            modifier = Modifier.fillMaxWidth(.8f)
+        ) {
+            Text("Settings")
         }
     }
 }
@@ -297,7 +322,7 @@ data class ChatTab(val room: RoomItem) : Tab {
 
 class ChatTabScreen(val room: RoomItem) : Screen {
     @Composable
-    override fun Content(){
+    override fun Content() {
         ChatAppWithScaffold(true, room)
     }
 }
