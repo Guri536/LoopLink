@@ -1,15 +1,12 @@
 package org.asv.looplink.components.chat
 
-//import androidx.compose.material.TopAppBar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -26,6 +23,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -38,8 +36,13 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
+import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
+import io.ktor.websocket.Frame
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import org.asv.looplink.components.LocalTabNavigator
 import org.asv.looplink.ui.EmptyChatTab
 import org.asv.looplink.viewmodel.RoomItem
@@ -53,7 +56,8 @@ val store = CoroutineScope(SupervisorJob()).createStore()
 @Composable
 fun ChatAppWithScaffold(
     displayTextField: Boolean = true,
-    room: RoomItem
+    room: RoomItem,
+    session: DefaultClientWebSocketSession? = null
 ) {
     val tabNavigator = LocalTabNavigator.current
     val focusRequester = remember { FocusRequester() }
@@ -102,7 +106,8 @@ fun ChatAppWithScaffold(
                 displayTextField = displayTextField,
                 modifier = Modifier.padding(contentPadding)
                     .background(MaterialTheme.colorScheme.background.copy(.9f)),
-                room = room
+                room = room,
+                session = session
             )
 
             LaunchedEffect(Unit) {
@@ -117,9 +122,11 @@ fun ChatAppWithScaffold(
 fun ChatApp(
     modifier: Modifier = Modifier,
     displayTextField: Boolean = true,
-    room: RoomItem
+    room: RoomItem,
+    session: DefaultClientWebSocketSession? = null
 ) {
     val state by store.stateFlow.collectAsState()
+    val scope = rememberCoroutineScope()
 
     AppTheme {
         Surface(
@@ -144,14 +151,17 @@ fun ChatApp(
                             SendMessage(
                                 modifier = Modifier
                                     .align(Alignment.BottomCenter)
-                            ) {
-                                text ->
+                            ) { text ->
+                                val message = Message(myUser, text)
                                 store.send(
                                     Action.SendMessage(
                                         roomId = room.id,
-                                        message = Message(myUser, text)
+                                        message = message
                                     )
                                 )
+                                scope.launch {
+                                    session?.send(Frame.Text(Json.encodeToString(message)))
+                                }
                             }
                         }
                     }

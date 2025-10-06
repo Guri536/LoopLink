@@ -1449,7 +1449,7 @@ This file defines the SQLDelight schema for the local SQLite database used in th
 
 ## `build.gradle.kts`
 
-**Path:** `D:/Work/College/Projects/Log Chat/LoopLink/LoopLink/composeApp/build.gradle.kts`
+**Path:** `composeApp/build.gradle.kts`
 
 **Description:**
 

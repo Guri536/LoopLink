@@ -13,10 +13,10 @@ import kotlinx.coroutines.flow.consumeAsFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
 import org.asv.looplink.components.chat.Action
 import org.asv.looplink.components.chat.ChatAppWithScaffold
 import org.asv.looplink.components.chat.Message
-import org.asv.looplink.components.chat.User
 import org.asv.looplink.components.chat.store
 import org.asv.looplink.network.discovery.ServiceInfo
 import org.asv.looplink.viewmodel.RoomItem
@@ -29,7 +29,6 @@ class ChatScreen(
     @Composable
     override fun Content() {
         val scope = rememberCoroutineScope()
-        val other = remember { User(serviceInfo.instanceName, picture = null) }
         val roomId = remember { serviceInfo.hashCode() }
 
         DisposableEffect(session, Unit) {
@@ -37,7 +36,7 @@ class ChatScreen(
                 .onEach { frame ->
                     if (frame is Frame.Text) {
                         val receivedText = frame.readText()
-                        val message = Message(user = other, text = receivedText)
+                        val message = Json.decodeFromString<Message>(receivedText)
                         store.send(Action.SendMessage(roomId = roomId, message = message))
                     }
                 }
@@ -52,7 +51,8 @@ class ChatScreen(
         }
 
         ChatAppWithScaffold(
-            room = RoomItem(roomId, serviceInfo.instanceName)
+            room = RoomItem(roomId, serviceInfo.instanceName),
+            session = session
         )
     }
 }

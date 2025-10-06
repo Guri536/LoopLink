@@ -105,8 +105,12 @@ fun InitiateSideBar(
     rooms: List<RoomItem>,
     onIconClick: () -> Unit
 ) {
-    val navigator = LocalNavigator.currentOrThrow.parent
     val tabNavigator = LocalTabNavigator.current
+
+    val navigator = if (tabNavigator != null)
+        LocalNavigator.currentOrThrow.parent
+    else
+        LocalNavigator.currentOrThrow
 
     val onRoomClick: (RoomItem) -> Unit = remember(navigator, tabNavigator, isWideScreen) {
         { room: RoomItem ->
