@@ -19,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -36,12 +37,17 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
-import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
+import androidx.compose.ui.unit.sp
+import io.ktor.websocket.DefaultWebSocketSession
 import io.ktor.websocket.Frame
+import io.ktor.websocket.close
+import io.ktor.websocket.readText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.consumeAsFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.asv.looplink.components.LocalTabNavigator
 import org.asv.looplink.ui.EmptyChatTab
@@ -57,11 +63,31 @@ val store = CoroutineScope(SupervisorJob()).createStore()
 fun ChatAppWithScaffold(
     displayTextField: Boolean = true,
     room: RoomItem,
-    session: DefaultClientWebSocketSession? = null
+    session: DefaultWebSocketSession? = null
 ) {
     val tabNavigator = LocalTabNavigator.current
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
+    val scope = rememberCoroutineScope()
+
+    DisposableEffect(session, Unit){
+        val incomingJob = session?.incoming?.consumeAsFlow()
+            ?.onEach { frame ->
+                if (frame is Frame.Text) {
+                    val receivedText = frame.readText()
+                    val message = Json.decodeFromString<Message>(receivedText)
+                    store.send(Action.SendMessage(roomId = room.id, message = message))
+                }
+            }
+            ?.launchIn(scope)
+
+        onDispose {
+            incomingJob?.cancel()
+            scope.launch {
+                session?.close()
+            }
+        }
+    }
 
     AppTheme {
         Scaffold(
@@ -123,7 +149,7 @@ fun ChatApp(
     modifier: Modifier = Modifier,
     displayTextField: Boolean = true,
     room: RoomItem,
-    session: DefaultClientWebSocketSession? = null
+    session: DefaultWebSocketSession? = null
 ) {
     val state by store.stateFlow.collectAsState()
     val scope = rememberCoroutineScope()
@@ -160,7 +186,14 @@ fun ChatApp(
                                     )
                                 )
                                 scope.launch {
-                                    session?.send(Frame.Text(Json.encodeToString(message)))
+                                    try {
+//                                        println("Attempting to send message on session: ${session?.javaClass?.simpleName}")
+                                        session?.send(Frame.Text(Json.encodeToString(message)))
+//                                        println("Message sent successfully.")
+                                    } catch (e: Exception) {
+                                        println("Error sending message: ${e.message}")
+                                        e.printStackTrace()
+                                    }
                                 }
                             }
                         }

@@ -14,6 +14,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.asv.looplink.network.discovery.LANServiceDiscovery
+import org.asv.looplink.viewmodel.ChatViewModel
+import org.asv.looplink.viewmodel.PeerDiscoveryViewModel
 
 class AndroidKtorServer(private val context: Context) {
     private var serverEngine: EmbeddedServer<ApplicationEngine, *>? = null
@@ -37,15 +39,19 @@ class AndroidKtorServer(private val context: Context) {
 
     fun start(
         port: Int = 0,
-        instanceName: String? = this.serviceInstanceName
+        userUid: String,
+        userName: String,
+        chatViewModel: ChatViewModel,
+        peerDiscoveryViewModel: PeerDiscoveryViewModel?
     ) {
         if (isRunning) {
-            println("Android Ktor Server is alredy running on port $currentPort")
+            println("Android Ktor Server is already running on port $currentPort")
             onServerPortChanged?.invoke(currentPort)
             return
         }
 
-        this.serviceInstanceName = instanceName ?: this.serviceInstanceName
+        val instanceName = "LoopLink-$userName"
+        this.serviceInstanceName = instanceName
         val engineFactory = createKtorServerFactory()
 
         serverJob = serverScope.launch {
@@ -54,7 +60,7 @@ class AndroidKtorServer(private val context: Context) {
                     factory = engineFactory,
                     port = port,
                     host = "0.0.0.0",
-                    module = { configureLoopLinkServer() }
+                    module = { configureLoopLinkServer(chatViewModel, peerDiscoveryViewModel!!) }
                 ).start(wait = false)
 
 
@@ -75,7 +81,8 @@ class AndroidKtorServer(private val context: Context) {
                     serviceType = this@AndroidKtorServer.serviceType,
                     port = currentPort,
                     attributes = mapOf(
-                        "deviceId" to "androidDevice-${Build.MODEL.replace(" ", "")}",
+                        "uid" to userUid,
+                        "name" to userName,
                         "platform" to "android"
                     )
                 )

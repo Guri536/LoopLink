@@ -1,6 +1,5 @@
 package org.asv.looplink.network
 
-
 import io.ktor.server.engine.ApplicationEngine
 import io.ktor.server.engine.EmbeddedServer
 import io.ktor.server.engine.embeddedServer
@@ -8,10 +7,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.asv.looplink.network.discovery.LANServiceDiscovery
+import org.asv.looplink.viewmodel.ChatViewModel
+import org.asv.looplink.viewmodel.PeerDiscoveryViewModel
 
 object jvmKtorServerRunner{
     private var serverEngine: EmbeddedServer<ApplicationEngine, *>? = null
@@ -30,14 +32,17 @@ object jvmKtorServerRunner{
 
     fun start(
         port: Int = 0,
-        instanceName: String = serviceInstanceName,
-//        serviceDiscovery: LANServiceDiscovery
+        userUid: String,
+        userName: String,
+        chatViewModel: ChatViewModel,
+        peerDiscoveryViewModel: PeerDiscoveryViewModel?
     ): Int {
         if(isRunning){
             println("Server already running on $currentPort")
             return currentPort
         }
 
+        val instanceName = "LoopLink-$userName"
         this.serviceInstanceName = instanceName
         val engineFactory = createKtorServerFactory()
 
@@ -47,7 +52,7 @@ object jvmKtorServerRunner{
                     factory = engineFactory,
                     port = port,
                     host = "0.0.0.0",
-                    module = { configureLoopLinkServer() }
+                    module = { configureLoopLinkServer(chatViewModel, peerDiscoveryViewModel!!) }
                 ).start(wait = false)
 
                 currentPort = serverEngine?.engine?.resolvedConnectors()?.firstOrNull()?.port ?: 0
@@ -63,9 +68,12 @@ object jvmKtorServerRunner{
                     instanceName = this@jvmKtorServerRunner.serviceInstanceName,
                     serviceType = SERVICE_TYPE,
                     port = currentPort,
-                    attributes = mapOf("deviceId" to "jvmDevice-${System.getProperty("user.name")}", "platform" to "jvm")
+                    attributes = mapOf(
+                        "uid" to userUid,
+                        "name" to userName,
+                        "platform" to "jvm"
+                    )
                 )
-//                println("Service '${this@jvmKtorServerRunner.serviceInstanceName}' registered on port $currentPort")
 
                 while(this.isActive && serverEngine?.application?.isActive == true){
                     delay(100L)
@@ -76,15 +84,15 @@ object jvmKtorServerRunner{
                 stop()
             } finally {
                 println("JVM Ktor Server Coroutine ending")
-                if(isRunning){
+                println("Stopping JVM Ktor Server...")
+                if (isRunning) {
                     serviceDiscovery.unregisterService()
+                    serverEngine?.stop(1_000, 5_000)
+                    isRunning = false
+                    serverEngine = null
+                    currentPort = 0
                     println("Service '${this@jvmKtorServerRunner.serviceInstanceName}' unregistered")
                 }
-                serverEngine?.stop(1_000, 5_000)
-                isRunning = false
-                serverEngine = null
-                currentPort = 0
-                println("JVM Ktor Server stopped")
             }
         }
 
@@ -97,15 +105,10 @@ object jvmKtorServerRunner{
     }
 
     fun stop(){
-        println("Stopping JVM Ktor Server...")
         serverJob?.cancel()
+
+        println("JVM Ktor Server stopped")
     }
 
     fun isRunning(): Boolean = isRunning
-
-    fun getCurrentPort(): Int = if(isRunning) currentPort else 0
-
-//    fun closeDiscovery(){
-//        serviceDiscovery.close()
-//    }
 }

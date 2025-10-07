@@ -39,7 +39,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -48,6 +47,8 @@ import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import org.asv.looplink.PlatformType
+import org.asv.looplink.components.LocalChatViewModel
+import org.asv.looplink.components.LocalPeerDiscoveryViewModel
 import org.asv.looplink.components.LocalTabNavigator
 import org.asv.looplink.components.SettingsPage
 import org.asv.looplink.components.chat.ChatAppWithScaffold
@@ -56,7 +57,6 @@ import org.asv.looplink.components.fabButtons.FabButtonMain
 import org.asv.looplink.components.fabButtons.FabButtonSub
 import org.asv.looplink.components.fabButtons.MultiFloatingActionButton
 import org.asv.looplink.getPlatformType
-import org.asv.looplink.viewmodel.ChatViewModel
 import org.asv.looplink.viewmodel.RoomItem
 
 data class TopTab(val id: String, val label: String)
@@ -64,9 +64,9 @@ data class TopTab(val id: String, val label: String)
 class MainScreen : Screen {
     @Composable
     override fun Content() {
-        val chatViewModel: ChatViewModel = viewModel()
         val isWideScreen = getPlatformType() == PlatformType.DESKTOP
 
+        val chatViewModel = LocalChatViewModel.currentOrThrow
         val rooms by chatViewModel.rooms.collectAsState()
         chatViewModel.addRoom(RoomItem(0, "Self"))
 
@@ -319,7 +319,9 @@ data class ChatTab(val room: RoomItem) : Tab {
 
     @Composable
     override fun Content() {
-        ChatAppWithScaffold(true, room)
+        val peerDiscoveryViewModel = LocalPeerDiscoveryViewModel.currentOrThrow
+        val session = peerDiscoveryViewModel.activeSessions.collectAsState().value[room.id]
+        ChatAppWithScaffold(true, room, session)
     }
 }
 
@@ -327,6 +329,8 @@ data class ChatTab(val room: RoomItem) : Tab {
 class ChatTabScreen(val room: RoomItem) : Screen {
     @Composable
     override fun Content() {
-        ChatAppWithScaffold(true, room)
+        val peerDiscoveryViewModel = LocalPeerDiscoveryViewModel.currentOrThrow
+        val session = peerDiscoveryViewModel.activeSessions.collectAsState().value[room.id]
+        ChatAppWithScaffold(true, room, session)
     }
 }

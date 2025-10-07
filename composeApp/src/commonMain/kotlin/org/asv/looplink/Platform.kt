@@ -58,7 +58,7 @@ class DatabaseMng constructor(private val driver: SqlDriver){
         return database.lLDataQueries.getPFP(){it!!}.executeAsOne()
     }
 
-    fun getAllFromDatabase(): List<List<String>>{
+    fun getAllFromDatabase(): List<List<String?>>{
         val database = LLData(driver)
         val userInfo = database.lLDataQueries.selectAll().executeAsList()
 

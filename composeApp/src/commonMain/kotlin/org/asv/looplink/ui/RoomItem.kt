@@ -1,3 +1,12 @@
-package org.asv.looplink.ui
+package org.asv.looplink.viewmodel
 
-//data class RoomItem(val id: String, val label: String)
+import kotlinx.serialization.Serializable
+
+@Serializable
+data class RoomItem(
+    val id: Int,
+    val label: String,
+    val unread: Int = 0,
+    val isGroup: Boolean = false,
+    val members: List<String> = emptyList()
+)

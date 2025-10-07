@@ -208,10 +208,18 @@ fun SideButtons() {
 fun LogoutButton(modifier: Modifier = Modifier) {
     val database = LocalDatabase.current
     val navigator = LocalNavigator.currentOrThrow
+    val mainViewModel = LocalMainViewModel.current
+
     Button(
         onClick = {
+            mainViewModel?.stopP2PServices()
             logout(database)
-            navigator.replaceAll(LoginFields())
+            navigator.replaceAll(
+                LoginFields(onLoginSuccess = {
+                    mainViewModel?.startP2PServices()
+                }
+                )
+            )
         },
         colors = ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.errorContainer,

@@ -4,6 +4,8 @@ import cafe.adriel.voyager.navigator.Navigator
 import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
 import io.ktor.client.plugins.websocket.webSocketSession
 import io.ktor.http.HttpMethod
+import io.ktor.websocket.DefaultWebSocketSession
+import io.ktor.websocket.WebSocketSession
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -14,11 +16,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.asv.looplink.network.createKtorClient
 import org.asv.looplink.network.discovery.LANServiceDiscovery
 import org.asv.looplink.network.discovery.ServiceInfo
-import org.asv.looplink.ui.ChatScreen
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 sealed class ConnectionStatus {
     object Idle : ConnectionStatus()
@@ -29,7 +33,10 @@ sealed class ConnectionStatus {
 
 class PeerDiscoveryViewModel(
     private val serviceDiscovery: LANServiceDiscovery,
-    private val externalScope: CoroutineScope? = null
+    private val chatViewModel: ChatViewModel,
+    private val externalScope: CoroutineScope? = null,
+    private val localUserUid: String,
+    private val localUserName: String
 ) {
     private val viewModelScope = externalScope ?: CoroutineScope(Dispatchers.Main + SupervisorJob())
     private val _discoveredServices = MutableStateFlow<List<ServiceInfo>>(emptyList())
@@ -40,6 +47,9 @@ class PeerDiscoveryViewModel(
 
     private val _connectionStatus = MutableStateFlow<ConnectionStatus>(ConnectionStatus.Idle)
     val connectionStatus = _connectionStatus.asStateFlow()
+
+    val _activeSessions = MutableStateFlow<Map<Int, DefaultWebSocketSession>>(emptyMap())
+    val activeSessions = _activeSessions.asStateFlow()
 
     private val JMDNS_SERVICE_TYPE = "_looplink._tcp.local." // Keep for reference if needed
     private val NSD_SERVICE_TYPE = "_looplink._tcp." // Platform-agnostic type
@@ -74,27 +84,51 @@ class PeerDiscoveryViewModel(
         if (externalScope == null) viewModelScope.cancel()
     }
 
-    fun connectToService(service: ServiceInfo, navigator: Navigator) {
+    fun connectToService(service: ServiceInfo) {
         val host = service.hostAddress
-        println("PDVM: Attempting to connect to: ${service.serviceName} at $host:${service.port}")
+        val peerUid = service.attributes["uid"] ?: return
+        val peerName = service.attributes["name"] ?: "Unknown"
+
+        println("PDVM: Attempting to connect to: $peerName at $host:${service.port}")
+
+        val uids = listOf(localUserUid, peerUid).sorted()
+        val roomId = (uids[0] + uids[1]).hashCode()
+
+        val newRoom = RoomItem(roomId, label = peerName, members = listOf(localUserUid, peerUid))
+        chatViewModel.addRoom(newRoom)
 
         viewModelScope.launch {
             _connectionStatus.value = ConnectionStatus.Connecting
             try {
+                val encodedUID = URLEncoder.encode(localUserUid, StandardCharsets.UTF_8.toString())
+                val encodedName = URLEncoder.encode(localUserName, StandardCharsets.UTF_8.toString())
+
                 val client = createKtorClient()
                 val session = client.webSocketSession(
                     method = HttpMethod.Get,
                     host = host,
                     port = service.port,
-                    path = "/looplink/sync"
+                    path = "/looplink/sync/$roomId?peerUid=$encodedUID&peerName=$encodedName"
                 )
                 _connectionStatus.value = ConnectionStatus.Connected(session)
-                println("PDVM: WebSocket connection established.")
-                navigator.push(ChatScreen(service, session))
+                _activeSessions.update { it + (roomId to session) }
+                println("PDVM: WebSocket connection established and session stored for room $roomId.")
             } catch (e: Exception) {
                 _connectionStatus.value = ConnectionStatus.Error("Failed to connect: ${e.message}")
                 println("PDVM: WebSocket connection failed: ${e.message}")
             }
         }
+    }
+
+    fun addConnection(roomId: Int, session: DefaultWebSocketSession) {
+        _activeSessions.update { it + (roomId to session) }
+        println("PDVM: Session added room $roomId to active sessions.")
+    }
+
+    fun removeConnection(roomId: Int){
+        _activeSessions.update {
+            it - roomId
+        }
+        println("PDVM: Session removed for room $roomId.")
     }
 }

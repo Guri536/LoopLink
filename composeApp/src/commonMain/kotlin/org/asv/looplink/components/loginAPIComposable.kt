@@ -61,7 +61,7 @@ import org.asv.looplink.webDriver.successLog
 import kotlin.math.log
 import kotlin.reflect.full.memberProperties
 
-class LoginFields: Screen {
+class LoginFields(val onLoginSuccess: () -> Unit): Screen {
 
     @Composable
     override fun Content() {
@@ -376,6 +376,7 @@ class LoginFields: Screen {
                                             data.second!!,
                                             myUser
                                             )
+                                        onLoginSuccess()
                                     }
                                     navigator.replaceAll(MainScreen())
                                     cuimsAPI.destroySession()

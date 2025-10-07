@@ -5,12 +5,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
-data class RoomItem(
-    val id: Int,
-    val label: String,
-    val unread: Int = 0,
-)
-
 class ChatViewModel: ViewModel() {
     private val roomsFlow = MutableStateFlow<List<RoomItem>>(emptyList())
     val rooms = roomsFlow.asStateFlow()
@@ -24,5 +18,9 @@ class ChatViewModel: ViewModel() {
                 curRooms
             }
         }
+    }
+
+    fun roomExists(roomId: Int): Boolean {
+        return roomsFlow.value.find { it.id == roomId } != null
     }
 }

@@ -6,58 +6,58 @@ import androidx.compose.foundation.layout.displayCutoutPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import cafe.adriel.voyager.navigator.Navigator
-import org.asv.looplink.components.LocalCuimsApi
+import cafe.adriel.voyager.navigator.currentOrThrow
 import org.asv.looplink.components.LocalDatabase
-import org.asv.looplink.components.LocalPeerDiscoveryViewModel
+import org.asv.looplink.components.LocalMainViewModel
 import org.asv.looplink.components.LoginFields
+import org.asv.looplink.components.loadUserInfo
 import org.asv.looplink.network.createKtorClient
 import org.asv.looplink.ui.MainScreen
-import org.asv.looplink.viewmodel.PeerDiscoveryViewModel
-import org.asv.looplink.webDriver.cuimsAPI
 import ui.theme.AppTheme
 
+expect class MainViewModel {
+    fun startP2PServices()
+    fun stopP2PServices()
+}
 
 @Composable
 fun App(
-    database: DatabaseMng,
-    cuimsAPI: cuimsAPI,
-    peerDiscoveryViewModel: PeerDiscoveryViewModel
+    onLoginSuccess: () -> Unit
 ) {
     createKtorClient()
     val isMobile = getPlatformType() == PlatformType.ANDROID
+    val database = LocalDatabase.current
 
-    CompositionLocalProvider(
-        LocalDatabase provides database,
-        LocalCuimsApi provides cuimsAPI,
-        LocalPeerDiscoveryViewModel provides peerDiscoveryViewModel
-    ) {
-        AppTheme {
-            Column(
-                modifier =
-                    if (isMobile) {
-                        Modifier
-                            .background(Color.Black)
-                            .displayCutoutPadding()
-                            .fillMaxSize()
-                    } else {
-                        Modifier
-                            .background(Color.Transparent)
-                            .safeContentPadding()
-                            .fillMaxSize()
-                    },
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                if (database.getSize() == 0) {
-                    Navigator(LoginFields())
+    AppTheme {
+        Column(
+            modifier =
+                if (isMobile) {
+                    Modifier
+                        .background(Color.Black)
+                        .displayCutoutPadding()
+                        .fillMaxSize()
                 } else {
-                    Navigator(MainScreen())
-                }
+                    Modifier
+                        .background(Color.Transparent)
+                        .safeContentPadding()
+                        .fillMaxSize()
+                },
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            if (database.getSize() == 0) {
+                Navigator(LoginFields(onLoginSuccess))
+            } else {
+                loadUserInfo(database)
+                val mainViewModel = LocalMainViewModel.currentOrThrow
+                mainViewModel.startP2PServices()
+
+                Navigator(MainScreen())
             }
+
         }
     }
 }

@@ -108,7 +108,7 @@ class AvailableServicesScreen(
                 } else {
                     items(discoveredServices) { service ->
                         ServiceListItem(service) {
-                            viewModel.connectToService(service, navigator)
+                            viewModel.connectToService(service)
                         }
                         Spacer(modifier = Modifier.height(8.dp))
                         HorizontalDivider(
