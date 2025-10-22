@@ -50,6 +50,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import org.asv.looplink.components.LocalTabNavigator
+import org.asv.looplink.operations.getMainNav
 import org.asv.looplink.ui.EmptyChatTab
 import org.asv.looplink.viewmodel.RoomItem
 import org.jetbrains.compose.resources.ExperimentalResourceApi
@@ -66,6 +67,7 @@ fun ChatAppWithScaffold(
     session: DefaultWebSocketSession? = null
 ) {
     val tabNavigator = LocalTabNavigator.current
+    val navigator = getMainNav()
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     val scope = rememberCoroutineScope()
@@ -122,7 +124,10 @@ fun ChatAppWithScaffold(
                         containerColor = MaterialTheme.colorScheme.background.copy(0.95f)
                     ),
                     navigationIcon = {
-                        IconButton(onClick = { tabNavigator?.current = EmptyChatTab }) {
+                        IconButton(onClick = {
+                            if(tabNavigator == null) navigator?.pop()
+                            tabNavigator?.current = EmptyChatTab
+                        }) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                         }
                     }

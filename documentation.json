@@ -1,29 +1,25 @@
-
 {
   "LoopLinkProject": {
     "commonMain": {
       "App.kt": {
         "path": "composeApp/src/commonMain/kotlin/org/asv/looplink/App.kt",
         "description": "This file serves as the main entry point for the application's user interface. It is responsible for setting up the overall theme, providing essential dependencies to the rest of the app via `CompositionLocalProvider`, and determining the initial screen to display. If the local database is empty, it directs the user to the login screen; otherwise, it displays the main application screen.",
+        "expectedDeclarations": [
+          {
+            "type": "class",
+            "name": "MainViewModel",
+            "description": "An expected class that requires platform-specific implementations. It is expected to have `startP2PServices()` and `stopP2PServices()` methods."
+          }
+        ],
         "functions": [
           {
-            "signature": "App(database: DatabaseMng, cuimsAPI: cuimsAPI, peerDiscoveryViewModel: PeerDiscoveryViewModel)",
+            "signature": "App(onLoginSuccess: () -> Unit)",
             "description": "This is the main composable function that builds the root of the UI.",
             "parameters": [
               {
-                "name": "database",
-                "type": "DatabaseMng",
-                "description": "An instance of the database manager for local data storage."
-              },
-              {
-                "name": "cuimsAPI",
-                "type": "cuimsAPI",
-                "description": "An instance for interacting with the CUIMS API."
-              },
-              {
-                "name": "peerDiscoveryViewModel",
-                "type": "PeerDiscoveryViewModel",
-                "description": "The view model responsible for handling peer discovery on the network."
+                "name": "onLoginSuccess",
+                "type": "() -> Unit",
+                "description": "A callback function to be executed after a successful login."
               }
             ],
             "functionality": [
@@ -108,7 +104,7 @@
                 "description": "Retrieves the user's profile picture from the database."
               },
               {
-                "signature": "getAllFromDatabase(): List<List<String>>",
+                "signature": "getAllFromDatabase(): List<List<String?>>",
                 "description": "Fetches all user records and returns them as a list of string lists."
               },
               {
@@ -146,6 +142,41 @@
               "Defines `AppTypography` by overriding default MaterialTheme typography with `RobotFont`.",
               "Applies `AppTypography` and `Colors.DarkColorScheme` to the `MaterialTheme`."
             ]
+          }
+        ]
+      },
+      "ui/AvailableServicesScreen.kt": {
+        "path": "composeApp/src/commonMain/kotlin/org/asv/looplink/ui/AvailableServicesScreen.kt",
+        "description": "This file contains the UI for displaying a list of available services on the network. It allows the user to scan for devices and connect to a selected service.",
+        "classes": [
+          {
+            "name": "AvailableServicesScreen",
+            "description": "A `Screen` that displays a list of discovered services. It uses the `PeerDiscoveryViewModel` to manage the discovery process and connect to services.",
+            "properties": [
+              {
+                "name": "viewModel",
+                "type": "PeerDiscoveryViewModel",
+                "description": "The ViewModel that manages peer discovery."
+              }
+            ],
+            "composableFunctions": [
+              {
+                "signature": "Content()",
+                "description": "The main composable function for the `AvailableServicesScreen`. It displays a list of discovered services and provides a button to start or stop the discovery process.",
+                "functionality": [
+                  "Observes the `discoveredServices` and `isDiscovering` state from the `PeerDiscoveryViewModel`.",
+                  "Displays a list of `ServiceListItem` composables for each discovered service.",
+                  "Provides a floating action button to start or stop the scanning process.",
+                  "Handles the connection to a service by calling `viewModel.connectToService(service)` when a list item is clicked."
+                ]
+              }
+            ]
+          }
+        ],
+        "composableFunctions": [
+          {
+            "signature": "ServiceListItem(serviceInfo: ServiceInfo, onConnectClick: () -> Unit)",
+            "description": "A composable that displays information about a single discovered service and provides a button to connect to it."
           }
         ]
       },
@@ -295,40 +326,6 @@
           }
         ]
       },
-      "ui/ChatScreen.kt": {
-        "path": "composeApp/src/commonMain/kotlin/org/asv/looplink/ui/ChatScreen.kt",
-        "description": "This file defines the `ChatScreen`, which is responsible for displaying the chat interface for a specific service discovered on the network. It manages the WebSocket session for real-time communication and handles incoming messages.",
-        "classes": [
-          {
-            "name": "ChatScreen",
-            "signature": "ChatScreen(private val serviceInfo: ServiceInfo, private val session: DefaultClientWebSocketSession) : Screen",
-            "description": "A screen composable that displays the chat UI.",
-            "constructorParameters": [
-              {
-                "name": "serviceInfo",
-                "type": "ServiceInfo",
-                "description": "Information about the discovered service to connect to."
-              },
-              {
-                "name": "session",
-                "type": "DefaultClientWebSocketSession",
-                "description": "The active WebSocket session for communication."
-              }
-            ],
-            "composableContent": {
-              "name": "Content()",
-              "functionality": [
-                "Uses a `DisposableEffect` to tie the WebSocket listening logic to the composable's lifecycle.",
-                "Consumes the `session.incoming` flow to listen for new WebSocket frames.",
-                "When a `Frame.Text` is received, it deserializes the JSON string into a `Message` object.",
-                "Dispatches a `SendMessage` action to the central `store` to add the new message to the appropriate chat room's state.",
-                "The `onDispose` block of the `DisposableEffect` ensures that the listening coroutine is cancelled and the WebSocket session is closed when the screen is no longer visible, preventing resource leaks.",
-                "Renders the `ChatAppWithScaffold` composable, which contains the actual UI for displaying messages and sending new ones."
-              ]
-            }
-          }
-        ]
-      },
       "theme/colors.kt": {
         "path": "composeApp/src/commonMain/kotlin/org/asv/looplink/theme/colors.kt",
         "description": "This file defines the color palette for the application. It contains the `Colors` object, which specifies the colors used in both the light and dark themes.",
@@ -378,7 +375,7 @@
       },
       "network/KtorServerFactory.kt": {
         "path": "composeApp/src/commonMain/kotlin/org/asv/looplink/network/KtorServerFactory.kt",
-        "description": "This file configures the Ktor server for the LoopLink application. It sets up JSON content negotiation, WebSockets, and defines the server's routing.",
+        "description": "This file contains the core logic for configuring the Ktor server. It defines an `expect` function to create a platform-specific server factory and a `configureLoopLinkServer` function that sets up the server's modules, plugins, and routing.",
         "functions": [
           {
             "signature": "Application.configureLoopLinkServer()",
@@ -386,8 +383,13 @@
             "configuration": {
               "contentNegotiation": "Configures the server to use JSON for serialization.",
               "webSockets": "Installs and configures the `WebSockets` plugin.",
-              "routing": "Defines the following routes: `GET \"/\"`, `GET \"/android\"`, and `webSocket \"/looplink/sync\"`."
-            }
+              "routing": "Defines the following routes: `GET \"/\"`, `GET \"/android\"`, and `webSocket \"/looplink/sync/{roomId}\"`."
+            },
+            "functionality": [
+              "Defines the server's routing, including a WebSocket endpoint at `/looplink/sync/{roomId}`.",
+              "The WebSocket endpoint handles new connections, adds them to a synchronized map of connections, and listens for incoming messages.",
+              "When a message is received, it is decoded, sent to the `store`, and broadcast to all other clients in the same room."
+            ]
           }
         ],
         "expectedDeclarations": [
@@ -510,6 +512,43 @@
           }
         ]
       },
+      "viewModel/RoomItem.kt": {
+        "path": "composeApp/src/commonMain/kotlin/org/asv/looplink/viewmodel/RoomItem.kt",
+        "description": "This file defines the `RoomItem` data class, which represents a single chat room in the application's state.",
+        "dataClasses": [
+          {
+            "name": "RoomItem",
+            "description": "Represents a chat room. It is serializable, allowing it to be easily passed between components or saved.",
+            "properties": [
+              {
+                "name": "id",
+                "type": "Int",
+                "description": "A unique identifier for the chat room."
+              },
+              {
+                "name": "label",
+                "type": "String",
+                "description": "The display name of the chat room."
+              },
+              {
+                "name": "unread",
+                "type": "Int",
+                "description": "The number of unread messages in the room. Defaults to 0."
+              },
+              {
+                "name": "isGroup",
+                "type": "Boolean",
+                "description": "A flag indicating whether the room is a group chat. Defaults to false."
+              },
+              {
+                "name": "members",
+                "type": "List<String>",
+                "description": "A list of UIDs of the members in the chat room. Defaults to an empty list."
+              }
+            ]
+          }
+        ]
+      },
       "viewmodel/PeerDiscoveryViewModel.kt": {
         "path": "composeApp/src/commonMain/kotlin/org/asv/looplink/viewmodel/PeerDiscoveryViewModel.kt",
         "description": "This view model manages the process of discovering and connecting to peers on the local network. It uses the `LANServiceDiscovery` class to find other devices and exposes the list of discovered services as a `StateFlow`. It also handles the WebSocket connection lifecycle.",
@@ -522,12 +561,24 @@
         "sealedClasses": [
           {
             "name": "ConnectionStatus",
-            "description": "Represents the current state of the WebSocket connection.",
+            "description": "Represents the current state of a WebSocket connection attempt.",
             "states": [
-              "Idle: The connection is not active.",
-              "Connecting: A connection attempt is in progress.",
-              "Connected(session: DefaultClientWebSocketSession): The connection is established.",
-              "Error(message: String): An error occurred during connection."
+              {
+                "name": "Idle",
+                "description": "Indicates that there is no active connection attempt."
+              },
+              {
+                "name": "Connecting",
+                "description": "Indicates that a connection attempt is currently in progress."
+              },
+              {
+                "name": "Connected(session: DefaultClientWebSocketSession)",
+                "description": "Indicates that a connection has been successfully established and holds the active session."
+              },
+              {
+                "name": "Error(message: String)",
+                "description": "Indicates that an error occurred during the connection attempt."
+              }
             ]
           }
         ],
@@ -535,17 +586,22 @@
           {
             "name": "discoveredServices",
             "type": "StateFlow<List<ServiceInfo>>",
-            "description": "A flow that emits the list of discovered services."
+            "description": "A flow that emits the current list of discovered services on the network."
           },
           {
             "name": "isDiscovering",
             "type": "StateFlow<Boolean>",
-            "description": "A flow that emits `true` if the app is currently discovering services."
+            "description": "A flow that emits `true` if the app is currently scanning for services."
           },
           {
             "name": "connectionStatus",
             "type": "StateFlow<ConnectionStatus>",
-            "description": "A flow that emits the current WebSocket connection status."
+            "description": "A flow that emits the current status of the WebSocket connection attempt."
+          },
+          {
+            "name": "activeSessions",
+            "type": "StateFlow<Map<Int, DefaultWebSocketSession>>",
+            "description": "A flow that holds a map of active WebSocket sessions, keyed by their `roomId`."
           }
         ],
         "functions": [
@@ -564,36 +620,20 @@
           {
             "signature": "connectToService(service: ServiceInfo, navigator: Navigator)",
             "description": "Attempts to connect to a discovered service via WebSocket and navigates to the `ChatScreen` on success."
+          },
+          {
+            "signature": "addConnection(roomId: Int, session: DefaultWebSocketSession)",
+            "description": "Adds a WebSocket session initiated by a remote peer (i.e., when the local device is the server). This allows for two-way session tracking."
+          },
+          {
+            "signature": "removeConnection(roomId: Int)",
+            "description": "Removes a WebSocket session from the `activeSessions` map when the connection is terminated."
           }
         ]
       },
       "viewmodel/ChatViewModel.kt": {
         "path": "composeApp/src/commonMain/kotlin/org/asv/looplink/viewmodel/ChatViewModel.kt",
         "description": "This file defines the `ChatViewModel`, which is responsible for managing the state of the chat rooms in the application. It uses a `MutableStateFlow` to hold the list of rooms and provides a function to add new rooms.",
-        "dataClasses": [
-          {
-            "name": "RoomItem",
-            "signature": "RoomItem(id: Int, label: String, unread: Int = 0)",
-            "description": "Represents a single chat room.",
-            "properties": [
-              {
-                "name": "id",
-                "type": "Int",
-                "description": "A unique identifier for the room."
-              },
-              {
-                "name": "label",
-                "type": "String",
-                "description": "The display name of the room."
-              },
-              {
-                "name": "unread",
-                "type": "Int",
-                "description": "The number of unread messages in the room."
-              }
-            ]
-          }
-        ],
         "classes": [
           {
             "name": "ChatViewModel",
@@ -602,7 +642,7 @@
             "properties": [
               {
                 "name": "rooms",
-                "type": "StateFlow",
+                "type": "StateFlow<List<RoomItem>>",
                 "description": "A `StateFlow` that emits the current list of `RoomItem`s."
               }
             ],
@@ -610,6 +650,10 @@
               {
                 "signature": "addRoom(roomItem: RoomItem)",
                 "description": "Adds a new room to the list if it doesn't already exist."
+              },
+              {
+                "signature": "roomExists(roomId: Int): Boolean",
+                "description": "Checks if a room with the given ID already exists."
               }
             ]
           }
@@ -721,7 +765,55 @@
         "dataObjects": [
           {
             "name": "userInfo",
-            "description": "A data object that holds the current user's information. It includes a `reset()` function to clear the data."
+            "description": "A data object that holds the current user's information. It includes a `reset()` function to clear the data.",
+            "properties": [
+              {
+                "name": "name",
+                "type": "String?",
+                "description": "The user's name."
+              },
+              {
+                "name": "uid",
+                "type": "String?",
+                "description": "The user's unique identifier."
+              },
+              {
+                "name": "section",
+                "type": "String?",
+                "description": "The user's section."
+              },
+              {
+                "name": "program",
+                "type": "String?",
+                "description": "The user's program of study."
+              },
+              {
+                "name": "contact",
+                "type": "String?",
+                "description": "The user's contact number."
+              },
+              {
+                "name": "cGPA",
+                "type": "String?",
+                "description": "The user's Cumulative Grade Point Average."
+              },
+              {
+                "name": "email",
+                "type": "String?",
+                "description": "The user's email address."
+              },
+              {
+                "name": "pfpImage",
+                "type": "Boolean?",
+                "description": "Indicates whether the user has a profile picture."
+              }
+            ],
+            "functions": [
+              {
+                "signature": "reset()",
+                "description": "Resets all properties of the `userInfo` object to null."
+              }
+            ]
           }
         ],
         "functions": [
@@ -843,26 +935,52 @@
           {
             "name": "LocalTabNavigator",
             "description": "Provides an instance of `TabNavigator` for managing tab-based navigation."
+          },
+          {
+            "name": "LocalMainNavigator",
+            "type": "Navigator?",
+            "description": "Provides access to the main Voyager `Navigator` for screen-based navigation."
+          },
+          {
+            "name": "LocalChatViewModel",
+            "type": "ChatViewModel?",
+            "description": "Provides access to ChatViewModel for managing chat rooms."
           }
         ]
       },
       "components/loginAPIComposable.kt": {
         "path": "composeApp/src/commonMain/kotlin/org/asv/looplink/components/loginAPIComposable.kt",
-        "description": "This file contains the UI for the login screen. It includes text fields for UID and password, a captcha image, and a submit button. It uses the `cuimsAPI` to handle the login process, including fetching the captcha, submitting the login credentials, and handling any errors that may occur.",
+        "description": "This file contains the UI and logic for the login screen. It includes the `LoginFields` screen, which is responsible for taking user input for UID, password, and captcha, and interacting with the `cuimsAPI` to perform the login.",
         "classes": [
           {
-            "name": "LoginFields : Screen",
-            "description": "The main screen for the login UI."
+            "name": "LoginFields",
+            "description": "A `Screen` that represents the login screen of the application. It handles user input, captcha loading, and the login process.",
+            "properties": [
+              {
+                "name": "onLoginSuccess",
+                "type": "() -> Unit",
+                "description": "A callback function that is invoked upon a successful login."
+              }
+            ],
+            "composableFunctions": [
+              {
+                "signature": "Content()",
+                "description": "The main composable function for the `LoginFields` screen. It contains the UI for the login form, including text fields for UID, password, and captcha, as well as a submit button and error messages.",
+                "functionality": [
+                  "Manages the state of the input fields and error messages.",
+                  "Loads the captcha image from the `cuimsAPI`.",
+                  "Handles the submit button click, which initiates the login process.",
+                  "Performs the login by calling the `cuimsAPI.login()` and `cuimsAPI.fillCaptcha()` methods.",
+                  "On successful login, it retrieves the student data, inserts it into the database, and navigates to the `MainScreen`."
+                ]
+              }
+            ]
           }
         ],
         "composableFunctions": [
           {
-            "signature": "Content()",
-            "description": "The main composable function for the login screen, which includes: Text fields for UID, password, and captcha; an `Image` to display the captcha; a `Button` to submit the login credentials; and error handling and display of error messages."
-          },
-          {
             "signature": "TextFieldFooterErrorMsg(text: String = \"Error\")",
-            "description": "A composable function to display an error message below a text field."
+            "description": "A composable that displays an error message below a text field."
           }
         ]
       },
@@ -1017,8 +1135,8 @@
         ],
         "composableFunctions": [
           {
-            "signature": "ChatAppWithScaffold(displayTextField: Boolean = true, room: RoomItem, session: DefaultClientWebSocketSession? = null)",
-            "description": "A higher-level composable that provides a complete chat screen UI, including a top app bar for navigation and context.",
+            "signature": "ChatAppWithScaffold(displayTextField: Boolean = true, room: RoomItem, session: DefaultWebSocketSession? = null)",
+            "description": "This composable provides a scaffold for the chat screen, including a top app bar with the room's name and a back button. It also handles keyboard focus and WebSocket communication.",
             "parameters": [
               {
                 "name": "displayTextField",
@@ -1041,6 +1159,7 @@
               "Implements a `TopAppBar` that displays the current `room.label` and includes a navigation icon to go back, which sets the `LocalTabNavigator`'s current tab to `EmptyChatTab`.",
               "Manages focus control. It requests focus initially and listens for the 'Escape' key to navigate back or clear focus.",
               "Clears focus when the user taps outside the input fields.",
+              "Manages a WebSocket session's lifecycle to listen for, deserialize, and store incoming JSON messages, ensuring the connection is closed when the composable is no longer in use.",
               "Uses `LaunchedEffect` to request focus for the component when it first appears."
             ]
           },
@@ -1426,21 +1545,45 @@
       },
       "operations/Logout.kt": {
         "path": "composeApp/src/commonMain/kotlin/org/asv/looplink/operations/Logout.kt",
-        "description": "This file defines the `logout` function responsible for clearing user session data.",
-        "functions": [
+        "description": "This file contains the `logout` composable function, which is responsible for handling the user logout process. It stops all network services, deletes user data from the local database, and resets the `userInfo` object.",
+        "composableFunctions": [
           {
             "signature": "logout(database: DatabaseMng)",
-            "parameters": [
-              {
-                "name": "database",
-                "type": "DatabaseMng",
-                "description": "An instance of the database manager for local data storage."
-              }
-            ],
+            "description": "This function performs the necessary cleanup tasks when a user logs out.",
             "functionality": [
-              "Deletes all user data from the local database using `database.deleteUser()`.",
-              "Resets the `userInfo` singleton to clear any in-memory user data."
+              "Stops the peer discovery service using `LocalPeerDiscoveryViewModel`.",
+              "Stops the main P2P services (including the Ktor server) via `LocalMainViewModel`.",
+              "Deletes all user data from the local database by calling `database.deleteUser()`.",
+              "Resets the global `userInfo` object to clear any cached user data."
             ]
+          }
+        ]
+      },
+      "operations/tabSelector.kt": {
+        "path": "composeApp/src/commonMain/kotlin/org/asv/looplink/operations/tabSelector.kt",
+        "description": "This file provides a set of utility functions for handling navigation in a responsive UI that adapts between a tab-based layout (for wide screens) and a screen-stacking layout (for narrow screens). It leverages the Voyager navigation library to conditionally push screens or switch tabs based on the screen width.",
+        "composableFunctions": [
+          {
+            "signature": "NavMain(screen: Screen)",
+            "description": "A convenience composable function that pushes a new `Screen` onto the main navigator.",
+            "functionality": "It retrieves the main `Navigator` instance using `getMainNav()` and then calls its `push` method with the provided `screen`."
+          },
+          {
+            "signature": "PushToNavigator(isWideSceren: Boolean, screen: Screen, tab: Tab)",
+            "description": "A composable function that intelligently navigates to either a `Tab` or a `Screen` based on whether the display is wide or narrow.",
+            "functionality": "If `isWideSceren` is true, it sets the current tab of the `LocalTabNavigator`. If false, it pushes the given `screen` onto the main navigator stack."
+          },
+          {
+            "signature": "getMainNav(): Navigator?",
+            "description": "This function is a crucial utility for retrieving the correct `Navigator` instance in a potentially nested navigation setup.",
+            "functionality": "It checks if a `LocalTabNavigator` exists. If it does, it means the current context is within a tab, so it returns the parent navigator. If not, it returns the current navigator from `LocalNavigator`. This ensures that screen pushes happen on the main navigation stack, not within a tab."
+          }
+        ],
+        "functions": [
+          {
+            "signature": "PushToNavigator(isWideSceren: Boolean, screen: Screen, tab: Tab, navigator: Navigator?, tabNavigator: TabNavigator?)",
+            "description": "A non-composable version of the navigation function, allowing navigation logic to be called from outside of a composable context (e.g., from a ViewModel or a callback).",
+            "functionality": "It takes the navigator instances as explicit parameters and performs the same conditional logic as its composable counterpart."
           }
         ]
       },
@@ -1478,17 +1621,88 @@
     "androidMain": {
       "MainActivity.kt": {
         "path": "composeApp/src/androidMain/kotlin/org/asv/looplink/MainActivity.kt",
-        "description": "This is the main entry point for the Android application. It creates and initializes the `MainViewModel`, which in turn initializes the database, the CUIMS API, the LAN service discovery, the peer discovery view model, and the Ktor server. The `MainActivity` then sets the content to the `App` composable, passing the necessary dependencies.",
+        "description": "This file is the main entry point for the LoopLink Android application. It hosts the `MainActivity` and the `MainViewModel`, which are central to the app's lifecycle and state management. The `MainViewModel` is responsible for initializing and coordinating all major components, including the database, web API, Ktor server, and network service discovery. The `MainActivity` sets up the Compose UI and uses a `CompositionLocalProvider` to make the `MainViewModel` and its dependencies available to the entire composable tree.",
+        "sealedClasses": [
+          {
+            "name": "P2PState",
+            "description": "Represents the state of the peer-to-peer (P2P) services.",
+            "states": [
+              {
+                "name": "Stopped",
+                "description": "Indicates that the P2P services are not running."
+              },
+              {
+                "name": "Running",
+                "description": "Indicates that the P2P services are active and holds the user's UID and name."
+              }
+            ]
+          }
+        ],
         "classes": [
           {
             "name": "MainViewModel",
-            "signature": "MainViewModel(applicationContext: Context) : ViewModel",
-            "description": "A `ViewModel` that holds instances of the application's key components, including the server, database, and view models. It also manages the lifecycle of these components."
+            "description": "This is the actual implementation of the main view model for the Android platform. It manages the lifecycle of the application's core components.",
+            "properties": [
+              {
+                "name": "serverManager",
+                "type": "AndroidKtorServer",
+                "description": "Manages the Ktor server instance."
+              },
+              {
+                "name": "database",
+                "type": "DatabaseMng",
+                "description": "Handles database operations."
+              },
+              {
+                "name": "cuimsAPI",
+                "type": "cuimsAPI",
+                "description": "Manages interactions with the CUIMS web portal."
+              },
+              {
+                "name": "lanServiceDiscovery",
+                "type": "LANServiceDiscovery",
+                "description": "Handles network service discovery."
+              },
+              {
+                "name": "chatViewModel",
+                "type": "ChatViewModel",
+                "description": "Manages the state of chat rooms."
+              },
+              {
+                "name": "peerDiscoveryViewModel",
+                "type": "PeerDiscoveryViewModel?",
+                "description": "Manages the discovery of peers on the network."
+              },
+              {
+                "name": "p2pState",
+                "type": "StateFlow<P2PState>",
+                "description": "A flow that emits the current state of the P2P services."
+              }
+            ],
+            "functions": [
+              {
+                "signature": "startP2PServices()",
+                "description": "Initializes and starts the Ktor server and peer discovery services. This is typically called after a successful login."
+              },
+              {
+                "signature": "stopP2PServices()",
+                "description": "Stops the Ktor server and peer discovery."
+              },
+              {
+                "signature": "onCleared()",
+                "description": "Called when the ViewModel is about to be destroyed. It ensures all services are stopped and resources are released."
+              }
+            ]
           },
           {
             "name": "MainActivity",
-            "signature": "MainActivity : ComponentActivity",
-            "description": "The main activity of the application. It creates the `MainViewModel` and sets the content to the `App` composable."
+            "description": "The main and only activity in the application.",
+            "functions": [
+              {
+                "signature": "onCreate(savedInstanceState: Bundle?)",
+                "description": "Sets up the main content view of the application. It initializes the `MainViewModel`, provides it and its dependencies to the `App` composable via `CompositionLocalProvider`, and defines a callback (`onLoginSuccess`) to start P2P services."
+              }
+            ]
           }
         ]
       },
@@ -1519,16 +1733,62 @@
       },
       "network/AndroidKtorServer.kt": {
         "path": "composeApp/src/androidMain/kotlin/org/asv/looplink/network/AndroidKtorServer.kt",
-        "description": "This file defines a class that manages the Ktor server on Android. It handles starting and stopping the server, as well as registering and unregistering the service with `LANServiceDiscovery`.",
+        "description": "This file contains the `AndroidKtorServer` class, which manages the lifecycle of the Ktor server on the Android platform. It handles starting and stopping the server, as well as registering and unregistering the service with `LANServiceDiscovery`.",
         "classes": [
           {
             "name": "AndroidKtorServer",
-            "signature": "AndroidKtorServer(context: Context)",
-            "description": "A class that manages the Ktor server on Android.",
+            "description": "Manages the Ktor server instance on Android.",
+            "properties": [
+              {
+                "name": "serverEngine",
+                "type": "EmbeddedServer<ApplicationEngine, *>",
+                "description": "The embedded Ktor server engine."
+              },
+              {
+                "name": "serverJob",
+                "type": "Job",
+                "description": "The coroutine job for the server."
+              },
+              {
+                "name": "serverScope",
+                "type": "CoroutineScope",
+                "description": "The coroutine scope for the server."
+              },
+              {
+                "name": "currentPort",
+                "type": "Int",
+                "description": "The port the server is running on."
+              },
+              {
+                "name": "isRunning",
+                "type": "Boolean",
+                "description": "A boolean indicating if the server is running."
+              },
+              {
+                "name": "serviceDiscovery",
+                "type": "LANServiceDiscovery",
+                "description": "An instance of `LANServiceDiscovery`."
+              },
+              {
+                "name": "serviceType",
+                "type": "String",
+                "description": "The service type for network service discovery."
+              },
+              {
+                "name": "serviceInstanceName",
+                "type": "String",
+                "description": "The instance name for network service discovery."
+              },
+              {
+                "name": "onServerPortChanged",
+                "type": "((Int) -> Unit)?",
+                "description": "A callback for when the server port changes."
+              }
+            ],
             "functions": [
               {
-                "signature": "start(port: Int, instanceName: String?)",
-                "description": "Starts the Ktor server and registers the service."
+                "signature": "start(port: Int, userUid: String, userName: String, chatViewModel: ChatViewModel, peerDiscoveryViewModel: PeerDiscoveryViewModel?)",
+                "description": "Starts the Ktor server. It creates the server using `createKtorServerFactory()`, configures it with `configureLoopLinkServer()`, and registers the service with `LANServiceDiscovery`."
               },
               {
                 "signature": "stop()",
@@ -1536,7 +1796,7 @@
               },
               {
                 "signature": "isRunning(): Boolean",
-                "description": "Returns `true` if the server is running."
+                "description": "Returns whether the server is running."
               },
               {
                 "signature": "getCurrentPort(): Int",
@@ -1707,11 +1967,79 @@
     "jvmMain": {
       "main.kt": {
         "path": "composeApp/src/jvmMain/kotlin/org/asv/looplink/main.kt",
-        "description": "This is the main entry point for the JVM application. It sets up the main window, initializes the database, the CUIMS API, the LAN service discovery, the peer discovery view model, and the Ktor server. It also handles the application's lifecycle, including a graceful shutdown process.",
+        "description": "This is the main entry point for the LoopLink JVM (Desktop) application. It sets up the main application window and initializes the `MainViewModel`. The `MainViewModel` is responsible for setting up the database, CUIMS API, service discovery, and starting the Ktor server. The `main` function also defines the application's lifecycle, including a graceful shutdown process.",
+        "sealedClasses": [
+          {
+            "name": "P2PState",
+            "description": "Represents the state of the peer-to-peer (P2P) services.",
+            "states": [
+              {
+                "name": "Stopped",
+                "description": "Indicates that the P2P services are not running."
+              },
+              {
+                "name": "Running",
+                "description": "Indicates that the P2P services are active and holds the user's UID and name."
+              }
+            ]
+          }
+        ],
+        "classes": [
+          {
+            "name": "MainViewModel",
+            "description": "The JVM-specific `actual` implementation of the `MainViewModel`. It manages the lifecycle of core application components for the desktop version.",
+            "properties": [
+              {
+                "name": "database",
+                "type": "DatabaseMng",
+                "description": "Handles database operations."
+              },
+              {
+                "name": "cuimsAPI",
+                "type": "cuimsAPI",
+                "description": "Manages interactions with the CUIMS web portal using Selenium."
+              },
+              {
+                "name": "clientLanDiscovery",
+                "type": "LANServiceDiscovery",
+                "description": "Handles network service discovery for finding other peers."
+              },
+              {
+                "name": "chatViewModel",
+                "type": "ChatViewModel",
+                "description": "Manages the state of chat rooms."
+              },
+              {
+                "name": "peerDiscoveryViewModel",
+                "type": "PeerDiscoveryViewModel?",
+                "description": "Manages the discovery of and connection to peers."
+              },
+              {
+                "name": "p2pState",
+                "type": "StateFlow<P2PState>",
+                "description": "A flow that emits the current state of the P2P services."
+              }
+            ],
+            "functions": [
+              {
+                "signature": "startP2PServices()",
+                "description": "Initializes and starts the Ktor server via `jvmKtorServerRunner` and initializes the `PeerDiscoveryViewModel`. This is called after a successful login."
+              },
+              {
+                "signature": "stopP2PServices()",
+                "description": "Stops the Ktor server and peer discovery."
+              },
+              {
+                "signature": "onCleared()",
+                "description": "Called when the ViewModel is about to be destroyed. It ensures all services are stopped and resources are released."
+              }
+            ]
+          }
+        ],
         "functions": [
           {
             "signature": "main()",
-            "description": "The main function that launches the application."
+            "description": "The main function that launches the desktop application. It sets up the application window, creates the `MainViewModel`, provides it and its dependencies to the `App` composable via `CompositionLocalProvider`, and sets up a shutdown hook for graceful resource cleanup."
           }
         ]
       },

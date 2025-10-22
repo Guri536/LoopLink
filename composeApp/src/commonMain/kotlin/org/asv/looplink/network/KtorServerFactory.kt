@@ -46,10 +46,8 @@ fun Application.configureLoopLinkServer(
     }
 
     install(WebSockets) {
-//        pingPeriodMillis = 60_000 // Disabled (null) by default
         timeoutMillis = 15_000
-        maxFrameSize =
-            Long.MAX_VALUE // Disabled (max value). The connection will be closed if surpassed this length.
+        maxFrameSize = Long.MAX_VALUE
         masking = false
     }
 
@@ -88,7 +86,6 @@ fun Application.configureLoopLinkServer(
                 )
             }
 
-
             roomConnections.add(this)
             peerDiscoveryViewModel.addConnection(roomId, this)
 
@@ -118,6 +115,7 @@ fun Application.configureLoopLinkServer(
             } finally {
                 println("Server: Websocket connection closed for /looplink/sync")
                 roomConnections.remove(this)
+                peerDiscoveryViewModel.removeConnection(roomId)
             }
         }
     }

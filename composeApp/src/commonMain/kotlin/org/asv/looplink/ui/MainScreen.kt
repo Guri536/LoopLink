@@ -57,6 +57,8 @@ import org.asv.looplink.components.fabButtons.FabButtonMain
 import org.asv.looplink.components.fabButtons.FabButtonSub
 import org.asv.looplink.components.fabButtons.MultiFloatingActionButton
 import org.asv.looplink.getPlatformType
+import org.asv.looplink.operations.PushToNavigator
+import org.asv.looplink.operations.getMainNav
 import org.asv.looplink.viewmodel.RoomItem
 
 data class TopTab(val id: String, val label: String)
@@ -106,19 +108,17 @@ fun InitiateSideBar(
     onIconClick: () -> Unit
 ) {
     val tabNavigator = LocalTabNavigator.current
-
-    val navigator = if (tabNavigator != null)
-        LocalNavigator.currentOrThrow.parent
-    else
-        LocalNavigator.currentOrThrow
+    val navigator = getMainNav()
 
     val onRoomClick: (RoomItem) -> Unit = remember(navigator, tabNavigator, isWideScreen) {
         { room: RoomItem ->
-            if (isWideScreen) {
-                tabNavigator?.current = ChatTab(room)
-            } else {
-                navigator?.push(ChatTabScreen(room))
-            }
+            PushToNavigator(
+                isWideScreen,
+                ChatTabScreen(room),
+                ChatTab(room),
+                navigator,
+                tabNavigator
+            )
         }
     }
     val onSettingsClick: () -> Unit = remember(navigator) {
