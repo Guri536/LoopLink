@@ -3,7 +3,7 @@ package org.asv.looplink
 import app.cash.sqldelight.db.SqlDriver
 import com.db.LLData
 import com.db.LLDataQueries
-import org.asv.looplink.components.userInfo
+import com.db.LoopLinkUser
 
 enum class PlatformType{
     ANDROID,
@@ -58,40 +58,10 @@ class DatabaseMng constructor(private val driver: SqlDriver){
         return database.lLDataQueries.getPFP(){it!!}.executeAsOne()
     }
 
-    fun getAllFromDatabase(): List<List<String?>>{
+    fun getUserData(): LoopLinkUser {
         val database = LLData(driver)
-        val userInfo = database.lLDataQueries.selectAll().executeAsList()
-
-        return userInfo.map { listOf(
-            it.name,
-            it.uid,
-            it.section?:"null",
-            it.program?:"null",
-            it.contact?:"null",
-            it.cGPA?:"null",
-            it.email?:"null",
-        )
-        }
+        return database.lLDataQueries.selectAll().executeAsList()[0]
     }
-
-    fun getUserData(): userInfo {
-        val database = LLData(driver)
-        val userData = database.lLDataQueries.selectAll().executeAsList()
-
-        return userData.map {
-            userInfo.apply {
-                name = it.name
-                uid = it.uid
-                section = it.section
-                program = it.program
-                contact = it.contact
-                cGPA = it.cGPA
-                email = it.email
-                pfpImage = it.pfpImage != null
-            }
-        }[0]
-    }
-
 
     fun deleteUser(){
         val database = LLData(driver)

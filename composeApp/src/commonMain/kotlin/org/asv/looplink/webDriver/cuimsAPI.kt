@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.asv.looplink.data.model.UserModel
 import org.openqa.selenium.By
 import org.openqa.selenium.TimeoutException
 import org.openqa.selenium.chrome.ChromeDriver
@@ -25,22 +26,9 @@ data class successLog constructor(
 expect fun ByteArray.toImageBitmap(): ImageBitmap
 expect fun ImageBitmap.toBase64(): String
 
-data class studentInfo(val uid: String, val pass: String) {
-    lateinit var studentUID: String
-    lateinit var fullName: String
-    lateinit var currentSection: String
-    lateinit var programCode: String
-    lateinit var studentContact: String
-    var studentEmail: String = "$uid@cuchd.in"
-    lateinit var cGPA: String
-    lateinit var pfpBytes: ByteArray
-}
-
 expect class cuimsAPI{
     var uid: String?
     var pass: String?
-
-    var student: studentInfo?
 
     val BASEURL: String
 
@@ -54,7 +42,7 @@ expect class cuimsAPI{
     suspend fun processCaptcha(imgBase64: String): String
     suspend fun autoFillCaptcha(): successLog
     fun getWebView(): Any
-    suspend fun loadStudentData(): Pair<successLog, studentInfo?>
+    suspend fun loadStudentData(): Pair<successLog, UserModel?>
     fun destroySession()
 }
 

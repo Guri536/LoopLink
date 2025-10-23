@@ -39,39 +39,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.currentOrThrow
-import com.sun.tools.javac.Main
 import org.asv.looplink.DatabaseMng
 import org.asv.looplink.MainViewModel
+import org.asv.looplink.data.repository.UserRespository
 import org.asv.looplink.operations.logout
 import org.asv.looplink.ui.AvailableServicesScreen
 import org.asv.looplink.viewmodel.PeerDiscoveryViewModel
 import org.koin.compose.koinInject
-
-
-data object userInfo {
-    var name: String? = null
-    var uid: String? = null
-    var section: String? = null
-    var program: String? = null
-    var contact: String? = null
-    var cGPA: String? = null
-    var email: String? = null
-    var pfpImage: Boolean? = null
-
-    fun reset() {
-        name = null
-        uid = null
-        section = null
-        program = null
-        contact = null
-        cGPA = null
-        email = null
-        pfpImage = null
-    }
-}
-
-fun loadUserInfo(database: DatabaseMng) = database.getUserData()
-
 
 @Composable
 fun UserProfileCard(
@@ -95,15 +69,16 @@ fun UserProfileCard(
 
 @Composable
 fun TallScreenLayout() {
-    val database: DatabaseMng = koinInject()
+    val user: UserRespository = koinInject()
+    val userInfo = user.currentUser.collectAsState()
 
     Column(
         modifier = Modifier.padding(16.dp).fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        if (userInfo.pfpImage == true) {
-            GetProfileImage( // This composable needs to be defined
-                database.getProfileImage(), // Example: Fetch image bytes
+        if (userInfo.value?.picture != null) {
+            GetProfileImage(
+                userInfo.value?.picture,
                 modifier = Modifier
                     .clip(CircleShape)
                     .size(200.dp)
@@ -128,15 +103,16 @@ fun TallScreenLayout() {
 
 @Composable
 fun WideScreenLayout() {
-    val database: DatabaseMng = koinInject()
+    val user: UserRespository = koinInject()
+    val userInfo = user.currentUser.collectAsState()
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.padding(16.dp).fillMaxWidth().height(IntrinsicSize.Max)
     ) {
-        if (userInfo.pfpImage == true) {
+        if (userInfo.value?.picture != null) {
             GetProfileImage( // This composable needs to be defined
-                database.getProfileImage(), // Example: Fetch image bytes
+                userInfo.value?.picture, // Example: Fetch image bytes
                 modifier = Modifier
                     .clip(CircleShape)
                     .size(200.dp)
@@ -165,9 +141,7 @@ class SettingsPage() : Screen {
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     override fun Content() {
-        val database: DatabaseMng = koinInject()
         val navigator = LocalAppNavigator.currentOrThrow
-        loadUserInfo(database)
 
         Scaffold(topBar = {
             TopAppBar(
@@ -217,7 +191,7 @@ fun LogoutButton(modifier: Modifier = Modifier) {
     Button(
         onClick = {
             mainViewModel.stopP2PServices()
-            logout(database)
+            logout()
             navigator.navigator.replaceAll(
                 LoginFields(onLoginSuccess = {
                     mainViewModel.startP2PServices()
@@ -239,27 +213,25 @@ fun LogoutButton(modifier: Modifier = Modifier) {
 
 @Composable
 fun FindDevicesButton(modifier: Modifier = Modifier) {
-    val mainViewModel: MainViewModel = koinInject()
-    val peerDiscoveryViewModel = mainViewModel.peerDiscoveryViewModel.collectAsState()
+    val peerDiscoveryViewModel: PeerDiscoveryViewModel = koinInject()
     val navigator = LocalAppNavigator.currentOrThrow
 
-    if (peerDiscoveryViewModel.value != null) {
-        Button(
-            onClick = {
-                navigator.pushScreen(AvailableServicesScreen(peerDiscoveryViewModel.value!!))
-            },
-            modifier = modifier.padding(vertical = 2.dp).fillMaxWidth()
-        ) {
-            Text("Find Devices")
-        }
-    } else {
-        Text("Network discovery not available.", style = MaterialTheme.typography.bodySmall)
+    Button(
+        onClick = {
+            navigator.pushScreen(AvailableServicesScreen(peerDiscoveryViewModel))
+        },
+        modifier = modifier.padding(vertical = 2.dp).fillMaxWidth()
+    ) {
+        Text("Find Devices")
     }
 }
 
 @Composable
 fun ShowUserData() {
-    userInfo.name?.let {
+    val user: UserRespository = koinInject()
+    val userInfo = user.currentUser.collectAsState()
+
+    userInfo.value?.name?.let {
         Text(
             it,
             style = MaterialTheme.typography.titleLarge,
@@ -267,13 +239,13 @@ fun ShowUserData() {
         )
     }
     Text(
-        "UID: ${userInfo.uid ?: "N/A"}",
+        "UID: ${userInfo.value?.uid ?: "N/A"}",
         style = MaterialTheme.typography.bodyLarge,
         fontWeight = FontWeight.SemiBold
     )
-    Text("Section: ${userInfo.section ?: "N/A"}")
-    Text("Program: ${userInfo.program ?: "N/A"}")
-    Text("CGPA: ${userInfo.cGPA?.trim('"') ?: "N/A"}")
-    Text("Contact: ${userInfo.contact ?: "N/A"}")
-    Text("Email: ${userInfo.email ?: "N/A"}")
+    Text("Section: ${userInfo.value?.section ?: "N/A"}")
+    Text("Program: ${userInfo.value?.program ?: "N/A"}")
+    Text("CGPA: ${userInfo.value?.cGPA?.trim('"') ?: "N/A"}")
+    Text("Contact: ${userInfo.value?.contact ?: "N/A"}")
+    Text("Email: ${userInfo.value?.email ?: "N/A"}")
 }

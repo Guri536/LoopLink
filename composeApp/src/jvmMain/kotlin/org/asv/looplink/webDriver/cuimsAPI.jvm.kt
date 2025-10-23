@@ -2,12 +2,12 @@ package org.asv.looplink.webDriver
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.awt.SwingPanel
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.asv.looplink.data.model.UserModel
 import org.asv.looplink.errors.errorsLL
 import org.jetbrains.skia.Image
 import org.jsoup.Jsoup
@@ -30,8 +30,6 @@ actual fun ByteArray.toImageBitmap(): ImageBitmap {
 actual class cuimsAPI {
     actual var uid: String? = null
     actual var pass: String? = null
-
-    actual var student: studentInfo? = null
     val chrmOptions = ChromeOptions()
     var driver: ChromeDriver? = null
 
@@ -67,20 +65,19 @@ actual class cuimsAPI {
         initDriver()
         this.uid = uid
         this.pass = pass
-        student = studentInfo(uid, pass)
 
         return withContext(Dispatchers.IO)
         {
             try {
                 driver!!.get(BASEURL)
                 wait!!.until {
-                    val field = driver!!.findElement(By.id("txtUserId")).sendKeys(student!!.uid)
+                    val field = driver!!.findElement(By.id("txtUserId")).sendKeys(uid)
                 }
                 wait!!.until {
                     driver!!.findElement(By.id("btnNext")).click()
                 }
                 wait!!.until {
-                    driver!!.findElement(By.id("txtLoginPassword")).sendKeys(student!!.pass)
+                    driver!!.findElement(By.id("txtLoginPassword")).sendKeys(pass)
                 }
                 successLog(true)
             } catch (e: TimeoutException) {
@@ -139,7 +136,7 @@ actual class cuimsAPI {
             "isOverlayRequired" to "True"
         )
 
-        return withContext(Dispatchers.Main) {
+        return withContext(Dispatchers.IO) {
             while (captcha == null || captcha == "" || captcha == " " || !captcha.all { it.isLetterOrDigit() }) {
                 val ocrRes = Jsoup.connect(ocrURL)
                     .userAgent(USER_AGENT)
@@ -185,7 +182,7 @@ actual class cuimsAPI {
                 if (errElements.isNotEmpty()) {
                     val errorMessage = errElements.first().findElement(By.tagName("p")).text
                     errElements.first().findElements(By.tagName("button")).last().click()
-                    driver!!.findElement(By.id("txtLoginPassword")).sendKeys(student!!.pass)
+                    driver!!.findElement(By.id("txtLoginPassword")).sendKeys(this@cuimsAPI.pass!!)
                     return@withContext successLog(false, errorMessage)
                 } else {
                     return@withContext successLog(true)
@@ -207,7 +204,10 @@ actual class cuimsAPI {
     actual suspend fun autoFillCaptcha(): successLog {
         return withContext(Dispatchers.IO) {
             val imageBitmap = getCaptcha()
-            if (imageBitmap.second == null) return@withContext successLog(false, "Unable to fill captcha")
+            if (imageBitmap.second == null) return@withContext successLog(
+                false,
+                "Unable to fill captcha"
+            )
             val captcha = processCaptcha(imageBitmap.second!!.toBase64())
             fillCaptcha(captcha)
             return@withContext successLog(true)
@@ -218,8 +218,8 @@ actual class cuimsAPI {
         TODO("Not yet implemented")
     }
 
-    suspend fun loadProfile() {
-        withContext(Dispatchers.IO) {
+    suspend fun loadProfile(): Map<String, Any> {
+        return withContext(Dispatchers.IO) {
             driver!!.get(BASEURL + endPoints["Profile"])
 
             val eleList = mapOf<String, By>(
@@ -229,17 +229,19 @@ actual class cuimsAPI {
                 "Program" to By.id("ContentPlaceHolder1_lblProgramCode"),
                 "Contact" to By.id("ContentPlaceHolder1_gvStudentContacts_lblMobile_2"),
             )
+            val profileData = mutableMapOf<String, Any>()
+
             for (i in eleList) {
                 try {
                     val ele = wait!!.until {
                         driver!!.findElement(i.value)
                     }
                     when (i.key) {
-                        "UID" -> student!!.studentUID = ele.text
-                        "Name" -> student!!.fullName = ele.text
-                        "Section" -> student!!.currentSection = ele.text
-                        "Program" -> student!!.programCode = ele.text
-                        "Contact" -> student!!.studentContact = ele.text
+                        "UID" -> profileData["UID"] = ele.text
+                        "Name" -> profileData["Name"] = ele.text
+                        "Section" -> profileData["Section"] = ele.text
+                        "Program" -> profileData["Program"] = ele.text
+                        "Contact" -> profileData["Contact"] = ele.text
                         else -> {}
                     }
                 } catch (e: Exception) {
@@ -248,44 +250,70 @@ actual class cuimsAPI {
             }
 
             wait!!.until {
-                val pfpBase64 = driver!!.findElement(By.id("ContentPlaceHolder1_imgStu")).getDomAttribute("src")
+                val pfpBase64 =
+                    driver!!.findElement(By.id("ContentPlaceHolder1_imgStu")).getDomAttribute("src")
                 if (pfpBase64 != null) {
-                    student!!.pfpBytes = Base64.getDecoder().decode(pfpBase64.removePrefix("data:image/png;base64,"))
+                    profileData["pfpImage"] =
+                        Base64.getDecoder().decode(pfpBase64.removePrefix("data:image/png;base64,"))
                 }
             }
+
+            return@withContext profileData
         }
     }
 
-    suspend fun loadResults() {
-        withContext(Dispatchers.IO) {
+    suspend fun loadResults(): Map<String, String> {
+        return withContext(Dispatchers.IO) {
             driver!!.get(BASEURL + endPoints["Marks"])
             val eleList = mapOf<String, By>(
                 "CGPA" to By.id("ContentPlaceHolder1_wucResult1_lblCGPA"),
             )
+            val resultData = mutableMapOf<String, String>()
+
             for (i in eleList) {
                 try {
                     val ele = wait!!.until {
                         driver!!.findElement(i.value)
                     }
                     when (i.key) {
-                        "CGPA" -> student!!.cGPA = ele.text
+                        "CGPA" -> resultData["CGPA"] = ele.text
                         else -> {}
                     }
                 } catch (e: Exception) {
                     println(e)
                 }
             }
+            return@withContext resultData
         }
     }
 
-    actual suspend fun loadStudentData(): Pair<successLog, studentInfo?> {
+    actual suspend fun loadStudentData(): Pair<successLog, UserModel?> {
         return withContext(Dispatchers.IO) {
-            loadProfile()
-            loadResults()
-            return@withContext if (student == null) Pair(
-                successLog(false, "Unable to load student data"),
-                null
-            ) else Pair(successLog(true), student)
+            try {
+                val profileData = loadProfile()
+                val resultData = loadResults()
+
+                val userData = UserModel(
+                    uid = profileData["UID"] as? String ?: return@withContext Pair(
+                        successLog(
+                            false,
+                            "UID not found"
+                        ), null
+                    ),
+                    name = profileData["Name"] as String,
+                    section = profileData["Section"] as? String,
+                    program = profileData["Program"] as? String,
+                    contact = profileData["Contact"] as? String,
+                    cGPA = resultData["CGPA"],
+                    email = "${profileData["UID"]}@cuchd.in",
+                    picture = profileData["pfpImage"] as ByteArray
+                )
+
+                return@withContext Pair(successLog(true), userData)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                return@withContext Pair(successLog(false, "Unable to load student data"), null)
+            }
         }
     }
 

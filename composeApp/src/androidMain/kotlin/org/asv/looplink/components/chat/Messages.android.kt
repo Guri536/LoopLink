@@ -14,6 +14,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import org.asv.looplink.data.repository.UserRespository
+import org.koin.compose.koinInject
 
 @Composable
 internal actual fun Messages(
@@ -43,7 +45,7 @@ internal actual fun Messages(
             items(messages, key = { it.id }) {
                 val space = lastChat?.user?.name == it.user.name
                 lastChat = it
-                ChatMessage(isMyMessage = it.user == myUser, it, space)
+                ChatMessage(isMyMessage = it.user == koinInject<UserRespository>().getUser(), it, space)
             }
             item { Box(Modifier.height(10.dp)) }
 

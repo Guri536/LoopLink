@@ -3,28 +3,27 @@ package org.asv.looplink.webDriver
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.view.View
-import android.view.ViewGroup
 import android.webkit.WebView
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import android.webkit.WebViewClient
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.viewinterop.AndroidView
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.withContext
-import org.asv.looplink.errors.errorsLL
-import kotlin.coroutines.resume
 import androidx.core.graphics.createBitmap
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.time.delay
+import kotlinx.coroutines.withContext
+import org.asv.looplink.data.model.UserModel
+import org.asv.looplink.errors.errorsLL
 import org.asv.looplink.secrets.APIKeys
 import org.jsoup.Jsoup
-import org.openqa.selenium.By
 import java.io.ByteArrayOutputStream
+import kotlin.coroutines.resume
 import kotlin.io.encoding.Base64
 
 
@@ -35,7 +34,6 @@ actual fun ByteArray.toImageBitmap(): ImageBitmap {
 actual class cuimsAPI(private val webView: WebView) {
     actual var uid: String? = null
     actual var pass: String? = null
-    actual var student: studentInfo? = null
     actual val BASEURL = "https://students.cuchd.in/"
     actual val endPoints = mapOf(
         "Attendance" to "frmStudentCourseWiseAttendanceSummary.aspx?type=etgkYfqBdH1fSfc255iYGw==",
@@ -87,7 +85,6 @@ actual class cuimsAPI(private val webView: WebView) {
         initDriver()
         this.uid = uid
         this.pass = pass
-        student = studentInfo(uid, pass)
 //        return withContext(Dispatchers.Main) {
         try {
             loadUrlAndWait(BASEURL)
@@ -175,11 +172,13 @@ actual class cuimsAPI(private val webView: WebView) {
             val successSelector = "header"
             val errorSelector = ".sweet-alert.showSweetAlert.visible"
 
-            val result = waitForEitherElement(successSelector, errorSelector,
+            val result = waitForEitherElement(
+                successSelector, errorSelector,
                 customCode = """
                     if(document.URL.include('StudentHome.aspx')) return "SUCCESS";
                     if(document.URL.include('LandingPage.aspx')) return "SUCCESS";                    
-                """.trimIndent())
+                """.trimIndent()
+            )
 
             return when (result) {
                 WaitResult.SUCCESS -> {
@@ -244,7 +243,7 @@ actual class cuimsAPI(private val webView: WebView) {
                     return JSON.stringify({ x: rect.left, y: rect.top, width: rect.width, height: rect.height });
                 })();
             """.trimIndent()
-
+            delay(500)
             val jsonResult = eval(js).trim('"').replace("\\\"", "\"")
             if (jsonResult == "null" || jsonResult.isEmpty()) return@withContext null
 
@@ -263,6 +262,7 @@ actual class cuimsAPI(private val webView: WebView) {
             }
 
             try {
+
                 val density = webView.context.resources.displayMetrics.density
                 val x = (bounds["x"]!! * density).toInt()
                 val y = (bounds["y"]!! * density).toInt()
@@ -343,13 +343,16 @@ actual class cuimsAPI(private val webView: WebView) {
         }
     }
 
-    suspend fun loadResults() {
+    suspend fun loadResults(): Map<String, String> {
         webView.loadUrl(BASEURL + endPoints["Marks"])
         pageLoadDeferred = CompletableDeferred()
         pageLoadDeferred?.await()
+
         val eleList = mapOf<String, String>(
             "CGPA" to ("ContentPlaceHolder1_wucResult1_lblCGPA"),
         )
+        val resultData = mutableMapOf<String, String>()
+
         for (i in eleList) {
             try {
                 var ele: String = ""
@@ -358,16 +361,18 @@ actual class cuimsAPI(private val webView: WebView) {
                     ele = eval("document.getElementById('${i.value}').innerText")
                 }
                 when (i.key) {
-                    "CGPA" -> student!!.cGPA = ele
+                    "CGPA" -> resultData["CGPA"] = ele
                     else -> {}
                 }
             } catch (e: Exception) {
                 println(e)
             }
         }
+
+        return resultData
     }
 
-    suspend fun loadProfile() {
+    suspend fun loadProfile(): Map<String, Any> {
         webView.loadUrl(BASEURL + endPoints["Profile"])
         pageLoadDeferred = CompletableDeferred()
         pageLoadDeferred?.await()
@@ -379,6 +384,8 @@ actual class cuimsAPI(private val webView: WebView) {
             "Program" to ("ContentPlaceHolder1_lblProgramCode"),
             "Contact" to ("ContentPlaceHolder1_gvStudentContacts_lblMobile_2"),
         )
+        val profileData = mutableMapOf<String, Any>()
+
         for (i in eleList) {
             try {
                 var ele: String = ""
@@ -388,11 +395,11 @@ actual class cuimsAPI(private val webView: WebView) {
                     ele = eval("document.getElementById('${i.value}')?.innerText || ''").trim('"')
                 }
                 when (i.key) {
-                    "UID" -> student!!.studentUID = ele
-                    "Name" -> student!!.fullName = ele
-                    "Section" -> student!!.currentSection = ele
-                    "Program" -> student!!.programCode = ele
-                    "Contact" -> student!!.studentContact = ele
+                    "UID" -> profileData["UID"] = ele
+                    "Name" -> profileData["Name"] = ele
+                    "Section" -> profileData["Section"] = ele
+                    "Program" -> profileData["Program"] = ele
+                    "Contact" -> profileData["Contact"] = ele
                     else -> {}
                 }
             } catch (e: Exception) {
@@ -401,20 +408,37 @@ actual class cuimsAPI(private val webView: WebView) {
         }
 
         val pfpImageEle = "ContentPlaceHolder1_imgStu"
-        withContext(Dispatchers.Main){
+        withContext(Dispatchers.Main) {
             val pfpBase64 = eval("document.getElementById('$pfpImageEle')?.src || ''").trim('"')
-            student!!.pfpBytes = Base64.decode(pfpBase64.removePrefix("data:image/png;base64,"))
+            profileData["pfpImage"] =
+                Base64.decode(pfpBase64.removePrefix("data:image/png;base64,"))
         }
+
+        return profileData
     }
 
-    actual suspend fun loadStudentData(): Pair<successLog, studentInfo?> {
+    actual suspend fun loadStudentData(): Pair<successLog, UserModel?> {
         return withContext(Dispatchers.Main) {
-            loadProfile()
-            loadResults()
-            return@withContext if (student == null) Pair(
-                successLog(false, "Unable to load student data"),
-                null
-            ) else Pair(successLog(true), student)
+            try {
+                val profileData = loadProfile()
+                val resultData = loadResults()
+
+                val userData = UserModel(
+                    uid = profileData["UID"] as String,
+                    name = profileData["Name"] as String,
+                    section = profileData["Section"] as? String,
+                    program = profileData["Program"] as? String,
+                    contact = profileData["Contact"] as? String,
+                    cGPA = resultData["CGPA"],
+                    email = "${profileData["UID"]}@cuchd.in",
+                    picture = profileData["pfpImage"] as ByteArray
+                )
+
+                Pair(successLog(true), userData)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                Pair(successLog(false, "Unable to load student data"), null)
+            }
         }
     }
 

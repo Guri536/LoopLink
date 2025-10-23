@@ -1,11 +1,9 @@
 package org.asv.looplink.viewmodel
 
-import cafe.adriel.voyager.navigator.Navigator
 import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
 import io.ktor.client.plugins.websocket.webSocketSession
 import io.ktor.http.HttpMethod
 import io.ktor.websocket.DefaultWebSocketSession
-import io.ktor.websocket.WebSocketSession
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -23,6 +21,7 @@ import org.asv.looplink.network.discovery.LANServiceDiscovery
 import org.asv.looplink.network.discovery.ServiceInfo
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import androidx.lifecycle.viewModelScope
 
 sealed class ConnectionStatus {
     object Idle : ConnectionStatus()
@@ -34,11 +33,8 @@ sealed class ConnectionStatus {
 class PeerDiscoveryViewModel(
     private val serviceDiscovery: LANServiceDiscovery,
     private val chatViewModel: ChatViewModel,
-    private val externalScope: CoroutineScope? = null,
-    private val localUserUid: String,
-    private val localUserName: String
 ) {
-    private val viewModelScope = externalScope ?: CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private val viewModelScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private val _discoveredServices = MutableStateFlow<List<ServiceInfo>>(emptyList())
     val discoveredServices = _discoveredServices.asStateFlow()
 
@@ -81,10 +77,14 @@ class PeerDiscoveryViewModel(
     fun clear() {
         println("PDVM: Clearing")
         stopDiscovery()
-        if (externalScope == null) viewModelScope.cancel()
+        viewModelScope.cancel()
     }
 
-    fun connectToService(service: ServiceInfo) {
+    fun connectToService(
+        service: ServiceInfo,
+        localUserName: String,
+        localUserUid: String
+    ) {
         val host = service.hostAddress
         val peerUid = service.attributes["uid"] ?: return
         val peerName = service.attributes["name"] ?: "Unknown"
@@ -101,7 +101,8 @@ class PeerDiscoveryViewModel(
             _connectionStatus.value = ConnectionStatus.Connecting
             try {
                 val encodedUID = URLEncoder.encode(localUserUid, StandardCharsets.UTF_8.toString())
-                val encodedName = URLEncoder.encode(localUserName, StandardCharsets.UTF_8.toString())
+                val encodedName =
+                    URLEncoder.encode(localUserName, StandardCharsets.UTF_8.toString())
 
                 val client = createKtorClient()
                 val session = client.webSocketSession(
@@ -125,7 +126,7 @@ class PeerDiscoveryViewModel(
         println("PDVM: Session added room $roomId to active sessions.")
     }
 
-    fun removeConnection(roomId: Int){
+    fun removeConnection(roomId: Int) {
         _activeSessions.update {
             it - roomId
         }

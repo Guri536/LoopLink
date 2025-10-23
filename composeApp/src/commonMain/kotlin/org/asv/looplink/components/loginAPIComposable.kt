@@ -44,20 +44,18 @@ import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.currentOrThrow
 import kotlinx.coroutines.launch
-import org.asv.looplink.DatabaseMng
-import org.asv.looplink.components.chat.myUser
+import org.asv.looplink.data.repository.UserRespository
 import org.asv.looplink.errors.errorsLL
-import org.asv.looplink.operations.insertUserDataFromProfile
 import org.asv.looplink.ui.MainScreen
 import org.asv.looplink.webDriver.cuimsAPI
 import org.koin.compose.koinInject
+import org.koin.java.KoinJavaComponent.get
 
-class LoginFields(val onLoginSuccess: () -> Unit): Screen {
+class LoginFields(val onLoginSuccess: () -> Unit) : Screen {
 
     @Composable
     override fun Content() {
         val cuimsAPI: cuimsAPI = koinInject()
-        val database: DatabaseMng = koinInject()
         val navigator = LocalAppNavigator.currentOrThrow
 
         var uidField by remember { mutableStateOf("23BSC10022") }
@@ -324,7 +322,6 @@ class LoginFields(val onLoginSuccess: () -> Unit): Screen {
                                     return@launch
                                 }
                                 try {
-
                                     val success = cuimsAPI.fillCaptcha(captchaField)
                                     if (!success.success) {
                                         isError = true
@@ -362,15 +359,17 @@ class LoginFields(val onLoginSuccess: () -> Unit): Screen {
 
                                     val data = cuimsAPI.loadStudentData()
                                     if (data.first.success) {
-                                        insertUserDataFromProfile(
-                                            database,
-                                            data.second!!,
-                                            myUser
-                                            )
+                                        get<UserRespository>(UserRespository::class.java).insertAndLoadUser(
+                                            data.second!!
+                                        )
                                         onLoginSuccess()
+                                        navigator.navigator.replaceAll(MainScreen())
+                                        cuimsAPI.destroySession()
+                                    } else {
+                                        isError = true
+                                        errorMessage = data.first.message
                                     }
-                                    navigator.navigator.replaceAll(MainScreen())
-                                    cuimsAPI.destroySession()
+
                                 } catch (e: Exception) {
                                     isError = true
                                     errorMessage = errorsLL.unknownError

@@ -11,3 +11,5 @@ import org.asv.looplink.viewmodel.ChatViewModel
 import org.asv.looplink.viewmodel.PeerDiscoveryViewModel
 import org.asv.looplink.webDriver.cuimsAPI
 val LocalAppNavigator = staticCompositionLocalOf<AppNavigator?> { null }
+
+val LocalPeerDiscoveryViewModel = staticCompositionLocalOf<PeerDiscoveryViewModel?> { null }

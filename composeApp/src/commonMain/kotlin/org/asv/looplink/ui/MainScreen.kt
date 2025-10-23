@@ -33,6 +33,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,6 +51,7 @@ import cafe.adriel.voyager.navigator.tab.TabOptions
 import org.asv.looplink.MainViewModel
 import org.asv.looplink.PlatformType
 import org.asv.looplink.components.LocalAppNavigator
+import org.asv.looplink.components.LocalPeerDiscoveryViewModel
 import org.asv.looplink.components.chat.ChatAppWithScaffold
 import org.asv.looplink.components.fabButtons.FabButtonItem
 import org.asv.looplink.components.fabButtons.FabButtonMain
@@ -57,10 +59,9 @@ import org.asv.looplink.components.fabButtons.FabButtonSub
 import org.asv.looplink.components.fabButtons.MultiFloatingActionButton
 import org.asv.looplink.getPlatformType
 import org.asv.looplink.viewmodel.ChatViewModel
+import org.asv.looplink.viewmodel.PeerDiscoveryViewModel
 import org.asv.looplink.viewmodel.RoomItem
 import org.koin.compose.koinInject
-
-data class TopTab(val id: String, val label: String)
 
 class MainScreen : Screen {
     @Composable
@@ -138,12 +139,12 @@ fun Sidebar(
     onIconClick: () -> Unit
 ) {
     val navigator = LocalAppNavigator.currentOrThrow
-    val peerDiscoveryViewModel = koinInject<MainViewModel>().peerDiscoveryViewModel.collectAsState()
+    val peerDiscoveryViewModel: PeerDiscoveryViewModel = koinInject()
 
     val navigateToAvailableServicesScreen = {
         navigator.push(
-            AvailableServicesScreen(peerDiscoveryViewModel.value!!),
-            AvailableServiesTab(peerDiscoveryViewModel.value!!)
+            AvailableServicesScreen(peerDiscoveryViewModel),
+            AvailableServiesTab(peerDiscoveryViewModel)
         )
     }
 
@@ -322,20 +323,17 @@ data class ChatTab(val room: RoomItem) : Tab {
 
     @Composable
     override fun Content() {
-        val mainViewModel: MainViewModel = koinInject()
-        val session = mainViewModel.peerDiscoveryViewModel.collectAsState()
-            .value!!.activeSessions.collectAsState().value[room.id]
+        val peerDiscoveryViewModel: PeerDiscoveryViewModel = koinInject()
+        val session = peerDiscoveryViewModel.activeSessions.collectAsState().value[room.id]
         ChatAppWithScaffold(true, room, session)
     }
 }
 
-
 class ChatTabScreen(val room: RoomItem) : Screen {
     @Composable
     override fun Content() {
-        val mainViewModel: MainViewModel = koinInject()
-        val session = mainViewModel.peerDiscoveryViewModel.collectAsState()
-            .value!!.activeSessions.collectAsState().value[room.id]
+        val peerDiscoveryViewModel: PeerDiscoveryViewModel = koinInject()
+        val session = peerDiscoveryViewModel.activeSessions.collectAsState().value[room.id]
         ChatAppWithScaffold(true, room, session)
     }
 }

@@ -37,7 +37,7 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import cafe.adriel.voyager.core.annotation.InternalVoyagerApi
 import cafe.adriel.voyager.navigator.currentOrThrow
 import io.ktor.websocket.DefaultWebSocketSession
 import io.ktor.websocket.Frame
@@ -51,14 +51,15 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import org.asv.looplink.components.LocalAppNavigator
+import org.asv.looplink.data.repository.UserRespository
 import org.asv.looplink.viewmodel.RoomItem
 import org.jetbrains.compose.resources.ExperimentalResourceApi
+import org.koin.compose.koinInject
 import ui.theme.AppTheme
 
-val myUser = User("Me", picture = null)
 val store = CoroutineScope(SupervisorJob()).createStore()
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, InternalVoyagerApi::class)
 @Composable
 fun ChatAppWithScaffold(
     displayTextField: Boolean = true,
@@ -70,21 +71,26 @@ fun ChatAppWithScaffold(
     val focusManager = LocalFocusManager.current
     val scope = rememberCoroutineScope()
 
-    DisposableEffect(session, Unit){
-        val incomingJob = session?.incoming?.consumeAsFlow()
-            ?.onEach { frame ->
-                if (frame is Frame.Text) {
-                    val receivedText = frame.readText()
-                    val message = Json.decodeFromString<Message>(receivedText)
-                    store.send(Action.SendMessage(roomId = room.id, message = message))
+    DisposableEffect(session) {
+        if (session == null) {
+            println("ChatApp: Null Session")
+            onDispose { }
+        } else {
+            println("ChatApp: Setting up session for ${session.javaClass.simpleName}")
+            val incomingJob = session.incoming.consumeAsFlow()
+                .onEach { frame ->
+                    if (frame is Frame.Text) {
+                        val receivedText = frame.readText()
+                        val message = Json.decodeFromString<Message>(receivedText)
+                        store.send(Action.SendMessage(roomId = room.id, message = message))
+                    }
                 }
-            }
-            ?.launchIn(scope)
-
-        onDispose {
-            incomingJob?.cancel()
-            scope.launch {
-                session?.close()
+                .launchIn(scope)
+            onDispose {
+                incomingJob.cancel()
+                scope.launch {
+                    session.close()
+                }
             }
         }
     }
@@ -115,9 +121,8 @@ fun ChatAppWithScaffold(
                     }
                 },
             topBar = {
-
                 TopAppBar(
-                    title = { Text(room.label) },
+                    title = { Text(room.label ) },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.background.copy(0.95f)
                     ),
@@ -155,6 +160,7 @@ fun ChatApp(
 ) {
     val state by store.stateFlow.collectAsState()
     val scope = rememberCoroutineScope()
+    val user = koinInject<UserRespository>().getUser()
 
     AppTheme {
         Surface(
@@ -180,7 +186,7 @@ fun ChatApp(
                                 modifier = Modifier
                                     .align(Alignment.BottomCenter)
                             ) { text ->
-                                val message = Message(myUser, text)
+                                val message = Message(user, text)
                                 store.send(
                                     Action.SendMessage(
                                         roomId = room.id,
@@ -189,9 +195,7 @@ fun ChatApp(
                                 )
                                 scope.launch {
                                     try {
-//                                        println("Attempting to send message on session: ${session?.javaClass?.simpleName}")
                                         session?.send(Frame.Text(Json.encodeToString(message)))
-//                                        println("Message sent successfully.")
                                     } catch (e: Exception) {
                                         println("Error sending message: ${e.message}")
                                         e.printStackTrace()

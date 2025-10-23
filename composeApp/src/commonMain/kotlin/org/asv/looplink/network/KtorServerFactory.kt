@@ -21,11 +21,12 @@ import kotlinx.serialization.json.Json
 import org.asv.looplink.components.chat.Action
 import org.asv.looplink.components.chat.Message
 import org.asv.looplink.components.chat.store
-import org.asv.looplink.components.userInfo
+import org.asv.looplink.data.repository.UserRespository
 import org.asv.looplink.viewmodel.ChatViewModel
 import org.asv.looplink.viewmodel.PeerDiscoveryViewModel
 import org.asv.looplink.viewmodel.RoomItem
 import java.util.Collections
+import org.koin.java.KoinJavaComponent.get
 
 internal expect fun createKtorServerFactory(): ApplicationEngineFactory<ApplicationEngine, *>
 
@@ -35,6 +36,9 @@ fun Application.configureLoopLinkServer(
 ) {
     val connections =
         Collections.synchronizedMap<Int, MutableSet<DefaultWebSocketSession>>(mutableMapOf())
+
+    val user = get<UserRespository>(UserRespository::class.java)
+    val userInfo = user.currentUser.value
 
     install(ContentNegotiation) {
         json(Json {
@@ -73,7 +77,7 @@ fun Application.configureLoopLinkServer(
                 val newRoom = RoomItem(
                     roomId,
                     label = peerName,
-                    members = listOf(userInfo.uid ?: "Unknown", peerUid)
+                    members = listOf(userInfo?.uid ?: "Unknown", peerUid)
                 )
                 chatViewModel.addRoom(newRoom)
             }
@@ -88,13 +92,13 @@ fun Application.configureLoopLinkServer(
 
             roomConnections.add(this)
             peerDiscoveryViewModel.addConnection(roomId, this)
+            println("KSF: This session: $this")
 
             try {
                 for (frame in incoming) {
                     if (frame is Frame.Text) {
                         val receivedText = frame.readText()
-                        println("Server received from client: $receivedText")
-
+                        println("Server received from client: ${receivedText.take(50)}")
                         try {
                             val message = Json.decodeFromString<Message>(receivedText)
                             store.send(Action.SendMessage(roomId, message))

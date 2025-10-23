@@ -19,6 +19,7 @@ actual fun platformModule(): Module = module {
             get(),
             get(),
             get(),
+            get(),
             get()
         )
     }

@@ -46,8 +46,10 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import org.asv.looplink.components.LocalAppNavigator
+import org.asv.looplink.data.repository.UserRespository
 import org.asv.looplink.network.discovery.ServiceInfo
 import org.asv.looplink.viewmodel.PeerDiscoveryViewModel
+import org.koin.compose.koinInject
 
 class AvailableServiesTab(
     private val viewModel: PeerDiscoveryViewModel,
@@ -83,6 +85,8 @@ fun AvailableServices(
     val navigator = LocalAppNavigator.currentOrThrow
     val discoveredServices by viewModel.discoveredServices.collectAsState()
     val isDiscovering by viewModel.isDiscovering.collectAsState()
+    val user: UserRespository = koinInject()
+    val userInfo = user.currentUser.collectAsState()
 
     LaunchedEffect(Unit) {
         viewModel.startDiscovery()
@@ -138,7 +142,9 @@ fun AvailableServices(
             } else {
                 items(discoveredServices) { service ->
                     ServiceListItem(service) {
-                        viewModel.connectToService(service)
+                        viewModel.connectToService(service,
+                            localUserName = userInfo.value!!.name,
+                            localUserUid = userInfo.value?.uid!!)
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     HorizontalDivider(

@@ -1,32 +1,20 @@
 package org.asv.looplink
 
-import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
 import looplink.composeapp.generated.resources.Res
 import looplink.composeapp.generated.resources.iconSVG
-import org.asv.looplink.components.loadUserInfo
-import org.asv.looplink.components.userInfo
 import org.asv.looplink.di.initKoin
-import org.asv.looplink.network.discovery.LANServiceDiscovery
 import org.asv.looplink.network.jvmKtorServerRunner
-import org.asv.looplink.viewmodel.ChatViewModel
-import org.asv.looplink.viewmodel.PeerDiscoveryViewModel
-import org.asv.looplink.webDriver.cuimsAPI
 import org.jetbrains.compose.resources.painterResource
-import org.koin.java.KoinJavaComponent.inject
+import org.koin.java.KoinJavaComponent.get
 
 
 fun main() = application {
@@ -37,8 +25,8 @@ fun main() = application {
     )
 
     val applicationScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    val viewModel: MainViewModel by inject(MainViewModel::class.java)
-
+    val viewModel: MainViewModel = get(MainViewModel::class.java)
+    println(viewModel)
     val onLoginSuccess = {
         viewModel.startP2PServices()
     }
@@ -48,9 +36,8 @@ fun main() = application {
             println("Window close requested. Cleaning up...")
             jvmKtorServerRunner.stop()
 
-            viewModel.peerDiscoveryViewModel.value?.clear()
-            viewModel.lanServiceDiscovery.close() // Close the client's LANServiceDiscovery
-            // Cancel the main application scope for the view model
+            viewModel.peerDiscoveryViewModel.clear()
+            viewModel.lanServiceDiscovery.close()
             applicationScope.cancel("Application closing")
 
             viewModel.cuimsAPI.destroySession()
@@ -71,7 +58,7 @@ fun main() = application {
         if (jvmKtorServerRunner.isRunning()) {
             jvmKtorServerRunner.stop()
         }
-        viewModel.peerDiscoveryViewModel.value?.clear()
+        viewModel.peerDiscoveryViewModel.clear()
         viewModel.lanServiceDiscovery.close()
         if (applicationScope.isActive) {
             applicationScope.cancel("JVM shutting down")
