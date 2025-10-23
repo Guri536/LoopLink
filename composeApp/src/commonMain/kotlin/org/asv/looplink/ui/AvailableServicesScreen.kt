@@ -54,7 +54,7 @@ class AvailableServiesTab(
 ) : Tab {
     @Composable
     override fun Content() {
-        AvailableServicesScreen(viewModel)
+        AvailableServices(viewModel)
     }
 
     override val options: TabOptions
@@ -68,90 +68,96 @@ class AvailableServiesTab(
 class AvailableServicesScreen(
     private val viewModel: PeerDiscoveryViewModel
 ) : Screen {
-
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     override fun Content() {
-        val navigator = LocalAppNavigator.currentOrThrow
-        val discoveredServices by viewModel.discoveredServices.collectAsState()
-        val isDiscovering by viewModel.isDiscovering.collectAsState()
+        AvailableServices(viewModel)
+    }
+}
 
-        LaunchedEffect(Unit) {
-            viewModel.startDiscovery()
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AvailableServices(
+    viewModel: PeerDiscoveryViewModel
+){
+    val navigator = LocalAppNavigator.currentOrThrow
+    val discoveredServices by viewModel.discoveredServices.collectAsState()
+    val isDiscovering by viewModel.isDiscovering.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.startDiscovery()
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            // Consider if you want to automatically stop discovery when leaving the screen
+            // viewModel.stopDiscovery()
         }
+    }
 
-        DisposableEffect(Unit) {
-            onDispose {
-                // Consider if you want to automatically stop discovery when leaving the screen
-                // viewModel.stopDiscovery()
-            }
-        }
-
-        Scaffold(topBar = {
-            TopAppBar(
-                title = { Text("Available Devices") }, navigationIcon = {
+    Scaffold(topBar = {
+        TopAppBar(
+            title = { Text("Available Devices") }, navigationIcon = {
                 IconButton(onClick = { navigator.pop() }) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                 }
             },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                )
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer
             )
-        }, floatingActionButton = {
-            FloatingActionButton(
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                onClick = {
-                    if (isDiscovering) {
-                        viewModel.stopDiscovery()
-                    } else {
-                        viewModel.startDiscovery()
+        )
+    }, floatingActionButton = {
+        FloatingActionButton(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            onClick = {
+                if (isDiscovering) {
+                    viewModel.stopDiscovery()
+                } else {
+                    viewModel.startDiscovery()
+                }
+            },
+        ) {
+            Text(
+                if (isDiscovering) "Stop Scan" else "Scan",
+                modifier = Modifier.width(155.dp),
+                textAlign = TextAlign.Center
+            )
+        }
+    }) { paddingValues ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(paddingValues).padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            if (isDiscovering && discoveredServices.isEmpty()) {
+                item {
+                    CircularProgressIndicator(modifier = Modifier.padding(16.dp))
+                    Text("Scanning for devices...")
+                }
+            } else if (!isDiscovering && discoveredServices.isEmpty()) {
+                item { Text("No devices found. Try scanning again.") }
+            } else {
+                items(discoveredServices) { service ->
+                    ServiceListItem(service) {
+                        viewModel.connectToService(service)
                     }
-                },
-            ) {
-                Text(
-                    if (isDiscovering) "Stop Scan" else "Scan",
-                    modifier = Modifier.width(155.dp),
-                    textAlign = TextAlign.Center
-                )
-            }
-        }) { paddingValues ->
-            LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(paddingValues).padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                if (isDiscovering && discoveredServices.isEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    HorizontalDivider(
+                        Modifier, DividerDefaults.Thickness, DividerDefaults.color
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                if (isDiscovering) {
                     item {
+                        Spacer(modifier = Modifier.height(24.dp))
                         CircularProgressIndicator(modifier = Modifier.padding(16.dp))
                         Text("Scanning for devices...")
-                    }
-                } else if (!isDiscovering && discoveredServices.isEmpty()) {
-                    item { Text("No devices found. Try scanning again.") }
-                } else {
-                    items(discoveredServices) { service ->
-                        ServiceListItem(service) {
-                            viewModel.connectToService(service)
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        HorizontalDivider(
-                            Modifier, DividerDefaults.Thickness, DividerDefaults.color
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-
-                    if (isDiscovering) {
-                        item {
-                            Spacer(modifier = Modifier.height(24.dp))
-                            CircularProgressIndicator(modifier = Modifier.padding(16.dp))
-                            Text("Scanning for devices...")
-                        }
                     }
                 }
             }
         }
     }
 }
-
 
 @Composable
 fun ServiceListItem(
