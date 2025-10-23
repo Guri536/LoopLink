@@ -20,8 +20,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.GroupAdd
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -37,6 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
@@ -46,20 +47,18 @@ import cafe.adriel.voyager.navigator.tab.CurrentTab
 import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
+import org.asv.looplink.MainViewModel
 import org.asv.looplink.PlatformType
-import org.asv.looplink.components.LocalChatViewModel
-import org.asv.looplink.components.LocalPeerDiscoveryViewModel
-import org.asv.looplink.components.LocalTabNavigator
-import org.asv.looplink.components.SettingsPage
+import org.asv.looplink.components.LocalAppNavigator
 import org.asv.looplink.components.chat.ChatAppWithScaffold
 import org.asv.looplink.components.fabButtons.FabButtonItem
 import org.asv.looplink.components.fabButtons.FabButtonMain
 import org.asv.looplink.components.fabButtons.FabButtonSub
 import org.asv.looplink.components.fabButtons.MultiFloatingActionButton
 import org.asv.looplink.getPlatformType
-import org.asv.looplink.operations.PushToNavigator
-import org.asv.looplink.operations.getMainNav
+import org.asv.looplink.viewmodel.ChatViewModel
 import org.asv.looplink.viewmodel.RoomItem
+import org.koin.compose.koinInject
 
 data class TopTab(val id: String, val label: String)
 
@@ -67,8 +66,9 @@ class MainScreen : Screen {
     @Composable
     override fun Content() {
         val isWideScreen = getPlatformType() == PlatformType.DESKTOP
+        val mainNavigator = LocalNavigator.currentOrThrow
 
-        val chatViewModel = LocalChatViewModel.currentOrThrow
+        val chatViewModel: ChatViewModel = koinInject()
         val rooms by chatViewModel.rooms.collectAsState()
         chatViewModel.addRoom(RoomItem(0, "Self"))
 
@@ -78,9 +78,9 @@ class MainScreen : Screen {
 
         if (isWideScreen) {
             TabNavigator(EmptyChatTab) { tabNavigator ->
-                CompositionLocalProvider(
-                    LocalTabNavigator provides tabNavigator
-                ) {
+                val appNavigator = remember { AppNavigator(mainNavigator, tabNavigator) }
+                CompositionLocalProvider(LocalAppNavigator provides appNavigator)
+                {
                     Row(modifier = Modifier.fillMaxSize()) {
                         InitiateSideBar(true, rooms, addRoom)
                         Column(
@@ -107,25 +107,12 @@ fun InitiateSideBar(
     rooms: List<RoomItem>,
     onIconClick: () -> Unit
 ) {
-    val tabNavigator = LocalTabNavigator.current
-    val navigator = getMainNav()
+    val navigator = LocalAppNavigator.currentOrThrow
 
-    val onRoomClick: (RoomItem) -> Unit = remember(navigator, tabNavigator, isWideScreen) {
-        { room: RoomItem ->
-            PushToNavigator(
-                isWideScreen,
-                ChatTabScreen(room),
-                ChatTab(room),
-                navigator,
-                tabNavigator
-            )
-        }
+    val onRoomClick: (RoomItem) -> Unit = { room ->
+        navigator.navigateToChat(room)
     }
-    val onSettingsClick: () -> Unit = remember(navigator) {
-        {
-            navigator?.push(SettingsPage())
-        }
-    }
+    val onSettingsClick = { navigator.navigateToSettings() }
     val onProfileClick: () -> Unit = {}
     val sidebarModifier = Modifier.fillMaxWidth(if (isWideScreen) 0.15f else 1f).fillMaxHeight()
 
@@ -150,6 +137,16 @@ fun Sidebar(
     onSettingsClick: () -> Unit,
     onIconClick: () -> Unit
 ) {
+    val navigator = LocalAppNavigator.currentOrThrow
+    val peerDiscoveryViewModel = koinInject<MainViewModel>().peerDiscoveryViewModel.collectAsState()
+
+    val navigateToAvailableServicesScreen = {
+        navigator.push(
+            AvailableServicesScreen(peerDiscoveryViewModel.value!!),
+            AvailableServiesTab(peerDiscoveryViewModel.value!!)
+        )
+    }
+
     Column(
         modifier = modifier
             .background(MaterialTheme.colorScheme.background)
@@ -163,11 +160,12 @@ fun Sidebar(
                         FabButtonItem(
                             Icons.Filled.Add,
                             "Add Chat",
-                            onClick = onIconClick
+                            onClick = navigateToAvailableServicesScreen
                         ),
                         FabButtonItem(
                             Icons.Filled.GroupAdd,
-                            "Add Group"
+                            "Add Group",
+                            onIconClick
                         )
                     ),
                     fabIcon = FabButtonMain(),
@@ -276,8 +274,8 @@ fun EmptyChatPlaceholder() {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Icon(
-            imageVector = Icons.Default.Chat,
-            contentDescription = "Chat icon",
+            imageVector = Icons.AutoMirrored.Default.Chat,
+            contentDescription = "Chat iconSVG",
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(64.dp)
         )
@@ -296,10 +294,15 @@ object EmptyChatTab : Tab {
     private fun readResolve(): Any = EmptyChatTab
     override val options: TabOptions
         @Composable
-        get() = remember {
-            TabOptions(
-                index = 0u, title = "Empty Chat"
-            )
+        get() {
+            val icon = rememberVectorPainter(Icons.AutoMirrored.Default.Chat)
+            return remember {
+                TabOptions(
+                    1u,
+                    "Empty Chat",
+                    icon
+                )
+            }
         }
 
     @Composable
@@ -319,8 +322,9 @@ data class ChatTab(val room: RoomItem) : Tab {
 
     @Composable
     override fun Content() {
-        val peerDiscoveryViewModel = LocalPeerDiscoveryViewModel.currentOrThrow
-        val session = peerDiscoveryViewModel.activeSessions.collectAsState().value[room.id]
+        val mainViewModel: MainViewModel = koinInject()
+        val session = mainViewModel.peerDiscoveryViewModel.collectAsState()
+            .value!!.activeSessions.collectAsState().value[room.id]
         ChatAppWithScaffold(true, room, session)
     }
 }
@@ -329,8 +333,9 @@ data class ChatTab(val room: RoomItem) : Tab {
 class ChatTabScreen(val room: RoomItem) : Screen {
     @Composable
     override fun Content() {
-        val peerDiscoveryViewModel = LocalPeerDiscoveryViewModel.currentOrThrow
-        val session = peerDiscoveryViewModel.activeSessions.collectAsState().value[room.id]
+        val mainViewModel: MainViewModel = koinInject()
+        val session = mainViewModel.peerDiscoveryViewModel.collectAsState()
+            .value!!.activeSessions.collectAsState().value[room.id]
         ChatAppWithScaffold(true, room, session)
     }
 }

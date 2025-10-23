@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -34,16 +35,35 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
-import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import cafe.adriel.voyager.navigator.tab.Tab
+import cafe.adriel.voyager.navigator.tab.TabOptions
+import org.asv.looplink.components.LocalAppNavigator
 import org.asv.looplink.network.discovery.ServiceInfo
 import org.asv.looplink.viewmodel.PeerDiscoveryViewModel
 
+class AvailableServiesTab(
+    private val viewModel: PeerDiscoveryViewModel,
+) : Tab {
+    @Composable
+    override fun Content() {
+        AvailableServicesScreen(viewModel)
+    }
+
+    override val options: TabOptions
+        @Composable
+        get() {
+            val icon = rememberVectorPainter(Icons.Default.Sensors)
+            return remember { TabOptions(1u, "Available Services", icon) }
+        }
+}
 
 class AvailableServicesScreen(
     private val viewModel: PeerDiscoveryViewModel
@@ -52,7 +72,7 @@ class AvailableServicesScreen(
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     override fun Content() {
-        val navigator = LocalNavigator.currentOrThrow
+        val navigator = LocalAppNavigator.currentOrThrow
         val discoveredServices by viewModel.discoveredServices.collectAsState()
         val isDiscovering by viewModel.isDiscovering.collectAsState()
 
@@ -68,14 +88,16 @@ class AvailableServicesScreen(
         }
 
         Scaffold(topBar = {
-            TopAppBar(title = { Text("Available Devices") }, navigationIcon = {
+            TopAppBar(
+                title = { Text("Available Devices") }, navigationIcon = {
                 IconButton(onClick = { navigator.pop() }) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                 }
             },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer
-                ))
+                )
+            )
         }, floatingActionButton = {
             FloatingActionButton(
                 containerColor = MaterialTheme.colorScheme.primaryContainer,

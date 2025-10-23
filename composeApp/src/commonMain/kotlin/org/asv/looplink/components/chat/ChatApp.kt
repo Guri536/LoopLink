@@ -38,6 +38,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import cafe.adriel.voyager.navigator.currentOrThrow
 import io.ktor.websocket.DefaultWebSocketSession
 import io.ktor.websocket.Frame
 import io.ktor.websocket.close
@@ -49,9 +50,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
-import org.asv.looplink.components.LocalTabNavigator
-import org.asv.looplink.operations.getMainNav
-import org.asv.looplink.ui.EmptyChatTab
+import org.asv.looplink.components.LocalAppNavigator
 import org.asv.looplink.viewmodel.RoomItem
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 import ui.theme.AppTheme
@@ -66,8 +65,7 @@ fun ChatAppWithScaffold(
     room: RoomItem,
     session: DefaultWebSocketSession? = null
 ) {
-    val tabNavigator = LocalTabNavigator.current
-    val navigator = getMainNav()
+    val navigator = LocalAppNavigator.currentOrThrow
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     val scope = rememberCoroutineScope()
@@ -99,7 +97,7 @@ fun ChatAppWithScaffold(
                 .onKeyEvent {
                     if (it.key == Key.Escape && it.type == KeyEventType.KeyUp) {
                         if (focusRequester.freeFocus()) {
-                            tabNavigator?.current = EmptyChatTab
+                            navigator.pop()
                             true
                         } else {
                             focusManager.clearFocus()
@@ -125,8 +123,7 @@ fun ChatAppWithScaffold(
                     ),
                     navigationIcon = {
                         IconButton(onClick = {
-                            if(tabNavigator == null) navigator?.pop()
-                            tabNavigator?.current = EmptyChatTab
+                            navigator.pop()
                         }) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                         }

@@ -42,18 +42,6 @@ actual class LANServiceDiscovery actual constructor(){
         }
     }
 
-//    init {
-//        coroutineScope.launch {
-//            try {
-//                jmDnsInstance = JmDNS.create(null, null) // Bind to all addresses, assign a default name
-//                println("JmDNS initialized")
-//            } catch (e: Exception){
-//                println("Error initializing JmDNS: ${e.message}")
-//                e.printStackTrace() // For more detailed error
-//            }
-//        }
-//    }
-
     private fun adaptServiceTypeForJmDNS(serviceType: String): String {
         val type = serviceType.removeSuffix(".")
         return if (type.endsWith("._tcp") || type.endsWith("._udp")) {
@@ -245,7 +233,7 @@ actual class LANServiceDiscovery actual constructor(){
         }
     }
 
-    fun close() {
+    actual fun close() {
         println("JmDNS: Closing LANServiceDiscovery. Unregistering services and stopping all discoveries.")
         coroutineScope.launch {
             unregisterService() // Call the suspend version

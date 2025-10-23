@@ -16,9 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -26,7 +24,6 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,29 +42,23 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.screen.Screen
-import cafe.adriel.voyager.navigator.LocalNavigator
-import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import org.asv.looplink.DatabaseMng
 import org.asv.looplink.components.chat.myUser
 import org.asv.looplink.errors.errorsLL
 import org.asv.looplink.operations.insertUserDataFromProfile
 import org.asv.looplink.ui.MainScreen
 import org.asv.looplink.webDriver.cuimsAPI
-import org.asv.looplink.webDriver.getWebViewer
-import org.asv.looplink.webDriver.studentInfo
-import org.asv.looplink.webDriver.successLog
-import kotlin.math.log
-import kotlin.reflect.full.memberProperties
+import org.koin.compose.koinInject
 
 class LoginFields(val onLoginSuccess: () -> Unit): Screen {
 
     @Composable
     override fun Content() {
-        val cuimsAPI = LocalCuimsApi.current
-        val database = LocalDatabase.current
-        val navigator = LocalNavigator.currentOrThrow
+        val cuimsAPI: cuimsAPI = koinInject()
+        val database: DatabaseMng = koinInject()
+        val navigator = LocalAppNavigator.currentOrThrow
 
         var uidField by remember { mutableStateOf("23BSC10022") }
         var passField by remember { mutableStateOf("19May2005!") }
@@ -378,7 +369,7 @@ class LoginFields(val onLoginSuccess: () -> Unit): Screen {
                                             )
                                         onLoginSuccess()
                                     }
-                                    navigator.replaceAll(MainScreen())
+                                    navigator.navigator.replaceAll(MainScreen())
                                     cuimsAPI.destroySession()
                                 } catch (e: Exception) {
                                     isError = true

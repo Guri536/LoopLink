@@ -1,12 +1,12 @@
 package org.asv.looplink.components.chat
 
-import kotlinx.datetime.Clock
-import kotlinx.datetime.Instant
-import kotlinx.datetime.LocalDate
+import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlin.time.ExperimentalTime
 
 
+@OptIn(ExperimentalTime::class)
 fun timeToString(seconds: Long): String {
     val instant: Instant = Instant.fromEpochSeconds(seconds)
     val localTime = instant.toLocalDateTime(TimeZone.currentSystemDefault())

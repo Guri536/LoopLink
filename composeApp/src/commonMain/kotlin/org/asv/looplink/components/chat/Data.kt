@@ -1,11 +1,12 @@
 package org.asv.looplink.components.chat
 
 import androidx.compose.ui.graphics.Color
-import kotlinx.datetime.Clock
+import kotlin.time.Clock
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 import kotlin.random.Random
 import kotlin.random.nextInt
+import kotlin.time.ExperimentalTime
 
 @Serializable
 data class User(
@@ -42,6 +43,7 @@ data class Message(
     val seconds: Long,
     val id: Long
 ) {
+    @OptIn(ExperimentalTime::class)
     constructor(
         user: User,
         text: String

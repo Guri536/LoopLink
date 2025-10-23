@@ -3,9 +3,9 @@ package org.asv.looplink.components.fabButtons
 import androidx.compose.ui.graphics.vector.ImageVector
 
 /**
- * Represents an item for a Floating Action Button (FAB) with an icon and label.
+ * Represents an item for a Floating Action Button (FAB) with an iconSVG and label.
  *
- * @param iconRes The [ImageVector] representing the icon to be displayed on the FAB item.
+ * @param iconRes The [ImageVector] representing the iconSVG to be displayed on the FAB item.
  * @param label The label or text associated with the FAB item.
  *
  * @constructor Creates a new instance of [FabButtonItem].

@@ -31,17 +31,21 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
-import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.sun.tools.javac.Main
 import org.asv.looplink.DatabaseMng
+import org.asv.looplink.MainViewModel
 import org.asv.looplink.operations.logout
 import org.asv.looplink.ui.AvailableServicesScreen
+import org.asv.looplink.viewmodel.PeerDiscoveryViewModel
+import org.koin.compose.koinInject
 
 
 data object userInfo {
@@ -91,7 +95,7 @@ fun UserProfileCard(
 
 @Composable
 fun TallScreenLayout() {
-    val database = LocalDatabase.current
+    val database: DatabaseMng = koinInject()
 
     Column(
         modifier = Modifier.padding(16.dp).fillMaxWidth(),
@@ -124,7 +128,7 @@ fun TallScreenLayout() {
 
 @Composable
 fun WideScreenLayout() {
-    val database = LocalDatabase.current
+    val database: DatabaseMng = koinInject()
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -161,8 +165,8 @@ class SettingsPage() : Screen {
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     override fun Content() {
-        val database = LocalDatabase.current
-        val navigator = LocalNavigator.currentOrThrow
+        val database: DatabaseMng = koinInject()
+        val navigator = LocalAppNavigator.currentOrThrow
         loadUserInfo(database)
 
         Scaffold(topBar = {
@@ -206,17 +210,17 @@ fun SideButtons() {
 
 @Composable
 fun LogoutButton(modifier: Modifier = Modifier) {
-    val database = LocalDatabase.current
-    val navigator = LocalNavigator.currentOrThrow
-    val mainViewModel = LocalMainViewModel.current
+    val database: DatabaseMng = koinInject()
+    val navigator = LocalAppNavigator.currentOrThrow
+    val mainViewModel: MainViewModel = koinInject()
 
     Button(
         onClick = {
-            mainViewModel?.stopP2PServices()
+            mainViewModel.stopP2PServices()
             logout(database)
-            navigator.replaceAll(
+            navigator.navigator.replaceAll(
                 LoginFields(onLoginSuccess = {
-                    mainViewModel?.startP2PServices()
+                    mainViewModel.startP2PServices()
                 }
                 )
             )
@@ -235,13 +239,14 @@ fun LogoutButton(modifier: Modifier = Modifier) {
 
 @Composable
 fun FindDevicesButton(modifier: Modifier = Modifier) {
-    val peerDiscoveryViewModel = LocalPeerDiscoveryViewModel.current
-    val navigator = LocalNavigator.currentOrThrow
+    val mainViewModel: MainViewModel = koinInject()
+    val peerDiscoveryViewModel = mainViewModel.peerDiscoveryViewModel.collectAsState()
+    val navigator = LocalAppNavigator.currentOrThrow
 
-    if (peerDiscoveryViewModel != null) {
+    if (peerDiscoveryViewModel.value != null) {
         Button(
             onClick = {
-                navigator.push(AvailableServicesScreen(peerDiscoveryViewModel))
+                navigator.pushScreen(AvailableServicesScreen(peerDiscoveryViewModel.value!!))
             },
             modifier = modifier.padding(vertical = 2.dp).fillMaxWidth()
         ) {

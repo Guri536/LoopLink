@@ -1,10 +1,7 @@
-import com.android.build.gradle.internal.cxx.configure.gradleLocalProperties
 import org.gradle.kotlin.dsl.implementation
-import org.gradle.launcher.daemon.configuration.DaemonBuildOptions
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig
 import java.util.Properties
 
 
@@ -19,6 +16,17 @@ plugins {
 }
 
 kotlin {
+
+    targets.all {
+        compilations.all {
+            compileTaskProvider.configure {
+                compilerOptions{
+                    freeCompilerArgs.add("-Xexpect-actual-classes")
+                }
+            }
+        }
+    }
+
     androidTarget {
         @OptIn(ExperimentalKotlinGradlePluginApi::class)
         compilerOptions {
@@ -27,13 +35,15 @@ kotlin {
     }
 
     jvm()
+
     sourceSets {
         androidMain.dependencies {
             implementation(compose.preview)
             implementation(libs.androidx.activity.compose   )
             implementation(libs.sqldelight.android)
             implementation(libs.androidx.compose.ui.text.android)
-
+            implementation(libs.koin.android)
+            implementation(libs.koin.androidx.compose)
 
             // Ktor
             implementation(libs.ktor.client.android)
@@ -58,6 +68,7 @@ kotlin {
             implementation(libs.runtime) // SQLDelight runtime
             implementation(libs.kotlinx.datetime)
             implementation(libs.koin.core) // Koin for DI
+            implementation(libs.koin.compose)
             implementation(libs.sqldelight.coroutines)
             implementation(compose.material)
             implementation(compose.materialIconsExtended)
@@ -91,12 +102,15 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+            implementation(libs.koin.test)
+            implementation(libs.koin.test.junit4)
         }
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutinesSwing)
             implementation(libs.sqldelight.jvm)
             implementation(libs.jmdns)
+            implementation(libs.slf4j.simple)
 
             // Ktor
             implementation(libs.ktor.server.core)

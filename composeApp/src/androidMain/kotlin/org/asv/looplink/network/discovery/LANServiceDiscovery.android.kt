@@ -125,19 +125,6 @@ actual class LANServiceDiscovery actual constructor() {
             discoveryListener
         )
         return services.asStateFlow()
-
-//            trySend(
-//                services.asStateFlow()
-//            )
-//            awaitClose {
-//                println("NSD: Closing discovery for $serviceType")
-//                stopPreviousDiscovery(serviceType)
-//            }
-//        }.stateIn(
-//            CoroutineScope(Dispatchers.IO),
-//            SharingStarted.WhileSubscribed(5000),
-//            emptyList()
-//        )
     }
 
     private fun stopPreviousDiscovery() {
@@ -253,7 +240,7 @@ actual class LANServiceDiscovery actual constructor() {
         }
     }
 
-    fun close() {
+    actual fun close() {
         stopDiscovery()
         coroutineScope.cancel()
         println("NSD: Closed")

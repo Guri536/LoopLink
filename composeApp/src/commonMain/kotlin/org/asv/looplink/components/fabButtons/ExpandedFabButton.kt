@@ -36,7 +36,7 @@ import androidx.compose.ui.unit.dp
  * @param modifier The optional [Modifier] for customizing the layout of the Multi-FAB.
  * @param items The list of [FabButtonItem] representing the sub-items to be displayed when the Multi-FAB is expanded.
  * @param fabState The [MutableState] representing the current state of the Multi-FAB, whether it is expanded or collapsed.
- * @param fabIcon The [FabButtonMain] representing the main FAB with an icon and optional rotation.
+ * @param fabIcon The [FabButtonMain] representing the main FAB with an iconSVG and optional rotation.
  * @param fabOption The [FabButtonSub] representing the customization options for the sub-items.
  * @param onFabItemClicked The callback function to handle click events on the sub-items.
  * @param stateChanged The optional callback function to notify when the state of the Multi-FAB changes (expanded or collapsed).
@@ -50,7 +50,7 @@ fun MultiFloatingActionButton(
     fabOption: FabButtonSub = FabButtonSub(),
     stateChanged: (fabState: FabButtonState) -> Unit = {}
 ) {
-    // Animation for rotating the main FAB icon based on its state (expanded or collapsed)
+    // Animation for rotating the main FAB iconSVG based on its state (expanded or collapsed)
     val rotation by animateFloatAsState(
         if (fabState.value == FabButtonState.Expand) {
             fabIcon.iconRotate ?: 0f
@@ -109,7 +109,7 @@ fun MultiFloatingActionButton(
 /**
  * Composable function to display an individual sub-item of the Multi-Floating Action Button (Multi-FAB).
  *
- * @param item The [FabButtonItem] representing the sub-item with an icon and label.
+ * @param item The [FabButtonItem] representing the sub-item with an iconSVG and label.
  * @param fabOption The [FabButtonSub] representing the customization options for the sub-items.
  * @param onFabItemClicked The callback function to handle click events on the sub-items.
  */
