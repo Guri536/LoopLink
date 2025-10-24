@@ -16,11 +16,10 @@ import io.ktor.websocket.DefaultWebSocketSession
 import io.ktor.websocket.Frame
 import io.ktor.websocket.close
 import io.ktor.websocket.readText
-import kotlinx.coroutines.flow.update
 import kotlinx.serialization.json.Json
 import org.asv.looplink.components.chat.Action
 import org.asv.looplink.components.chat.Message
-import org.asv.looplink.components.chat.store
+import org.asv.looplink.data.repository.ChatRepository
 import org.asv.looplink.data.repository.UserRespository
 import org.asv.looplink.viewmodel.ChatViewModel
 import org.asv.looplink.viewmodel.PeerDiscoveryViewModel
@@ -32,11 +31,9 @@ internal expect fun createKtorServerFactory(): ApplicationEngineFactory<Applicat
 
 fun Application.configureLoopLinkServer(
     chatViewModel: ChatViewModel,
-    peerDiscoveryViewModel: PeerDiscoveryViewModel
+    chatRepository: ChatRepository,
+    connectionManager: ConnectionManager
 ) {
-    val connections =
-        Collections.synchronizedMap<Int, MutableSet<DefaultWebSocketSession>>(mutableMapOf())
-
     val user = get<UserRespository>(UserRespository::class.java)
     val userInfo = user.currentUser.value
 
@@ -84,14 +81,8 @@ fun Application.configureLoopLinkServer(
 
             println("Server: New websocket connection for /looplink/sync/$roomId")
 
-            val roomConnections = connections.computeIfAbsent(roomId) {
-                Collections.synchronizedSet<DefaultWebSocketSession>(
-                    LinkedHashSet()
-                )
-            }
-
-            roomConnections.add(this)
-            peerDiscoveryViewModel.addConnection(roomId, this)
+            connectionManager.addConnection(roomId, this)
+            chatRepository.addSession(roomId, this)
             println("KSF: This session: $this")
 
             try {
@@ -101,14 +92,9 @@ fun Application.configureLoopLinkServer(
                         println("Server received from client: ${receivedText.take(50)}")
                         try {
                             val message = Json.decodeFromString<Message>(receivedText)
-                            store.send(Action.SendMessage(roomId, message))
+                            chatRepository.store.send(Action.SendMessage(roomId, message))
 
-                            // Broadcast the message to other clients in the same room
-                            roomConnections.forEach {
-                                if (it != this) { // Don't send back to the sender
-                                    it.send(Frame.Text(receivedText))
-                                }
-                            }
+                            connectionManager.broadcast(roomId, receivedText, this)
                         } catch (e: Exception) {
                             println("Error parsing message: ${e.message}")
                         }
@@ -118,8 +104,8 @@ fun Application.configureLoopLinkServer(
                 println("Error in websocket: ${e.message}")
             } finally {
                 println("Server: Websocket connection closed for /looplink/sync")
-                roomConnections.remove(this)
-                peerDiscoveryViewModel.removeConnection(roomId)
+                connectionManager.removeConnection(roomId, this)
+                chatRepository.removeSession(roomId)
             }
         }
     }

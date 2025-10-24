@@ -20,6 +20,18 @@ class ChatViewModel: ViewModel() {
         }
     }
 
+    fun updateRoomConnection(roomId: Int, connectionStatus: ConnectionStatus){
+        roomsFlow.update { curRoom ->
+            curRoom.map{ room ->
+                if(room.id == roomId){
+                    room.copy(status = connectionStatus)
+                } else {
+                    room
+                }
+            }
+        }
+    }
+
     fun roomExists(roomId: Int): Boolean {
         return roomsFlow.value.find { it.id == roomId } != null
     }

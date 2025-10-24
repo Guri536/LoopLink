@@ -9,6 +9,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import org.asv.looplink.data.repository.ChatRepository
 import org.asv.looplink.viewmodel.ChatViewModel
 import org.asv.looplink.viewmodel.P2PState
 import org.asv.looplink.viewmodel.PeerDiscoveryViewModel
@@ -18,8 +19,9 @@ class P2PService: Service() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val server: AndroidKtorServer by inject()
     private val chatViewModel: ChatViewModel by inject()
-    private val peerDiscoveryViewModel: PeerDiscoveryViewModel by inject()
+    private val chatRepository: ChatRepository by inject()
 
+    private val connectionManager: ConnectionManager by inject()
     companion object {
         const val ACTION_START = "ACTION_START"
         const val ACTION_STOP = "ACTION_STOP"
@@ -49,7 +51,7 @@ class P2PService: Service() {
     private fun startServer(uid: String, name: String){
         if(server.isRunning()) return
         serviceScope.launch {
-            server.start(0, uid, name, chatViewModel, peerDiscoveryViewModel)
+            server.start(0, uid, name, chatViewModel, chatRepository, connectionManager)
         }
     }
 

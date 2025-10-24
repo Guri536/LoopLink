@@ -41,23 +41,15 @@ import cafe.adriel.voyager.core.annotation.InternalVoyagerApi
 import cafe.adriel.voyager.navigator.currentOrThrow
 import io.ktor.websocket.DefaultWebSocketSession
 import io.ktor.websocket.Frame
-import io.ktor.websocket.close
-import io.ktor.websocket.readText
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.consumeAsFlow
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import org.asv.looplink.components.LocalAppNavigator
+import org.asv.looplink.data.repository.ChatRepository
 import org.asv.looplink.data.repository.UserRespository
 import org.asv.looplink.viewmodel.RoomItem
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 import org.koin.compose.koinInject
 import ui.theme.AppTheme
-
-val store = CoroutineScope(SupervisorJob()).createStore()
 
 @OptIn(ExperimentalMaterial3Api::class, InternalVoyagerApi::class)
 @Composable
@@ -69,31 +61,6 @@ fun ChatAppWithScaffold(
     val navigator = LocalAppNavigator.currentOrThrow
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
-    val scope = rememberCoroutineScope()
-
-    DisposableEffect(session) {
-        if (session == null) {
-            println("ChatApp: Null Session")
-            onDispose { }
-        } else {
-            println("ChatApp: Setting up session for ${session.javaClass.simpleName}")
-            val incomingJob = session.incoming.consumeAsFlow()
-                .onEach { frame ->
-                    if (frame is Frame.Text) {
-                        val receivedText = frame.readText()
-                        val message = Json.decodeFromString<Message>(receivedText)
-                        store.send(Action.SendMessage(roomId = room.id, message = message))
-                    }
-                }
-                .launchIn(scope)
-            onDispose {
-                incomingJob.cancel()
-                scope.launch {
-                    session.close()
-                }
-            }
-        }
-    }
 
     AppTheme {
         Scaffold(
@@ -158,7 +125,8 @@ fun ChatApp(
     room: RoomItem,
     session: DefaultWebSocketSession? = null
 ) {
-    val state by store.stateFlow.collectAsState()
+    val chatRepository: ChatRepository = koinInject()
+    val state by chatRepository.store.stateFlow.collectAsState()
     val scope = rememberCoroutineScope()
     val user = koinInject<UserRespository>().getUser()
 
@@ -187,7 +155,7 @@ fun ChatApp(
                                     .align(Alignment.BottomCenter)
                             ) { text ->
                                 val message = Message(user, text)
-                                store.send(
+                                chatRepository.store.send(
                                     Action.SendMessage(
                                         roomId = room.id,
                                         message = message

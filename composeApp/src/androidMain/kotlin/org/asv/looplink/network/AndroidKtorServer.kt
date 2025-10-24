@@ -13,6 +13,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import org.asv.looplink.data.repository.ChatRepository
 import org.asv.looplink.network.discovery.LANServiceDiscovery
 import org.asv.looplink.viewmodel.ChatViewModel
 import org.asv.looplink.viewmodel.PeerDiscoveryViewModel
@@ -42,7 +43,8 @@ class AndroidKtorServer(private val context: Context) {
         userUid: String,
         userName: String,
         chatViewModel: ChatViewModel,
-        peerDiscoveryViewModel: PeerDiscoveryViewModel?
+        chatRepository: ChatRepository,
+        connectionManager: ConnectionManager
     ) {
         if (isRunning) {
             println("Android Ktor Server is already running on port $currentPort")
@@ -60,7 +62,7 @@ class AndroidKtorServer(private val context: Context) {
                     factory = engineFactory,
                     port = port,
                     host = "0.0.0.0",
-                    module = { configureLoopLinkServer(chatViewModel, peerDiscoveryViewModel!!) }
+                    module = { configureLoopLinkServer(chatViewModel, chatRepository,connectionManager) }
                 ).start(wait = false)
 
 

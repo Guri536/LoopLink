@@ -22,17 +22,14 @@ import org.asv.looplink.network.discovery.ServiceInfo
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import androidx.lifecycle.viewModelScope
-
-sealed class ConnectionStatus {
-    object Idle : ConnectionStatus()
-    object Connecting : ConnectionStatus()
-    data class Connected(val session: DefaultClientWebSocketSession) : ConnectionStatus()
-    data class Error(val message: String) : ConnectionStatus()
-}
+import org.asv.looplink.data.repository.ChatRepository
+import org.asv.looplink.network.ConnectionManager
 
 class PeerDiscoveryViewModel(
     private val serviceDiscovery: LANServiceDiscovery,
     private val chatViewModel: ChatViewModel,
+    private val chatRepository: ChatRepository,
+    private val connectionManager: ConnectionManager
 ) {
     private val viewModelScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private val _discoveredServices = MutableStateFlow<List<ServiceInfo>>(emptyList())
@@ -40,12 +37,6 @@ class PeerDiscoveryViewModel(
 
     private val _isDiscovering = MutableStateFlow(false)
     val isDiscovering: StateFlow<Boolean> = _isDiscovering.asStateFlow()
-
-    private val _connectionStatus = MutableStateFlow<ConnectionStatus>(ConnectionStatus.Idle)
-    val connectionStatus = _connectionStatus.asStateFlow()
-
-    val _activeSessions = MutableStateFlow<Map<Int, DefaultWebSocketSession>>(emptyMap())
-    val activeSessions = _activeSessions.asStateFlow()
 
     private val JMDNS_SERVICE_TYPE = "_looplink._tcp.local." // Keep for reference if needed
     private val NSD_SERVICE_TYPE = "_looplink._tcp." // Platform-agnostic type
@@ -98,7 +89,7 @@ class PeerDiscoveryViewModel(
         chatViewModel.addRoom(newRoom)
 
         viewModelScope.launch {
-            _connectionStatus.value = ConnectionStatus.Connecting
+            chatViewModel.updateRoomConnection(roomId, ConnectionStatus.Connecting)
             try {
                 val encodedUID = URLEncoder.encode(localUserUid, StandardCharsets.UTF_8.toString())
                 val encodedName =
@@ -111,25 +102,14 @@ class PeerDiscoveryViewModel(
                     port = service.port,
                     path = "/looplink/sync/$roomId?peerUid=$encodedUID&peerName=$encodedName"
                 )
-                _connectionStatus.value = ConnectionStatus.Connected(session)
-                _activeSessions.update { it + (roomId to session) }
+                chatViewModel.updateRoomConnection(roomId, ConnectionStatus.Connected)
+                connectionManager.addConnection(roomId, session)
+                chatRepository.addAndListenToSession(roomId, session)
                 println("PDVM: WebSocket connection established and session stored for room $roomId.")
             } catch (e: Exception) {
-                _connectionStatus.value = ConnectionStatus.Error("Failed to connect: ${e.message}")
+                chatViewModel.updateRoomConnection(roomId, ConnectionStatus.Error("Failed to connect: ${e.message}"))
                 println("PDVM: WebSocket connection failed: ${e.message}")
             }
         }
-    }
-
-    fun addConnection(roomId: Int, session: DefaultWebSocketSession) {
-        _activeSessions.update { it + (roomId to session) }
-        println("PDVM: Session added room $roomId to active sessions.")
-    }
-
-    fun removeConnection(roomId: Int) {
-        _activeSessions.update {
-            it - roomId
-        }
-        println("PDVM: Session removed for room $roomId.")
     }
 }

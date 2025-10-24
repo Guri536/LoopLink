@@ -12,6 +12,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import org.asv.looplink.data.repository.ChatRepository
 import org.asv.looplink.network.discovery.LANServiceDiscovery
 import org.asv.looplink.viewmodel.ChatViewModel
 import org.asv.looplink.viewmodel.PeerDiscoveryViewModel
@@ -38,7 +39,8 @@ object jvmKtorServerRunner{
         userUid: String,
         userName: String,
         chatViewModel: ChatViewModel,
-        peerDiscoveryViewModel: PeerDiscoveryViewModel?
+        chatRepository: ChatRepository,
+        connectionManager: ConnectionManager
     ): Int {
         if(isRunning){
             println("Server already running on $currentPort")
@@ -55,7 +57,7 @@ object jvmKtorServerRunner{
                     factory = engineFactory,
                     port = port,
                     host = "0.0.0.0",
-                    module = { configureLoopLinkServer(chatViewModel, peerDiscoveryViewModel!!) }
+                    module = { configureLoopLinkServer(chatViewModel, chatRepository, connectionManager) }
                 ).start(wait = false)
 
                 currentPort = serverEngine?.engine?.resolvedConnectors()?.firstOrNull()?.port ?: 0

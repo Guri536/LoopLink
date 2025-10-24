@@ -54,6 +54,7 @@ import org.asv.looplink.components.fabButtons.FabButtonItem
 import org.asv.looplink.components.fabButtons.FabButtonMain
 import org.asv.looplink.components.fabButtons.FabButtonSub
 import org.asv.looplink.components.fabButtons.MultiFloatingActionButton
+import org.asv.looplink.data.repository.ChatRepository
 import org.asv.looplink.getPlatformType
 import org.asv.looplink.viewmodel.ChatViewModel
 import org.asv.looplink.viewmodel.PeerDiscoveryViewModel
@@ -320,8 +321,8 @@ data class ChatTab(val room: RoomItem) : Tab {
 
     @Composable
     override fun Content() {
-        val peerDiscoveryViewModel: PeerDiscoveryViewModel = koinInject()
-        val session = peerDiscoveryViewModel.activeSessions.collectAsState().value[room.id]
+        val chatRepository: ChatRepository = koinInject()
+        val session = chatRepository.activeSessions.collectAsState().value[room.id]
         ChatAppWithScaffold(true, room, session)
     }
 }
@@ -329,8 +330,8 @@ data class ChatTab(val room: RoomItem) : Tab {
 class ChatTabScreen(val room: RoomItem) : Screen {
     @Composable
     override fun Content() {
-        val peerDiscoveryViewModel: PeerDiscoveryViewModel = koinInject()
-        val session = peerDiscoveryViewModel.activeSessions.collectAsState().value[room.id]
+        val chatRepository: ChatRepository = koinInject()
+        val session = chatRepository.activeSessions.collectAsState().value[room.id]
         ChatAppWithScaffold(true, room, session)
     }
 }

@@ -1,5 +1,6 @@
 package org.asv.looplink.network
 
+import org.asv.looplink.data.repository.ChatRepository
 import org.asv.looplink.viewmodel.ChatViewModel
 import org.asv.looplink.viewmodel.PeerDiscoveryViewModel
 import org.koin.java.KoinJavaComponent.get
@@ -10,13 +11,15 @@ actual class ServerManager {
     ) {
         val port = 0
         val chatViewModel: ChatViewModel = get(ChatViewModel::class.java)
-        val peerDiscoveryViewModel: PeerDiscoveryViewModel = get(PeerDiscoveryViewModel::class.java)
+        val chatRepository: ChatRepository = get(ChatRepository::class.java)
+        val connectionManager: ConnectionManager = get(ConnectionManager::class.java)
         jvmKtorServerRunner.start(
             port,
             userUid,
             userName,
             chatViewModel,
-            peerDiscoveryViewModel
+            chatRepository,
+            connectionManager
         )
     }
 
