@@ -33,7 +33,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,10 +47,8 @@ import cafe.adriel.voyager.navigator.tab.CurrentTab
 import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
-import org.asv.looplink.MainViewModel
 import org.asv.looplink.PlatformType
 import org.asv.looplink.components.LocalAppNavigator
-import org.asv.looplink.components.LocalPeerDiscoveryViewModel
 import org.asv.looplink.components.chat.ChatAppWithScaffold
 import org.asv.looplink.components.fabButtons.FabButtonItem
 import org.asv.looplink.components.fabButtons.FabButtonMain

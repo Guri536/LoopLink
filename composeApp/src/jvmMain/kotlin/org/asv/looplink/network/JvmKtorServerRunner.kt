@@ -22,6 +22,8 @@ object jvmKtorServerRunner{
     private val serverScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     private var currentPort = 8080
+
+    @Volatile
     private var isRunning: Boolean = false
 
     private val serviceDiscovery: LANServiceDiscovery by lazy{

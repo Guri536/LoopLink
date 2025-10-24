@@ -2,13 +2,12 @@ package org.asv.looplink.di
 
 import android.webkit.WebView
 import org.asv.looplink.DriverFactory
-import org.asv.looplink.MainViewModel
 import org.asv.looplink.network.AndroidKtorServer
 import org.asv.looplink.network.ServerManager
 import org.asv.looplink.network.discovery.LANServiceDiscovery
+import org.asv.looplink.viewmodel.MainViewModel
 import org.asv.looplink.webDriver.cuimsAPI
-import org.koin.android.ext.koin.androidContext
-import org.koin.androidx.viewmodel.dsl.viewModel
+import org.koin.core.module.dsl.viewModel
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
@@ -21,6 +20,7 @@ actual fun platformModule(): Module = module {
     single{ ServerManager(get()) }
     viewModel {
         MainViewModel(
+            get(),
             get(),
             get(),
             get(),

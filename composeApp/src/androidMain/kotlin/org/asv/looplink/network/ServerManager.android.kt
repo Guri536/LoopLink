@@ -1,30 +1,32 @@
 package org.asv.looplink.network
 
-import org.asv.looplink.viewmodel.ChatViewModel
-import org.asv.looplink.viewmodel.PeerDiscoveryViewModel
+import android.content.Context
+import android.content.Intent
 
-actual class ServerManager(private val androidKtorServer: AndroidKtorServer) {
+actual class ServerManager(private val context: Context) {
     actual fun start(
-        port: Int,
         userUid: String,
-        userName: String,
-        chatViewModel: ChatViewModel,
-        peerDiscoveryViewModel: PeerDiscoveryViewModel?
+        userName: String
     ) {
-        androidKtorServer.start(
-            port,
-            userUid,
-            userName,
-            chatViewModel,
-            peerDiscoveryViewModel
-        )
+        Intent(context, P2PService::class.java).also {
+            it.action = P2PService.ACTION_START
+            it.putExtra("USER_UID", userUid)
+            it.putExtra("USER_NAME", userName)
+            context.startService(it)
+        }
     }
 
     actual fun stop() {
-        androidKtorServer.stop()
+        Intent(context, P2PService::class.java).also {
+            it.action = P2PService.ACTION_STOP
+            context.startService(it)
+        }
     }
 
     actual fun close() {
-        androidKtorServer.close()
+        Intent(context, P2PService::class.java).also {
+            it.action = P2PService.ACTION_CLOSE
+            context.startService(it)
+        }
     }
 }

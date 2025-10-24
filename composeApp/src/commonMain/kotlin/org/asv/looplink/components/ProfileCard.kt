@@ -39,11 +39,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.currentOrThrow
-import org.asv.looplink.DatabaseMng
-import org.asv.looplink.MainViewModel
 import org.asv.looplink.data.repository.UserRespository
-import org.asv.looplink.operations.logout
+import org.asv.looplink.di.koinMainViewModel
 import org.asv.looplink.ui.AvailableServicesScreen
+import org.asv.looplink.viewmodel.MainViewModel
 import org.asv.looplink.viewmodel.PeerDiscoveryViewModel
 import org.koin.compose.koinInject
 
@@ -184,14 +183,12 @@ fun SideButtons() {
 
 @Composable
 fun LogoutButton(modifier: Modifier = Modifier) {
-    val database: DatabaseMng = koinInject()
     val navigator = LocalAppNavigator.currentOrThrow
-    val mainViewModel: MainViewModel = koinInject()
+    val mainViewModel: MainViewModel = koinMainViewModel()
 
     Button(
         onClick = {
-            mainViewModel.stopP2PServices()
-            logout()
+            mainViewModel.logoutUser()
             navigator.navigator.replaceAll(
                 LoginFields(onLoginSuccess = {
                     mainViewModel.startP2PServices()

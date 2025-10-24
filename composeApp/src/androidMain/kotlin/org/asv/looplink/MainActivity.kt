@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import org.asv.looplink.viewmodel.MainViewModel
 import org.koin.androidx.compose.koinViewModel
 
 class MainActivity : ComponentActivity() {
