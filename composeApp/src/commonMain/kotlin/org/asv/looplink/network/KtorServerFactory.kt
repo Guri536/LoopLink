@@ -81,7 +81,6 @@ fun Application.configureLoopLinkServer(
 
             println("Server: New websocket connection for /looplink/sync/$roomId")
 
-            connectionManager.addConnection(roomId, this)
             chatRepository.addSession(roomId, this)
             println("KSF: This session: $this")
 
@@ -104,8 +103,7 @@ fun Application.configureLoopLinkServer(
                 println("Error in websocket: ${e.message}")
             } finally {
                 println("Server: Websocket connection closed for /looplink/sync")
-                connectionManager.removeConnection(roomId, this)
-                chatRepository.removeSession(roomId)
+                chatRepository.removeSession(roomId, this)
             }
         }
     }

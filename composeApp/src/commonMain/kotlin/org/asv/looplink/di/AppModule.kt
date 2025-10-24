@@ -13,11 +13,11 @@ import org.koin.dsl.module
 
 val commonModule = module {
     single { DatabaseMng(get<DriverFactory>().createDriver()) }
-    single { ChatViewModel() }
+    single { ChatViewModel(get()) }
     single { UserRespository() }
     single { ChatRepository() }
-    single { ConnectionManager() }
-    single { PeerDiscoveryViewModel(get(), get(), get(), get()) }
+    single { ConnectionManager(get()) }
+    single { PeerDiscoveryViewModel(get(), get(), get()) }
 }
 
 expect fun platformModule(): Module

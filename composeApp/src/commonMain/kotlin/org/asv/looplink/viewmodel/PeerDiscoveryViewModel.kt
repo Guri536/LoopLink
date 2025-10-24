@@ -29,7 +29,6 @@ class PeerDiscoveryViewModel(
     private val serviceDiscovery: LANServiceDiscovery,
     private val chatViewModel: ChatViewModel,
     private val chatRepository: ChatRepository,
-    private val connectionManager: ConnectionManager
 ) {
     private val viewModelScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private val _discoveredServices = MutableStateFlow<List<ServiceInfo>>(emptyList())
@@ -103,7 +102,6 @@ class PeerDiscoveryViewModel(
                     path = "/looplink/sync/$roomId?peerUid=$encodedUID&peerName=$encodedName"
                 )
                 chatViewModel.updateRoomConnection(roomId, ConnectionStatus.Connected)
-                connectionManager.addConnection(roomId, session)
                 chatRepository.addAndListenToSession(roomId, session)
                 println("PDVM: WebSocket connection established and session stored for room $roomId.")
             } catch (e: Exception) {

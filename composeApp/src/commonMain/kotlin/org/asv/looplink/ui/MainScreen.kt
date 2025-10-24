@@ -1,5 +1,11 @@
 package org.asv.looplink.ui
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -31,12 +37,15 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -47,6 +56,7 @@ import cafe.adriel.voyager.navigator.tab.CurrentTab
 import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
+import kotlinx.coroutines.delay
 import org.asv.looplink.PlatformType
 import org.asv.looplink.components.LocalAppNavigator
 import org.asv.looplink.components.chat.ChatAppWithScaffold
@@ -57,6 +67,7 @@ import org.asv.looplink.components.fabButtons.MultiFloatingActionButton
 import org.asv.looplink.data.repository.ChatRepository
 import org.asv.looplink.getPlatformType
 import org.asv.looplink.viewmodel.ChatViewModel
+import org.asv.looplink.viewmodel.ConnectionStatus
 import org.asv.looplink.viewmodel.PeerDiscoveryViewModel
 import org.asv.looplink.viewmodel.RoomItem
 import org.koin.compose.koinInject
@@ -68,8 +79,12 @@ class MainScreen : Screen {
         val mainNavigator = LocalNavigator.currentOrThrow
 
         val chatViewModel: ChatViewModel = koinInject()
-        val rooms by chatViewModel.rooms.collectAsState()
-        chatViewModel.addRoom(RoomItem(0, "Self"))
+        val rooms by chatViewModel.roomsWithStatus.collectAsState()
+        chatViewModel.addRoom(RoomItem(0, "Self", status = ConnectionStatus.Idle))
+        chatViewModel.addRoom(RoomItem(1, "Self", status = ConnectionStatus.Connecting))
+        chatViewModel.addRoom(RoomItem(2, "Self", status = ConnectionStatus.Connected))
+        chatViewModel.addRoom(RoomItem(3, "Self", status = ConnectionStatus.Error("What")))
+        chatViewModel.addRoom(RoomItem(4, "Self"))
 
         val addRoom: () -> Unit = {
             chatViewModel.addRoom(RoomItem(rooms.size, "Room ${rooms.size + 1}"))
@@ -210,16 +225,43 @@ private fun SidebarRoomItem(room: RoomItem, onClick: () -> Unit) {
             .clickable { onClick() },
         verticalAlignment = Alignment.CenterVertically
     ) {
+
+        val activeSessionColor: Color = when (room.status) {
+            ConnectionStatus.Idle -> Color.Gray
+            ConnectionStatus.Connected -> Color.Green
+            ConnectionStatus.Connecting -> Color.Green
+            is ConnectionStatus.Error -> Color.Red
+        }
+
+        val infiniteTransition = rememberInfiniteTransition(label = "Blinking")
+        val blinkAlpha by infiniteTransition.animateFloat(
+            initialValue = 1f,
+            targetValue = 0f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 300, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "BlinkAlpha"
+        )
+        val indicatorAlpha = if(room.status is ConnectionStatus.Connecting) blinkAlpha else 1f
+
         Box(
             modifier = Modifier
-                .size(28.dp)
+                .size(40.dp)
                 .background(Color(0xFFF7A8A8), shape = CircleShape),
             contentAlignment = Alignment.Center
         ) {
             Text(
-                (room.label.take(1) + room.label.takeLast(1)),
+                (room.label.take(1)),
                 color = Color.Black, fontWeight = FontWeight.Bold
             )
+            Box(
+                modifier = Modifier.size(12.dp)
+                    .graphicsLayer(alpha = indicatorAlpha)
+                    .background(activeSessionColor, shape = CircleShape)
+                    .align(Alignment.BottomStart)
+            )
+
         }
         Spacer(modifier = Modifier.width(10.dp))
         Column {
@@ -322,7 +364,7 @@ data class ChatTab(val room: RoomItem) : Tab {
     @Composable
     override fun Content() {
         val chatRepository: ChatRepository = koinInject()
-        val session = chatRepository.activeSessions.collectAsState().value[room.id]
+        val session = chatRepository.activeSessions.collectAsState().value[room.id]?.firstOrNull()
         ChatAppWithScaffold(true, room, session)
     }
 }
@@ -331,7 +373,7 @@ class ChatTabScreen(val room: RoomItem) : Screen {
     @Composable
     override fun Content() {
         val chatRepository: ChatRepository = koinInject()
-        val session = chatRepository.activeSessions.collectAsState().value[room.id]
+        val session = chatRepository.activeSessions.collectAsState().value[room.id]?.firstOrNull()
         ChatAppWithScaffold(true, room, session)
     }
 }

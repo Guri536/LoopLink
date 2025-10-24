@@ -1,6 +1,5 @@
 package org.asv.looplink.viewmodel
 
-import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
 import kotlinx.serialization.Serializable
 
 @Serializable

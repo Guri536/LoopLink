@@ -25,7 +25,7 @@ class ChatRepository {
     private val coroutineScope = CoroutineScope(SupervisorJob())
     val store = coroutineScope.createStore()
 
-    private val _activeSessions = MutableStateFlow<Map<Int, DefaultWebSocketSession>>(emptyMap())
+    private val _activeSessions = MutableStateFlow<Map<Int, Set<DefaultWebSocketSession>>>(emptyMap())
     val activeSessions = _activeSessions.asStateFlow()
 
     fun addAndListenToSession(roomId: Int, session: DefaultWebSocketSession){
@@ -55,16 +55,25 @@ class ChatRepository {
     }
 
     fun addSession(roomId: Int, session: DefaultWebSocketSession) {
-        _activeSessions.update { it + (roomId to session) }
+        val currentSessions = _activeSessions.value[roomId] ?: emptySet<DefaultWebSocketSession>()
+        val updatedSessions = currentSessions + session
+        _activeSessions.update { it + (roomId to updatedSessions) }
         println("ChatRepo: Session added room $roomId to active sessions.")
     }
 
-    fun removeSession(roomId: Int){
-        _activeSessions.value[roomId]?.let{
-            session ->
-            coroutineScope.launch { session.close() }
+    fun removeSession(roomId: Int, session: DefaultWebSocketSession){
+        val currentSessions = _activeSessions.value[roomId] ?: return
+        val updatedSessions = currentSessions - session
+
+        _activeSessions.update { currentMap ->
+            if(updatedSessions.isEmpty()){
+                currentMap - roomId
+            } else {
+                currentMap + (roomId to updatedSessions)
+            }
         }
-        _activeSessions.update { it - roomId }
         println("ChatRepo: Session removed for room $roomId")
+
+        coroutineScope.launch { session.close() }
     }
 }
