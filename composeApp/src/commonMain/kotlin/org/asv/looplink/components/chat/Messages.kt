@@ -12,12 +12,14 @@ import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
+import org.asv.looplink.theme.ChatTheme
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 import org.asv.looplink.webDriver.toImageBitmap
 
 @Composable
 internal expect fun Messages(
     modifier: Modifier = Modifier,
+    chatTheme: ChatTheme,
     messages: List<Message>
 )
 

@@ -12,14 +12,12 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -62,6 +60,13 @@ fun ChatAppWithScaffold(
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
 
+    val chatAppBackgroundModifier: Modifier =
+        if (room.chatTheme.backgroundBrush != null) {
+            Modifier.background(room.chatTheme.backgroundBrush!!)
+        } else {
+            Modifier.background(room.chatTheme.backgroundColor)
+        }
+
     AppTheme {
         Scaffold(
             modifier = Modifier
@@ -89,9 +94,9 @@ fun ChatAppWithScaffold(
                 },
             topBar = {
                 TopAppBar(
-                    title = { Text(room.label ) },
+                    title = { Text(room.label) },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.background.copy(0.95f)
+                        containerColor = room.chatTheme.backgroundColor.copy(alpha = 0.95f)
                     ),
                     navigationIcon = {
                         IconButton(onClick = {
@@ -104,8 +109,7 @@ fun ChatAppWithScaffold(
             }) { contentPadding ->
             ChatApp(
                 displayTextField = displayTextField,
-                modifier = Modifier.padding(contentPadding)
-                    .background(MaterialTheme.colorScheme.background.copy(.9f)),
+                modifier = chatAppBackgroundModifier.padding(contentPadding),
                 room = room,
                 session = session
             )
@@ -147,6 +151,7 @@ fun ChatApp(
                         Messages(
                             modifier = Modifier
                                 .padding(bottom = 70.dp),
+                            room.chatTheme,
                             state.rooms[room.id].orEmpty()
                         )
                         if (displayTextField) {

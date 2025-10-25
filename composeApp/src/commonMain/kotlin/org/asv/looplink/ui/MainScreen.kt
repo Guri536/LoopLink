@@ -37,15 +37,14 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -56,35 +55,101 @@ import cafe.adriel.voyager.navigator.tab.CurrentTab
 import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
-import kotlinx.coroutines.delay
 import org.asv.looplink.PlatformType
 import org.asv.looplink.components.LocalAppNavigator
+import org.asv.looplink.components.chat.Action
 import org.asv.looplink.components.chat.ChatAppWithScaffold
+import org.asv.looplink.components.chat.Message
+import org.asv.looplink.components.chat.User
 import org.asv.looplink.components.fabButtons.FabButtonItem
 import org.asv.looplink.components.fabButtons.FabButtonMain
 import org.asv.looplink.components.fabButtons.FabButtonSub
 import org.asv.looplink.components.fabButtons.MultiFloatingActionButton
 import org.asv.looplink.data.repository.ChatRepository
+import org.asv.looplink.data.repository.UserRespository
 import org.asv.looplink.getPlatformType
+import org.asv.looplink.theme.ChatTheme
 import org.asv.looplink.viewmodel.ChatViewModel
 import org.asv.looplink.viewmodel.ConnectionStatus
+import org.asv.looplink.viewmodel.GroupStructure
+import org.asv.looplink.viewmodel.GroupTabs
+import org.asv.looplink.viewmodel.GroupType
 import org.asv.looplink.viewmodel.PeerDiscoveryViewModel
 import org.asv.looplink.viewmodel.RoomItem
+import org.asv.looplink.viewmodel.TabType
 import org.koin.compose.koinInject
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 
 class MainScreen : Screen {
+    @OptIn(ExperimentalTime::class)
     @Composable
     override fun Content() {
         val isWideScreen = getPlatformType() == PlatformType.DESKTOP
         val mainNavigator = LocalNavigator.currentOrThrow
+        val chatRepository: ChatRepository = koinInject()
+        val userRepository: UserRespository = koinInject()
 
         val chatViewModel: ChatViewModel = koinInject()
         val rooms by chatViewModel.roomsWithStatus.collectAsState()
-        chatViewModel.addRoom(RoomItem(0, "Self", status = ConnectionStatus.Idle))
-        chatViewModel.addRoom(RoomItem(1, "Self", status = ConnectionStatus.Connecting))
-        chatViewModel.addRoom(RoomItem(2, "Self", status = ConnectionStatus.Connected))
-        chatViewModel.addRoom(RoomItem(3, "Self", status = ConnectionStatus.Error("What")))
-        chatViewModel.addRoom(RoomItem(4, "Self"))
+        chatViewModel.addRoom(
+            RoomItem(
+                0, "Self", status = ConnectionStatus.Idle,
+                chatTheme = ChatTheme(
+                    backgroundGradientArgb = listOf(
+                        Color.Red.toArgb(),
+                        Color.Blue.toArgb(),
+                        Color.Yellow.toArgb(),
+                        Color.Green.toArgb()
+                    ),
+                    backgroundGradientAngle = 175.0f
+                )
+            )
+        )
+        chatViewModel.addRoom(RoomItem(1, "Test 1", status = ConnectionStatus.Connecting))
+        chatViewModel.addRoom(RoomItem(2, "Test 2", status = ConnectionStatus.Connected))
+        chatViewModel.addRoom(RoomItem(3, "Test 3", status = ConnectionStatus.Error("What")))
+        chatViewModel.addRoom(RoomItem(4, "Test 4"))
+        chatViewModel.addRoom(
+            RoomItem(
+                5,
+                "Group Test",
+                isGroup = true,
+                groupDetails = GroupStructure(
+                    "23BSC10022",
+                    "This is a test group",
+                    creationTimeStamp = Clock.System.now().toEpochMilliseconds(),
+                    groupType = GroupType.GENERAL,
+                    tabs = listOf(
+                        GroupTabs(label = "Main Chat", type = TabType.CHAT),
+                        GroupTabs(label = "Files", type = TabType.FILES)
+                    )
+                )
+            )
+        )
+
+        chatRepository.store.send(
+            Action.SendMessage(
+                0,
+                Message(
+                    User(
+                        name = "Test User",
+                        picture = null
+                    ),
+                    text = "Hey there"
+                )
+            )
+        )
+
+        chatRepository.store.send(
+            Action.SendMessage(
+                0,
+                Message(
+                    userRepository.getUser(),
+                    "Hey there back"
+                )
+            )
+        )
 
         val addRoom: () -> Unit = {
             chatViewModel.addRoom(RoomItem(rooms.size, "Room ${rooms.size + 1}"))
@@ -160,6 +225,12 @@ fun Sidebar(
             AvailableServiesTab(peerDiscoveryViewModel)
         )
     }
+    val navigateToGroupCreation = {
+        navigator.push(
+            GroupCreationScreen(),
+            GroupCreationTab()
+        )
+    }
 
     Column(
         modifier = modifier
@@ -179,7 +250,7 @@ fun Sidebar(
                         FabButtonItem(
                             Icons.Filled.GroupAdd,
                             "Add Group",
-                            onIconClick
+                            navigateToGroupCreation
                         )
                     ),
                     fabIcon = FabButtonMain(),
@@ -243,7 +314,7 @@ private fun SidebarRoomItem(room: RoomItem, onClick: () -> Unit) {
             ),
             label = "BlinkAlpha"
         )
-        val indicatorAlpha = if(room.status is ConnectionStatus.Connecting) blinkAlpha else 1f
+        val indicatorAlpha = if (room.status is ConnectionStatus.Connecting) blinkAlpha else 1f
 
         Box(
             modifier = Modifier

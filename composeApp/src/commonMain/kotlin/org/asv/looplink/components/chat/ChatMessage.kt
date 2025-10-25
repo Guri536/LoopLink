@@ -13,8 +13,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Text
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.asv.looplink.theme.ChatTheme
 
 @Composable
 fun Triangle(risingToTheRight: Boolean, background: Color) {
@@ -44,17 +45,9 @@ fun Triangle(risingToTheRight: Boolean, background: Color) {
 }
 
 @Composable
-fun ChatMessage(isMyMessage: Boolean, message: Message, sameUser: Boolean = false) {
+fun ChatMessage(isMyMessage: Boolean, chatTheme: ChatTheme, message: Message, sameUser: Boolean = false) {
     Box(
         modifier = Modifier.fillMaxWidth()
-//            .background(
-//                listOf<Color>(
-//                    Color.Red,
-//                    Color.Blue,
-//                    Color.Yellow,
-//                    Color.Gray
-//                ).random()
-//            )
             .padding(top = (if(sameUser) 2.dp else 8.dp))
         ,
         contentAlignment = if (isMyMessage) Alignment.CenterEnd else Alignment.CenterStart
@@ -73,7 +66,7 @@ fun ChatMessage(isMyMessage: Boolean, message: Message, sameUser: Boolean = fals
                 }
                 Spacer(Modifier.size(2.dp))
                 Column {
-                    Triangle(true, ChatColors.OTHERS_MESSAGE)
+                    Triangle(true, chatTheme.peerMessageColor)
                 }
             }
 
@@ -87,7 +80,7 @@ fun ChatMessage(isMyMessage: Boolean, message: Message, sameUser: Boolean = fals
                             if (!isMyMessage) 0.dp else 10.dp
                         )
                     )
-                        .background(color = if (!isMyMessage) ChatColors.OTHERS_MESSAGE else ChatColors.MY_MESSAGE)
+                        .background(color = if (!isMyMessage) chatTheme.peerMessageColor else chatTheme.myMessageColor)
                         .padding(start = 10.dp, top = 5.dp, end = 10.dp, bottom = 5.dp)
                         .widthIn(max = 900.dp),
                 ) {
@@ -96,7 +89,7 @@ fun ChatMessage(isMyMessage: Boolean, message: Message, sameUser: Boolean = fals
                             Row(verticalAlignment = Alignment.Bottom) {
                                 Text(
                                     text = message.user.name,
-                                    style = MaterialTheme.typography.body1.copy(
+                                    style = MaterialTheme.typography.bodyMedium.copy(
                                         fontWeight = FontWeight.SemiBold,
                                         letterSpacing = 0.sp,
                                         fontSize = 14.sp
@@ -109,10 +102,11 @@ fun ChatMessage(isMyMessage: Boolean, message: Message, sameUser: Boolean = fals
                         Spacer(Modifier.size(3.dp))
                         Text(
                             text = message.text,
-                            style = MaterialTheme.typography.body1.copy(
+                            style = MaterialTheme.typography.bodyMedium.copy(
                                 fontSize = 18.sp,
                                 letterSpacing = 0.sp
-                            )
+                            ),
+                            color = if(isMyMessage) chatTheme.myTextColor else chatTheme.peerTextColor
                         )
                         Spacer(Modifier.size(4.dp))
                         Row(
@@ -122,7 +116,7 @@ fun ChatMessage(isMyMessage: Boolean, message: Message, sameUser: Boolean = fals
                             Text(
                                 text = timeToString(message.seconds),
                                 textAlign = TextAlign.End,
-                                style = MaterialTheme.typography.subtitle1.copy(fontSize = 12.sp),
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
                                 color = ChatColors.TIME_TEXT
                             )
                         }
@@ -132,7 +126,7 @@ fun ChatMessage(isMyMessage: Boolean, message: Message, sameUser: Boolean = fals
             }
             if (isMyMessage) {
                 Column {
-                    Triangle(false, ChatColors.MY_MESSAGE)
+                    Triangle(false, chatTheme.myMessageColor)
                 }
             }
         }

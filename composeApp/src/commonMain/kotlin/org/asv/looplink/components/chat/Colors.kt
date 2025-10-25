@@ -1,14 +1,17 @@
 package org.asv.looplink.components.chat
 import androidx.compose.ui.graphics.Color
+import kotlinx.serialization.Serializable
 
-object ChatColors {
-    val GRADIENT_3 = listOf(0xFF7F52FF, 0xFFC811E2, 0xFFE54857)
-    val GRADIENT_2 = listOf(0xFFC811E2, 0xFF7F52FF)
-    val PRIMARY = 0xFFAA77EE
-    val SURFACE = 0xFFCC99FF
-    val BACKGROUND = 0xFF663388
-    val TOP_GRADIENT = listOf(0xFFEEEFF3, 0xFFE6F0F2)
+object RefColors {
     val MY_MESSAGE = Color(0xFFE5FEFB)
     val OTHERS_MESSAGE = Color.White
     val TIME_TEXT = Color(0xFF424242)
+    var MY_MESSAGE_COLOR = Color.Black
+    var PEER_MESSAGE_COLOR = Color.Black
+}
+object ChatColors {
+    var MY_MESSAGE = Color(0xFFE5FEFB)
+    var OTHERS_MESSAGE = Color.White
+    var TIME_TEXT = Color(0xFF424242)
+    var MESSAGE_COLOR = Color.Black
 }
