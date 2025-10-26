@@ -9,8 +9,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import org.asv.looplink.data.repository.ChatRepository
-import org.asv.looplink.viewmodel.ConnectionStatus
+import org.asv.looplink.data.repository.FileRepository
+import org.asv.looplink.theme.ChatTheme
+import org.asv.looplink.ui.ConnectionStatus
+import org.asv.looplink.ui.RoomItem
+import org.koin.java.KoinJavaComponent.get
 
 class ChatViewModel(private val chatRepository: ChatRepository): ViewModel() {
     private val _rooms = MutableStateFlow<List<RoomItem>>(emptyList())
@@ -20,7 +25,7 @@ class ChatViewModel(private val chatRepository: ChatRepository): ViewModel() {
         _rooms.combine(chatRepository.activeSessions){ rooms, sessions ->
             rooms.map{ room ->
                 if(sessions.containsKey(room.id)){
-                    room.copy(status = ConnectionStatus.Connected)
+                    room.copyMe(status = ConnectionStatus.Connected)
                 } else {
                     room
                 }
@@ -42,7 +47,7 @@ class ChatViewModel(private val chatRepository: ChatRepository): ViewModel() {
         _rooms.update { curRoom ->
             curRoom.map{ room ->
                 if(room.id == roomId){
-                    room.copy(status = connectionStatus)
+                    room.copyMe(status = connectionStatus)
                 } else {
                     room
                 }
@@ -52,5 +57,73 @@ class ChatViewModel(private val chatRepository: ChatRepository): ViewModel() {
 
     fun roomExists(roomId: Int): Boolean {
         return _rooms.value.find { it.id == roomId } != null
+    }
+
+    fun updateRoomTheme(roomId: Int, newTheme: ChatTheme){
+        _rooms.update { rooms ->
+            rooms.map { room ->
+                if(room.id == roomId){
+                    room.copyMe(chatTheme = newTheme)
+                } else {
+                    room
+                }
+            }
+        }
+    }
+
+    fun getRoomTheme(roomId: Int): ChatTheme? {
+        _rooms.value.forEach { room ->
+            if(room.id == roomId) return room.chatTheme
+        }
+        return null
+    }
+
+    fun getRoomLabel(roomId: Int): String?{
+        _rooms.value.forEach { room ->
+            if(room.id == roomId) return room.label
+        }
+        return null
+    }
+
+    fun getRoomStatus(roomId: Int): ConnectionStatus{
+        _rooms.value.forEach { room ->
+            if(room.id == roomId) return room.status
+        }
+        return ConnectionStatus.Idle
+    }
+
+    fun getRoom(roomId: Int): RoomItem? {
+        _rooms.value.forEach { room ->
+            if(room.id == roomId) return room
+        }
+        return null
+    }
+
+
+    fun setBackgroundImage(roomId: Int, newSourcePath: String){
+        val fileRepository: FileRepository = get(FileRepository::class.java)
+        println("Got: $newSourcePath")
+        viewModelScope.launch {
+            val newManagedFile = fileRepository.copyFileToInternalStorage(newSourcePath)
+            println(newManagedFile?.internalPath)
+            val currentTheme = getRoomTheme(roomId) ?: ChatTheme.default()
+            val currentBackgroundImage = currentTheme.backgroundImagePath
+
+            if(currentBackgroundImage != null && currentBackgroundImage != newManagedFile?.internalPath){
+                null
+            }
+
+            val updataedTheme = currentTheme.copyMe(
+                backgroundImagePath = newManagedFile?.internalPath
+            )
+            println("New theme back: ${updataedTheme.backgroundImagePath}")
+            updateRoomTheme(roomId, updataedTheme)
+
+//            cleanupOrphanFiles()
+        }
+    }
+
+    private suspend fun cleanupOrphanFiles(){
+        TODO()
     }
 }

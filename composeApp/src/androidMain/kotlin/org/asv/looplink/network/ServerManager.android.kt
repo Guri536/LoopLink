@@ -2,17 +2,19 @@ package org.asv.looplink.network
 
 import android.content.Context
 import android.content.Intent
+import android.os.Build
+import androidx.core.content.ContextCompat.startForegroundService
 
 actual class ServerManager(private val context: Context) {
     actual fun start(
         userUid: String,
         userName: String
     ) {
-        Intent(context, P2PService::class.java).also {
+        val intent = Intent(context, P2PService::class.java).also {
             it.action = P2PService.ACTION_START
             it.putExtra("USER_UID", userUid)
             it.putExtra("USER_NAME", userName)
-            context.startService(it)
+            context.startForegroundService(it)
         }
     }
 

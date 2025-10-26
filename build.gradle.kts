@@ -9,6 +9,7 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform) apply false
     alias(libs.plugins.kotlinAndroid) apply false
     id("com.google.gms.google-services") version "4.4.3" apply false
+//    id("kotlin-parcelize")
 //    alias(libs.plugins.kotlinxSerialization)
 //    alias(libs.plugins.sqldelight)
 }

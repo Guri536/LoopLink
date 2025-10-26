@@ -1,8 +1,12 @@
 package org.asv.looplink.network
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
+import android.os.Build
 import android.os.IBinder
+import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -36,8 +40,10 @@ class P2PService: Service() {
                 println("P2PService: Starting Ktor Server")
                 val uid = intent.getStringExtra("USER_UID") ?: return START_NOT_STICKY
                 val name = intent.getStringExtra("USER_NAME") ?: return START_NOT_STICKY
+                startAsForegroundService()
                 startServer(uid, name)
             }
+
             ACTION_STOP -> {
                 stopServer()
             }
@@ -47,6 +53,27 @@ class P2PService: Service() {
         }
         return START_STICKY
     }
+
+    private fun startAsForegroundService() {
+        val channelId = NOTIFICATION_CHANNEL_ID
+        val channel = NotificationChannel(
+            channelId,
+            "LoopLink P2P Service",
+            NotificationManager.IMPORTANCE_LOW
+        )
+        val manager = getSystemService(NotificationManager::class.java)
+        manager?.createNotificationChannel(channel)
+
+        val notification = NotificationCompat.Builder(this, channelId)
+            .setContentTitle("LoopLink Running")
+            .setContentText("Your local P2P server is active")
+            .setSmallIcon(android.R.drawable.stat_sys_upload)
+            .setOngoing(true)
+            .build()
+
+        startForeground(NOTIFICATION_ID, notification)
+    }
+
 
     private fun startServer(uid: String, name: String){
         if(server.isRunning()) return

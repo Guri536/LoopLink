@@ -41,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.currentOrThrow
 import cafe.adriel.voyager.navigator.tab.Tab
@@ -83,10 +84,10 @@ fun AvailableServices(
     viewModel: PeerDiscoveryViewModel
 ){
     val navigator = LocalAppNavigator.currentOrThrow
-    val discoveredServices by viewModel.discoveredServices.collectAsState()
-    val isDiscovering by viewModel.isDiscovering.collectAsState()
+    val discoveredServices by viewModel.discoveredServices.collectAsStateWithLifecycle()
+    val isDiscovering by viewModel.isDiscovering.collectAsStateWithLifecycle()
     val user: UserRespository = koinInject()
-    val userInfo = user.currentUser.collectAsState()
+    val userInfo = user.currentUser.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
         viewModel.startDiscovery()

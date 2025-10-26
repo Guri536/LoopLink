@@ -1,57 +1,58 @@
 package org.asv.looplink.theme
 
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 import org.asv.looplink.components.chat.RefColors
+import org.asv.looplink.typesalias.KmpIgnoreOnParcel
+import org.asv.looplink.typesalias.KmpParcelable
+import org.asv.looplink.typesalias.KmpParcelize
+import org.asv.looplink.ui.adaptiveTextColor
 import org.asv.looplink.ui.angledLinearGradientBrush
-import kotlin.math.cos
-import kotlin.math.sin
+import org.asv.looplink.ui.lightenHSL
 
-@Serializable
-data class ChatTheme(
-    val backGroundColorArgb: Int = Colors.DarkColorScheme.background.toArgb(),
-    val myMessageBackgroundColorArgb: Int = RefColors.MY_MESSAGE.toArgb(),
-    val peerMessageBackgroundColorArgb: Int = RefColors.OTHERS_MESSAGE.toArgb(),
-    val myTextColorArgb: Int = Color.Black.toArgb(),
-    val peerTextColorArgb: Int = Color.Black.toArgb(),
-    val backgroundGradientAngle: Float? = null,
-    val backgroundGradientArgb: List<Int>? = null,
-    val backgroundImagePath: String? = null,
-) {
-    @Transient
-    val backgroundColor: Color = Color(backGroundColorArgb)
-
-    @Transient
-    val myMessageColor: Color = Color(myMessageBackgroundColorArgb)
-
-    @Transient
-    val peerMessageColor: Color = Color(peerMessageBackgroundColorArgb)
-
-    @Transient
-    val myTextColor: Color = Color(myTextColorArgb)
-
-    @Transient
-    val peerTextColor: Color = Color(peerTextColorArgb)
-
-    @Transient
-    val backgroundBrush: Brush? = backgroundGradientArgb?.let { colors ->
-        val colorStops = colors.map { Color(it) }
-        if (backgroundGradientAngle != null) {
-            Brush.angledLinearGradientBrush(
-                colorStops,
-                backgroundGradientAngle
-            )
-        } else {
-            Brush.linearGradient(colors = colorStops)
-        }
-    }
+expect class ChatTheme(
+    backGroundColorArgb: Int = Colors.DarkColorScheme.background.toArgb(),
+    myMessageBackgroundColorArgb: Int = RefColors.MY_MESSAGE.toArgb(),
+    peerMessageBackgroundColorArgb: Int = RefColors.OTHERS_MESSAGE.toArgb(),
+    myTextColorArgb: Int? = Color.Black.toArgb(),
+    peerTextColorArgb: Int? = Color.Black.toArgb(),
+    backgroundGradientAngle: Float? = null,
+    backgroundGradientArgb: List<Int>? = null,
+    backgroundImagePath: String? = null,
+): KmpParcelable {
+    val backgroundColor: Color
+    val myMessageColor: Color
+    val peerMessageColor: Color
+    val myTextColor: Color
+    val peerTextColor: Color
+    val backgroundBrush: Brush?
+    val topBarColor: Color
+    val topBarTextColor: Color
 
     companion object {
-        fun default(): ChatTheme = ChatTheme()
+        fun default(): ChatTheme
     }
-}
 
+    val backGroundColorArgb: Int
+    val myMessageBackgroundColorArgb: Int
+    val peerMessageBackgroundColorArgb: Int
+    val myTextColorArgb: Int?
+    val peerTextColorArgb: Int?
+    val backgroundGradientAngle: Float?
+    val backgroundGradientArgb: List<Int>?
+    val backgroundImagePath: String?
+
+    fun copyMe(
+        backGroundColorArgb: Int = this.backGroundColorArgb,
+        myMessageBackgroundColorArgb: Int = this.myMessageBackgroundColorArgb,
+        peerMessageBackgroundColorArgb: Int = this.peerMessageBackgroundColorArgb,
+        myTextColorArgb: Int? = this.myTextColorArgb,
+        peerTextColorArgb: Int? = this.peerTextColorArgb,
+        backgroundGradientAngle: Float? = this.backgroundGradientAngle,
+        backgroundGradientArgb: List<Int>? = this.backgroundGradientArgb,
+        backgroundImagePath: String? = this.backgroundImagePath,
+    ): ChatTheme
+}

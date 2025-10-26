@@ -23,7 +23,23 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onPause() {
+        super.onPause()
+        println("MainActivity: onPause() called")
+    }
+
+    override fun onStop() {
+        super.onStop()
+        println("MainActivity: onStop() called")
+    }
+
+    override fun onResume() {
+        super.onResume()
+        println("MainActivity: onResume() called")
+    }
+
     override fun onDestroy() {
         super.onDestroy()
+        println("MainActivity: onDestroy() called")
     }
 }

@@ -32,6 +32,8 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.asv.looplink.theme.ChatTheme
+import org.asv.looplink.viewmodel.ChatViewModel
+import org.koin.compose.koinInject
 
 @Composable
 fun Triangle(risingToTheRight: Boolean, background: Color) {
@@ -45,7 +47,9 @@ fun Triangle(risingToTheRight: Boolean, background: Color) {
 }
 
 @Composable
-fun ChatMessage(isMyMessage: Boolean, chatTheme: ChatTheme, message: Message, sameUser: Boolean = false) {
+fun ChatMessage(isMyMessage: Boolean, roomId: Int, message: Message, sameUser: Boolean = false) {
+    val chatViewModel: ChatViewModel = koinInject()
+    val chatTheme = chatViewModel.getRoomTheme(roomId) ?: ChatTheme.default()
     Box(
         modifier = Modifier.fillMaxWidth()
             .padding(top = (if(sameUser) 2.dp else 8.dp))

@@ -41,6 +41,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.currentOrThrow
 import cafe.adriel.voyager.navigator.tab.Tab
@@ -81,7 +82,7 @@ class GroupCreationTab : Tab {
 @Composable
 fun GroupCreationPanel() {
     val peerDiscoveryViewModel: PeerDiscoveryViewModel = koinInject()
-    val availableSessions by peerDiscoveryViewModel.discoveredServices.collectAsState()
+    val availableSessions by peerDiscoveryViewModel.discoveredServices.collectAsStateWithLifecycle()
 
     var groupName by remember { mutableStateOf("") }
     val selectedMembers = remember { mutableStateListOf<ServiceInfo>() }

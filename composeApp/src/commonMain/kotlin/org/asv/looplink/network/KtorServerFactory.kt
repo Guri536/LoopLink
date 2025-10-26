@@ -12,7 +12,6 @@ import io.ktor.server.routing.routing
 import io.ktor.server.websocket.WebSockets
 import io.ktor.server.websocket.webSocket
 import io.ktor.websocket.CloseReason
-import io.ktor.websocket.DefaultWebSocketSession
 import io.ktor.websocket.Frame
 import io.ktor.websocket.close
 import io.ktor.websocket.readText
@@ -22,9 +21,7 @@ import org.asv.looplink.components.chat.Message
 import org.asv.looplink.data.repository.ChatRepository
 import org.asv.looplink.data.repository.UserRespository
 import org.asv.looplink.viewmodel.ChatViewModel
-import org.asv.looplink.viewmodel.PeerDiscoveryViewModel
-import org.asv.looplink.viewmodel.RoomItem
-import java.util.Collections
+import org.asv.looplink.ui.RoomItem
 import org.koin.java.KoinJavaComponent.get
 
 internal expect fun createKtorServerFactory(): ApplicationEngineFactory<ApplicationEngine, *>

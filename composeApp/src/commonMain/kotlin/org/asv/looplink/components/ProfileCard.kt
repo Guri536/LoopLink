@@ -37,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.currentOrThrow
 import org.asv.looplink.data.repository.UserRespository
@@ -69,7 +70,7 @@ fun UserProfileCard(
 @Composable
 fun TallScreenLayout() {
     val user: UserRespository = koinInject()
-    val userInfo = user.currentUser.collectAsState()
+    val userInfo = user.currentUser.collectAsStateWithLifecycle()
 
     Column(
         modifier = Modifier.padding(16.dp).fillMaxWidth(),
@@ -103,7 +104,7 @@ fun TallScreenLayout() {
 @Composable
 fun WideScreenLayout() {
     val user: UserRespository = koinInject()
-    val userInfo = user.currentUser.collectAsState()
+    val userInfo = user.currentUser.collectAsStateWithLifecycle()
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -226,7 +227,7 @@ fun FindDevicesButton(modifier: Modifier = Modifier) {
 @Composable
 fun ShowUserData() {
     val user: UserRespository = koinInject()
-    val userInfo = user.currentUser.collectAsState()
+    val userInfo = user.currentUser.collectAsStateWithLifecycle()
 
     userInfo.value?.name?.let {
         Text(

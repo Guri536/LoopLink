@@ -1,5 +1,6 @@
 package org.asv.looplink.components.chat
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.InsertDriveFile
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -18,23 +20,27 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.core.annotation.InternalVoyagerApi
 import cafe.adriel.voyager.navigator.currentOrThrow
 import io.ktor.websocket.DefaultWebSocketSession
@@ -42,9 +48,13 @@ import io.ktor.websocket.Frame
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import org.asv.looplink.components.LocalAppNavigator
+import org.asv.looplink.components.painterFromFile
 import org.asv.looplink.data.repository.ChatRepository
 import org.asv.looplink.data.repository.UserRespository
-import org.asv.looplink.viewmodel.RoomItem
+import org.asv.looplink.theme.ChatTheme
+import org.asv.looplink.ui.FilePicker
+import org.asv.looplink.ui.RoomItem
+import org.asv.looplink.viewmodel.ChatViewModel
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 import org.koin.compose.koinInject
 import ui.theme.AppTheme
@@ -53,19 +63,32 @@ import ui.theme.AppTheme
 @Composable
 fun ChatAppWithScaffold(
     displayTextField: Boolean = true,
-    room: RoomItem,
-    session: DefaultWebSocketSession? = null
+    roomId: Int,
 ) {
     val navigator = LocalAppNavigator.currentOrThrow
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
+    val chatViewModel: ChatViewModel = koinInject()
+    val chatTheme = chatViewModel.getRoomTheme(roomId) ?: ChatTheme.default()
+    val chatLabel = chatViewModel.getRoomLabel(roomId) ?: "Chat"
 
     val chatAppBackgroundModifier: Modifier =
-        if (room.chatTheme.backgroundBrush != null) {
-            Modifier.background(room.chatTheme.backgroundBrush!!)
+        if (chatTheme.backgroundImagePath != null) {
+            Modifier.background(Color.Transparent)
+        } else if (chatTheme.backgroundBrush != null) {
+            Modifier.background(chatTheme.backgroundBrush!!)
         } else {
-            Modifier.background(room.chatTheme.backgroundColor)
+            Modifier.background(chatTheme.backgroundColor)
         }
+
+    val showFilePicker = remember { mutableStateOf(false) }
+
+    DisposableEffect(Unit) {
+        println("ChatApp: Screen created")
+        onDispose {
+            println("ChatApp: Screen disposed")
+        }
+    }
 
     AppTheme {
         Scaffold(
@@ -94,28 +117,56 @@ fun ChatAppWithScaffold(
                 },
             topBar = {
                 TopAppBar(
-                    title = { Text(room.label) },
+                    title = {
+                        Text(
+                            chatLabel,
+                            color = chatTheme.topBarTextColor
+                        )
+                    },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = room.chatTheme.backgroundColor.copy(alpha = 0.95f)
+                        containerColor = chatTheme.topBarColor
                     ),
                     navigationIcon = {
                         IconButton(onClick = {
                             navigator.pop()
                         }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back",
+                                tint = chatTheme.topBarTextColor
+                            )
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = {
+                            showFilePicker.value = true
+                        }){
+                            Icon(
+                                Icons.AutoMirrored.Outlined.InsertDriveFile,
+                                contentDescription = "Choose file",
+                                tint = chatTheme.topBarTextColor
+                            )
                         }
                     }
                 )
             }) { contentPadding ->
-            ChatApp(
-                displayTextField = displayTextField,
-                modifier = chatAppBackgroundModifier.padding(contentPadding),
-                room = room,
-                session = session
-            )
+            Box(modifier = Modifier.fillMaxSize().padding(contentPadding))
+            {
+                FilePicker(showFilePicker.value){
+                        it ->
+                    showFilePicker.value = false
+                    if(it != null) chatViewModel.setBackgroundImage(roomId, it)
+                }
 
-            LaunchedEffect(Unit) {
-                focusRequester.requestFocus()
+                ChatApp(
+                    displayTextField = displayTextField,
+                    modifier = chatAppBackgroundModifier,
+                    roomId = roomId
+                )
+
+                LaunchedEffect(Unit) {
+                    focusRequester.requestFocus()
+                }
             }
         }
     }
@@ -126,21 +177,36 @@ fun ChatAppWithScaffold(
 fun ChatApp(
     modifier: Modifier = Modifier,
     displayTextField: Boolean = true,
-    room: RoomItem,
-    session: DefaultWebSocketSession? = null
+    roomId: Int
 ) {
     val chatRepository: ChatRepository = koinInject()
-    val state by chatRepository.store.stateFlow.collectAsState()
+    val state by chatRepository.store.stateFlow.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val user = koinInject<UserRespository>().getUser()
+    val chatViewModel: ChatViewModel = koinInject()
+    val chatTheme = chatViewModel.getRoomTheme(roomId) ?: ChatTheme.default()
+    val session = chatRepository.activeSessions.collectAsStateWithLifecycle().value[roomId]?.firstOrNull()
 
     AppTheme {
         Surface(
-            modifier = Modifier
+            modifier = Modifier.background(Color.Transparent)
         ) {
             Box(
                 modifier = modifier.fillMaxSize()
             ) {
+                val backgroundImagePainter = chatTheme.backgroundImagePath?.let { path ->
+                    painterFromFile(path)
+                }
+
+                if (backgroundImagePainter != null) {
+                    Image(
+                        painter = backgroundImagePainter,
+                        contentDescription = "Background Image",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+
                 Column(
                     modifier = Modifier.fillMaxSize()
                 ) {
@@ -151,8 +217,8 @@ fun ChatApp(
                         Messages(
                             modifier = Modifier
                                 .padding(bottom = 70.dp),
-                            room.chatTheme,
-                            state.rooms[room.id].orEmpty()
+                            roomId,
+                            state.rooms[roomId].orEmpty()
                         )
                         if (displayTextField) {
                             SendMessage(
@@ -162,7 +228,7 @@ fun ChatApp(
                                 val message = Message(user, text)
                                 chatRepository.store.send(
                                     Action.SendMessage(
-                                        roomId = room.id,
+                                        roomId = roomId,
                                         message = message
                                     )
                                 )

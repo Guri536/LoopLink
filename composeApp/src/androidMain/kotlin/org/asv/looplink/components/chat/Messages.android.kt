@@ -16,16 +16,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import org.asv.looplink.data.repository.UserRespository
 import org.asv.looplink.theme.ChatTheme
+import org.asv.looplink.viewmodel.ChatViewModel
 import org.koin.compose.koinInject
 
 @Composable
 internal actual fun Messages(
     modifier: Modifier,
-    chatTheme: ChatTheme,
+    roomId: Int,
     messages: List<Message>
 ) {
     val listState = rememberLazyListState()
     var lastChat: Message? = null
+    val chatViewModel: ChatViewModel = koinInject()
+    val chatTheme = chatViewModel.getRoomTheme(roomId) ?: ChatTheme.default()
 
     if (messages.isNotEmpty()) {
         LaunchedEffect(messages.last()) {
@@ -48,7 +51,7 @@ internal actual fun Messages(
                 lastChat = it
                 ChatMessage(
                     isMyMessage = it.user == koinInject<UserRespository>().getUser(),
-                    chatTheme,
+                    roomId,
                     it,
                     space
                 )

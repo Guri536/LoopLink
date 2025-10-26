@@ -48,6 +48,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -55,6 +56,7 @@ import cafe.adriel.voyager.navigator.tab.CurrentTab
 import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
+import kotlinx.serialization.Serializable
 import org.asv.looplink.PlatformType
 import org.asv.looplink.components.LocalAppNavigator
 import org.asv.looplink.components.chat.Action
@@ -70,13 +72,7 @@ import org.asv.looplink.data.repository.UserRespository
 import org.asv.looplink.getPlatformType
 import org.asv.looplink.theme.ChatTheme
 import org.asv.looplink.viewmodel.ChatViewModel
-import org.asv.looplink.viewmodel.ConnectionStatus
-import org.asv.looplink.viewmodel.GroupStructure
-import org.asv.looplink.viewmodel.GroupTabs
-import org.asv.looplink.viewmodel.GroupType
 import org.asv.looplink.viewmodel.PeerDiscoveryViewModel
-import org.asv.looplink.viewmodel.RoomItem
-import org.asv.looplink.viewmodel.TabType
 import org.koin.compose.koinInject
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
@@ -91,7 +87,8 @@ class MainScreen : Screen {
         val userRepository: UserRespository = koinInject()
 
         val chatViewModel: ChatViewModel = koinInject()
-        val rooms by chatViewModel.roomsWithStatus.collectAsState()
+        val rooms by chatViewModel.roomsWithStatus.collectAsStateWithLifecycle()
+
         chatViewModel.addRoom(
             RoomItem(
                 0, "Self", status = ConnectionStatus.Idle,
@@ -102,13 +99,24 @@ class MainScreen : Screen {
                         Color.Yellow.toArgb(),
                         Color.Green.toArgb()
                     ),
-                    backgroundGradientAngle = 175.0f
+                    backgroundGradientAngle = 60f
                 )
             )
         )
-        chatViewModel.addRoom(RoomItem(1, "Test 1", status = ConnectionStatus.Connecting))
-        chatViewModel.addRoom(RoomItem(2, "Test 2", status = ConnectionStatus.Connected))
-        chatViewModel.addRoom(RoomItem(3, "Test 3", status = ConnectionStatus.Error("What")))
+
+        chatViewModel.addRoom(
+            RoomItem(
+                1, "Test 1", status = ConnectionStatus.Connecting,
+                chatTheme =
+                    ChatTheme(backGroundColorArgb = Color(0xff13314b).toArgb())
+            )
+        )
+        chatViewModel.addRoom(
+            RoomItem(
+                2, "Test 2", status = ConnectionStatus.Connected
+            ),
+        )
+        chatViewModel.addRoom(RoomItem(3, "Test 3", status = ConnectionStatus.Error))
         chatViewModel.addRoom(RoomItem(4, "Test 4"))
         chatViewModel.addRoom(
             RoomItem(
@@ -189,7 +197,7 @@ fun InitiateSideBar(
     val navigator = LocalAppNavigator.currentOrThrow
 
     val onRoomClick: (RoomItem) -> Unit = { room ->
-        navigator.navigateToChat(room)
+        navigator.navigateToChat(room.id)
     }
     val onSettingsClick = { navigator.navigateToSettings() }
     val onProfileClick: () -> Unit = {}
@@ -274,7 +282,7 @@ fun Sidebar(
                         .weight(1f, fill = false)
                 ) {
                     items(rooms) { room ->
-                        SidebarRoomItem(room = room, onClick = { onRoomClick(room) })
+                        SidebarRoomItem(roomId = room.id, onClick = { onRoomClick(room) })
                         Spacer(modifier = Modifier.height(8.dp))
                     }
                 }
@@ -286,7 +294,9 @@ fun Sidebar(
 }
 
 @Composable
-private fun SidebarRoomItem(room: RoomItem, onClick: () -> Unit) {
+private fun SidebarRoomItem(roomId: Int, onClick: () -> Unit) {
+    val chatViewModel: ChatViewModel = koinInject()
+    val room = chatViewModel.getRoom(roomId)!!
     Row(
         modifier = Modifier
             .defaultMinSize(minHeight = 65.dp)
@@ -302,6 +312,7 @@ private fun SidebarRoomItem(room: RoomItem, onClick: () -> Unit) {
             ConnectionStatus.Connected -> Color.Green
             ConnectionStatus.Connecting -> Color.Green
             is ConnectionStatus.Error -> Color.Red
+            else -> Color.Gray
         }
 
         val infiniteTransition = rememberInfiniteTransition(label = "Blinking")
@@ -314,7 +325,7 @@ private fun SidebarRoomItem(room: RoomItem, onClick: () -> Unit) {
             ),
             label = "BlinkAlpha"
         )
-        val indicatorAlpha = if (room.status is ConnectionStatus.Connecting) blinkAlpha else 1f
+        val indicatorAlpha = if (room?.status == ConnectionStatus.Connecting) blinkAlpha else 1f
 
         Box(
             modifier = Modifier
@@ -423,28 +434,29 @@ object EmptyChatTab : Tab {
     }
 }
 
-data class ChatTab(val room: RoomItem) : Tab {
+data class ChatTab(val roomId: Int) : Tab {
     override val options: TabOptions
         @Composable
         get() {
-            val title = room.label
-            val index = remember(room.id) { room.id.hashCode().toUShort() }
+            val title = "room_${roomId}"
+            val index = remember(roomId) { roomId.hashCode().toUShort() }
             return remember { TabOptions(index, title) }
         }
 
     @Composable
     override fun Content() {
-        val chatRepository: ChatRepository = koinInject()
-        val session = chatRepository.activeSessions.collectAsState().value[room.id]?.firstOrNull()
-        ChatAppWithScaffold(true, room, session)
+//        val chatRepository: ChatRepository = koinInject()
+//        val session = chatRepository.activeSessions.collectAsStateWithLifecycle().value[room.id]?.firstOrNull()
+        ChatAppWithScaffold(true, roomId)
     }
 }
 
-class ChatTabScreen(val room: RoomItem) : Screen {
+@Serializable
+class ChatTabScreen(val roomId: Int) : Screen {
     @Composable
     override fun Content() {
-        val chatRepository: ChatRepository = koinInject()
-        val session = chatRepository.activeSessions.collectAsState().value[room.id]?.firstOrNull()
-        ChatAppWithScaffold(true, room, session)
+//        val chatRepository: ChatRepository = koinInject()
+//        val session = chatRepository.activeSessions.collectAsStateWithLifecycle().value[room.id]?.firstOrNull()
+        ChatAppWithScaffold(true, roomId)
     }
 }

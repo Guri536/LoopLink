@@ -1,9 +1,7 @@
 package org.asv.looplink.viewmodel
 
-import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
 import io.ktor.client.plugins.websocket.webSocketSession
 import io.ktor.http.HttpMethod
-import io.ktor.websocket.DefaultWebSocketSession
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -14,16 +12,15 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.asv.looplink.network.createKtorClient
 import org.asv.looplink.network.discovery.LANServiceDiscovery
 import org.asv.looplink.network.discovery.ServiceInfo
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
-import androidx.lifecycle.viewModelScope
 import org.asv.looplink.data.repository.ChatRepository
-import org.asv.looplink.network.ConnectionManager
+import org.asv.looplink.ui.ConnectionStatus
+import org.asv.looplink.ui.RoomItem
 
 class PeerDiscoveryViewModel(
     private val serviceDiscovery: LANServiceDiscovery,
@@ -105,7 +102,7 @@ class PeerDiscoveryViewModel(
                 chatRepository.addAndListenToSession(roomId, session)
                 println("PDVM: WebSocket connection established and session stored for room $roomId.")
             } catch (e: Exception) {
-                chatViewModel.updateRoomConnection(roomId, ConnectionStatus.Error("Failed to connect: ${e.message}"))
+                chatViewModel.updateRoomConnection(roomId, ConnectionStatus.Error)
                 println("PDVM: WebSocket connection failed: ${e.message}")
             }
         }

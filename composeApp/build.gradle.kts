@@ -3,6 +3,7 @@ import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.util.Properties
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 
 plugins {
@@ -13,6 +14,7 @@ plugins {
     alias(libs.plugins.composeHotReload)
     alias(libs.plugins.kotlinxSerialization)
     alias(libs.plugins.sqldelight)
+    id("kotlin-parcelize")
 }
 
 kotlin {
@@ -30,9 +32,11 @@ kotlin {
     androidTarget {
         @OptIn(ExperimentalKotlinGradlePluginApi::class)
         compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_11)
+            jvmTarget.set(JvmTarget.JVM_15)
         }
     }
+
+
 
     jvm()
 
@@ -44,6 +48,8 @@ kotlin {
             implementation(libs.androidx.compose.ui.text.android)
             implementation(libs.koin.android)
             implementation(libs.koin.androidx.compose)
+            implementation(libs.coil.compose)
+
 
             // Ktor
             implementation(libs.ktor.client.android)
@@ -65,20 +71,19 @@ kotlin {
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
             implementation(libs.kotlinx.coroutines.core)
-            implementation(libs.runtime) // SQLDelight runtime
+            implementation(libs.runtime)
             implementation(libs.kotlinx.datetime)
-            implementation(libs.koin.core) // Koin for DI
+            implementation(libs.koin.core)
             implementation(libs.koin.compose)
             implementation(libs.sqldelight.coroutines)
             implementation(compose.material)
             implementation(compose.materialIconsExtended)
 
-
             // Ktor
-            implementation(libs.ktor.client.core) // Already here
+            implementation(libs.ktor.client.core)
             implementation(libs.ktor.client.websockets)
-            implementation(libs.ktor.client.content.negotiation) // Already here
-            implementation(libs.ktor.serialization.kotlinx.json) // Already here
+            implementation(libs.ktor.client.content.negotiation)
+            implementation(libs.ktor.serialization.kotlinx.json)
             implementation(libs.ktor.logging)
 
             implementation(libs.ktor.server.core)
@@ -91,6 +96,8 @@ kotlin {
 
             // Resources
             implementation(compose.components.resources)
+            implementation(libs.coil3.coil.compose)
+
 
             //Voyager
             implementation(libs.voyager.navigator)
@@ -169,8 +176,8 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_15
+        targetCompatibility = JavaVersion.VERSION_15
     }
 }
 
@@ -204,4 +211,3 @@ repositories {
     google()
     mavenCentral()
 }
-

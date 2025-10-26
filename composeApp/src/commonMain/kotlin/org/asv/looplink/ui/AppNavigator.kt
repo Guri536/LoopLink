@@ -5,7 +5,6 @@ import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabNavigator
 import org.asv.looplink.components.SettingsPage
-import org.asv.looplink.viewmodel.RoomItem
 
 class AppNavigator(
     val navigator: Navigator,
@@ -31,11 +30,11 @@ class AppNavigator(
         navigator.push(SettingsPage())
     }
 
-    fun navigateToChat(room: RoomItem){
+    fun navigateToChat(roomId: Int){
         if(tabNavigator != null){
-            tabNavigator.current = ChatTab(room)
+            tabNavigator.current = ChatTab(roomId)
         } else {
-            navigator.push(ChatTabScreen(room))
+            navigator.push(ChatTabScreen(roomId))
         }
     }
 

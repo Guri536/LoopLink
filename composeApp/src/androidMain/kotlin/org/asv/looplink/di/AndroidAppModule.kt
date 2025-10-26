@@ -2,6 +2,7 @@ package org.asv.looplink.di
 
 import android.webkit.WebView
 import org.asv.looplink.DriverFactory
+import org.asv.looplink.data.repository.FileRepository
 import org.asv.looplink.network.AndroidKtorServer
 import org.asv.looplink.network.ServerManager
 import org.asv.looplink.network.discovery.LANServiceDiscovery
@@ -18,6 +19,7 @@ actual fun platformModule(): Module = module {
     single { LANServiceDiscovery(get())}
     single { AndroidKtorServer(get()) }
     single{ ServerManager(get()) }
+    single { FileRepository(get()) }
     viewModel {
         MainViewModel(
             get(),
