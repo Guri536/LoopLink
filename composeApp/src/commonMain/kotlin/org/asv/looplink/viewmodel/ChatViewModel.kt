@@ -25,7 +25,7 @@ class ChatViewModel(private val chatRepository: ChatRepository): ViewModel() {
         _rooms.combine(chatRepository.activeSessions){ rooms, sessions ->
             rooms.map{ room ->
                 if(sessions.containsKey(room.id)){
-                    room.copyMe(status = ConnectionStatus.Connected)
+                    room.copy(status = ConnectionStatus.Connected)
                 } else {
                     room
                 }
@@ -47,7 +47,7 @@ class ChatViewModel(private val chatRepository: ChatRepository): ViewModel() {
         _rooms.update { curRoom ->
             curRoom.map{ room ->
                 if(room.id == roomId){
-                    room.copyMe(status = connectionStatus)
+                    room.copy(status = connectionStatus)
                 } else {
                     room
                 }
@@ -63,7 +63,7 @@ class ChatViewModel(private val chatRepository: ChatRepository): ViewModel() {
         _rooms.update { rooms ->
             rooms.map { room ->
                 if(room.id == roomId){
-                    room.copyMe(chatTheme = newTheme)
+                    room.copy(chatTheme = newTheme)
                 } else {
                     room
                 }
@@ -113,7 +113,7 @@ class ChatViewModel(private val chatRepository: ChatRepository): ViewModel() {
                 null
             }
 
-            val updataedTheme = currentTheme.copyMe(
+            val updataedTheme = currentTheme.copy(
                 backgroundImagePath = newManagedFile?.internalPath
             )
             println("New theme back: ${updataedTheme.backgroundImagePath}")

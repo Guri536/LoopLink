@@ -211,12 +211,11 @@ fun LogoutButton(modifier: Modifier = Modifier) {
 
 @Composable
 fun FindDevicesButton(modifier: Modifier = Modifier) {
-    val peerDiscoveryViewModel: PeerDiscoveryViewModel = koinInject()
     val navigator = LocalAppNavigator.currentOrThrow
 
     Button(
         onClick = {
-            navigator.pushScreen(AvailableServicesScreen(peerDiscoveryViewModel))
+            navigator.pushScreen(AvailableServicesScreen())
         },
         modifier = modifier.padding(vertical = 2.dp).fillMaxWidth()
     ) {

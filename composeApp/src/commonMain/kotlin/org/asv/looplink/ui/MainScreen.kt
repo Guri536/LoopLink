@@ -116,7 +116,7 @@ class MainScreen : Screen {
                 2, "Test 2", status = ConnectionStatus.Connected
             ),
         )
-        chatViewModel.addRoom(RoomItem(3, "Test 3", status = ConnectionStatus.Error))
+        chatViewModel.addRoom(RoomItem(3, "Test 3", status = ConnectionStatus.Error("What")))
         chatViewModel.addRoom(RoomItem(4, "Test 4"))
         chatViewModel.addRoom(
             RoomItem(
@@ -225,12 +225,11 @@ fun Sidebar(
     onIconClick: () -> Unit
 ) {
     val navigator = LocalAppNavigator.currentOrThrow
-    val peerDiscoveryViewModel: PeerDiscoveryViewModel = koinInject()
 
     val navigateToAvailableServicesScreen = {
         navigator.push(
-            AvailableServicesScreen(peerDiscoveryViewModel),
-            AvailableServiesTab(peerDiscoveryViewModel)
+            AvailableServicesScreen(),
+            AvailableServiesTab()
         )
     }
     val navigateToGroupCreation = {

@@ -102,7 +102,7 @@ class PeerDiscoveryViewModel(
                 chatRepository.addAndListenToSession(roomId, session)
                 println("PDVM: WebSocket connection established and session stored for room $roomId.")
             } catch (e: Exception) {
-                chatViewModel.updateRoomConnection(roomId, ConnectionStatus.Error)
+                chatViewModel.updateRoomConnection(roomId, ConnectionStatus.Error("Work"))
                 println("PDVM: WebSocket connection failed: ${e.message}")
             }
         }

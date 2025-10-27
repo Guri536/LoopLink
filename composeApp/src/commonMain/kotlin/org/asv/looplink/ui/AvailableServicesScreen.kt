@@ -52,12 +52,10 @@ import org.asv.looplink.network.discovery.ServiceInfo
 import org.asv.looplink.viewmodel.PeerDiscoveryViewModel
 import org.koin.compose.koinInject
 
-class AvailableServiesTab(
-    private val viewModel: PeerDiscoveryViewModel,
-) : Tab {
+class AvailableServiesTab() : Tab {
     @Composable
     override fun Content() {
-        AvailableServices(viewModel)
+        AvailableServices()
     }
 
     override val options: TabOptions
@@ -68,22 +66,19 @@ class AvailableServiesTab(
         }
 }
 
-class AvailableServicesScreen(
-    private val viewModel: PeerDiscoveryViewModel
-) : Screen {
+class AvailableServicesScreen() : Screen {
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     override fun Content() {
-        AvailableServices(viewModel)
+        AvailableServices()
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AvailableServices(
-    viewModel: PeerDiscoveryViewModel
-){
+fun AvailableServices(){
     val navigator = LocalAppNavigator.currentOrThrow
+    val viewModel: PeerDiscoveryViewModel = koinInject()
     val discoveredServices by viewModel.discoveredServices.collectAsStateWithLifecycle()
     val isDiscovering by viewModel.isDiscovering.collectAsStateWithLifecycle()
     val user: UserRespository = koinInject()
