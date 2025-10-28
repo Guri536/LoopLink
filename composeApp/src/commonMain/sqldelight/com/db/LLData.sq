@@ -6,7 +6,7 @@ CREATE TABLE LoopLinkUser (
     contact TEXT,
     cGPA TEXT,
     email TEXT,
-    pfpImage BLOB
+    pfpPath TEXT
 );
 
 CREATE INDEX USERNAME ON LoopLinkUser(name);
@@ -16,11 +16,9 @@ INSERT INTO LoopLinkUser (name, uid) VALUES
 (?, ?);
 
 insertAll:
-INSERT INTO LoopLinkUser (name, uid, section, program, contact, cGPA, email, pfpImage) VALUES
+INSERT INTO LoopLinkUser (name, uid, section, program, contact, cGPA, email, pfpPath) VALUES
 (?, ?, ?, ? , ?, ?, ?, ?);
 
-getPFP:
-SELECT pfpImage FROM LoopLinkUser LIMIT 1;
 
 selectAll:
 SELECT LoopLinkUser.* FROM LoopLinkUser;
@@ -30,3 +28,11 @@ DELETE FROM LoopLinkUser;
 
 getSize:
 SELECT COUNT(*) FROM LoopLinkUser;
+
+-- ADD THIS NEW QUERY HERE (from your .sqm file)
+updatePfpPath:
+UPDATE LoopLinkUser SET pfpPath = ? WHERE uid = ?;
+
+-- ADD THIS NEW QUERY HERE (from your .sqm file)
+getPfpPath:
+SELECT pfpPath FROM LoopLinkUser LIMIT 1;

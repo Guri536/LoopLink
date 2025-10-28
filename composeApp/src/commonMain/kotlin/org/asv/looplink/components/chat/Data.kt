@@ -1,54 +1,36 @@
 package org.asv.looplink.components.chat
 
 import androidx.compose.ui.graphics.Color
-import kotlin.time.Clock
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 import kotlin.random.Random
 import kotlin.random.nextInt
+import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
 @Serializable
 data class User(
-    var name: String,
-    var picture: ByteArray?,
-    @Transient val color: Color = ColorProvider.getColor(),
-) {
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (javaClass != other?.javaClass) return false
-
-        other as User
-
-        if (name != other.name) return false
-        if (picture != null) {
-            if (other.picture == null) return false
-            if (!picture.contentEquals(other.picture)) return false
-        } else if (other.picture != null) return false
-
-        return true
-    }
-
-    override fun hashCode(): Int {
-        var result = name.hashCode()
-        result = 31 * result + (picture?.contentHashCode() ?: 0)
-        return result
-    }
-}
+    val id: String,
+    val name: String,
+    val pfpPath: String? = null
+)
 
 @Serializable
 data class Message(
-    val user: User,
+    val userId: String,
+    val roomId: Int,
     val text: String,
     val seconds: Long,
     val id: Long
 ) {
     @OptIn(ExperimentalTime::class)
     constructor(
-        user: User,
+        userId: String,
+        roomId: Int,
         text: String
     ) : this(
-        user = user,
+        userId = userId,
+        roomId = roomId,
         text = text,
         seconds = Clock.System.now().epochSeconds,
         id = Random.nextLong()
@@ -68,7 +50,7 @@ object ColorProvider {
     )
     val allColors = colors.toList()
     fun getColor(): Color {
-        if(colors.isEmpty()) {
+        if (colors.isEmpty()) {
             colors.addAll(allColors)
         }
         val idx = Random.nextInt(colors.indices)

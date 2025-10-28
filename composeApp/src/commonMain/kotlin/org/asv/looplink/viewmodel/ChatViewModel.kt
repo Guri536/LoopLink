@@ -1,5 +1,6 @@
 package org.asv.looplink.viewmodel
 
+import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,14 +18,14 @@ import org.asv.looplink.ui.ConnectionStatus
 import org.asv.looplink.ui.RoomItem
 import org.koin.java.KoinJavaComponent.get
 
-class ChatViewModel(private val chatRepository: ChatRepository): ViewModel() {
-    private val _rooms = MutableStateFlow<List<RoomItem>>(emptyList())
+class ChatViewModel(private val chatRepository: ChatRepository) : ViewModel() {
+    private val _rooms = MutableStateFlow<Map<Int, RoomItem>>(emptyMap())
     val rooms = _rooms.asStateFlow()
 
     val roomsWithStatus: StateFlow<List<RoomItem>> =
-        _rooms.combine(chatRepository.activeSessions){ rooms, sessions ->
-            rooms.map{ room ->
-                if(sessions.containsKey(room.id)){
+        _rooms.combine(chatRepository.activeSessions) { rooms, sessions ->
+            rooms.values.map { room ->
+                if (sessions.containsKey(room.id)) {
                     room.copy(status = ConnectionStatus.Connected)
                 } else {
                     room
@@ -34,73 +35,42 @@ class ChatViewModel(private val chatRepository: ChatRepository): ViewModel() {
 
     fun addRoom(roomItem: RoomItem) {
         _rooms.update { curRooms ->
-            val existingRoom = curRooms.find { it.id == roomItem.id }
-            if (existingRoom == null) {
-                curRooms + roomItem
+            val existingRoom = curRooms.containsKey(roomItem.id)
+            if (!existingRoom) {
+                curRooms + (roomItem.id to roomItem)
             } else {
                 curRooms
             }
         }
     }
 
-    fun updateRoomConnection(roomId: Int, connectionStatus: ConnectionStatus){
-        _rooms.update { curRoom ->
-            curRoom.map{ room ->
-                if(room.id == roomId){
-                    room.copy(status = connectionStatus)
-                } else {
-                    room
-                }
-            }
+    fun updateRoomProperty(roomId: Int, updateProperty: (RoomItem) -> RoomItem) {
+        _rooms.update { roomMap ->
+            val room = roomMap[roomId] ?: return@update roomMap
+            val updatedRoom = updateProperty(room)
+            roomMap + (roomId to updatedRoom)
         }
     }
 
-    fun roomExists(roomId: Int): Boolean {
-        return _rooms.value.find { it.id == roomId } != null
+    fun updateRoomConnection(roomId: Int, connectionStatus: ConnectionStatus) {
+        updateRoomProperty(roomId){ it.copy(status = connectionStatus) }
     }
 
-    fun updateRoomTheme(roomId: Int, newTheme: ChatTheme){
-        _rooms.update { rooms ->
-            rooms.map { room ->
-                if(room.id == roomId){
-                    room.copy(chatTheme = newTheme)
-                } else {
-                    room
-                }
-            }
-        }
+    fun roomExists(roomId: Int): Boolean = _rooms.value.containsKey(roomId)
+
+
+    fun updateRoomTheme(roomId: Int, newTheme: ChatTheme) {
+        updateRoomProperty(roomId){ it.copy(chatTheme = newTheme) }
     }
 
-    fun getRoomTheme(roomId: Int): ChatTheme? {
-        _rooms.value.forEach { room ->
-            if(room.id == roomId) return room.chatTheme
-        }
-        return null
-    }
+    fun getRoomTheme(roomId: Int): ChatTheme? = _rooms.value[roomId]?.chatTheme
+    fun getRoomLabel(roomId: Int): String? = _rooms.value[roomId]?.label
+    fun getRoomStatus(roomId: Int): ConnectionStatus? = _rooms.value[roomId]?.status
+    fun getRoom(roomId: Int): RoomItem? = _rooms.value[roomId]
+    fun getPfp(roomId: Int): String? = _rooms.value[roomId]?.pfpPath ?: _rooms.value[roomId]?.groupDetails?.pfpPath
+    fun getPeerDefaultColor(roomId: Int): Color = _rooms.value[roomId]?.chatTheme?.defaultPeerColor!!
 
-    fun getRoomLabel(roomId: Int): String?{
-        _rooms.value.forEach { room ->
-            if(room.id == roomId) return room.label
-        }
-        return null
-    }
-
-    fun getRoomStatus(roomId: Int): ConnectionStatus{
-        _rooms.value.forEach { room ->
-            if(room.id == roomId) return room.status
-        }
-        return ConnectionStatus.Idle
-    }
-
-    fun getRoom(roomId: Int): RoomItem? {
-        _rooms.value.forEach { room ->
-            if(room.id == roomId) return room
-        }
-        return null
-    }
-
-
-    fun setBackgroundImage(roomId: Int, newSourcePath: String){
+    fun setBackgroundImage(roomId: Int, newSourcePath: String) {
         val fileRepository: FileRepository = get(FileRepository::class.java)
         println("Got: $newSourcePath")
         viewModelScope.launch {
@@ -109,7 +79,7 @@ class ChatViewModel(private val chatRepository: ChatRepository): ViewModel() {
             val currentTheme = getRoomTheme(roomId) ?: ChatTheme.default()
             val currentBackgroundImage = currentTheme.backgroundImagePath
 
-            if(currentBackgroundImage != null && currentBackgroundImage != newManagedFile?.internalPath){
+            if (currentBackgroundImage != null && currentBackgroundImage != newManagedFile?.internalPath) {
                 null
             }
 
@@ -123,7 +93,7 @@ class ChatViewModel(private val chatRepository: ChatRepository): ViewModel() {
         }
     }
 
-    private suspend fun cleanupOrphanFiles(){
+    private suspend fun cleanupOrphanFiles() {
         TODO()
     }
 }

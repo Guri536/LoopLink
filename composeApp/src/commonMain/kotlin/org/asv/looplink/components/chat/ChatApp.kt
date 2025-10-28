@@ -6,10 +6,13 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.automirrored.outlined.InsertDriveFile
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -47,13 +50,14 @@ import io.ktor.websocket.DefaultWebSocketSession
 import io.ktor.websocket.Frame
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
+import org.asv.looplink.PlatformType
 import org.asv.looplink.components.LocalAppNavigator
 import org.asv.looplink.components.painterFromFile
 import org.asv.looplink.data.repository.ChatRepository
 import org.asv.looplink.data.repository.UserRespository
+import org.asv.looplink.getPlatformType
 import org.asv.looplink.theme.ChatTheme
 import org.asv.looplink.ui.FilePicker
-import org.asv.looplink.ui.RoomItem
 import org.asv.looplink.viewmodel.ChatViewModel
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 import org.koin.compose.koinInject
@@ -64,6 +68,7 @@ import ui.theme.AppTheme
 fun ChatAppWithScaffold(
     displayTextField: Boolean = true,
     roomId: Int,
+    session: DefaultWebSocketSession?
 ) {
     val navigator = LocalAppNavigator.currentOrThrow
     val focusRequester = remember { FocusRequester() }
@@ -76,12 +81,14 @@ fun ChatAppWithScaffold(
         if (chatTheme.backgroundImagePath != null) {
             Modifier.background(Color.Transparent)
         } else if (chatTheme.backgroundBrush != null) {
-            Modifier.background(chatTheme.backgroundBrush!!)
+            Modifier.background(chatTheme.backgroundBrush)
         } else {
             Modifier.background(chatTheme.backgroundColor)
         }
 
     val showFilePicker = remember { mutableStateOf(false) }
+
+    val chatRepository: ChatRepository = koinInject()
 
     DisposableEffect(Unit) {
         println("ChatApp: Screen created")
@@ -140,10 +147,31 @@ fun ChatAppWithScaffold(
                     actions = {
                         IconButton(onClick = {
                             showFilePicker.value = true
-                        }){
+                        }) {
                             Icon(
                                 Icons.AutoMirrored.Outlined.InsertDriveFile,
                                 contentDescription = "Choose file",
+                                tint = chatTheme.topBarTextColor
+                            )
+                        }
+                        Spacer(Modifier.width(24.dp))
+                        IconButton(
+                            onClick = {
+                                chatRepository.store.send(
+                                    Action.SendMessage(
+                                        roomId = roomId,
+                                        message = Message(
+                                            userId = "Unknown",
+                                            roomId = 0,
+                                            text = "Hey there"
+                                        )
+                                    )
+                                )
+                            }
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Default.Send,
+                                contentDescription = "Send Test",
                                 tint = chatTheme.topBarTextColor
                             )
                         }
@@ -152,16 +180,16 @@ fun ChatAppWithScaffold(
             }) { contentPadding ->
             Box(modifier = Modifier.fillMaxSize().padding(contentPadding))
             {
-                FilePicker(showFilePicker.value){
-                        it ->
+                FilePicker(showFilePicker.value) { it ->
                     showFilePicker.value = false
-                    if(it != null) chatViewModel.setBackgroundImage(roomId, it)
+                    if (it != null) chatViewModel.setBackgroundImage(roomId, it)
                 }
 
                 ChatApp(
                     displayTextField = displayTextField,
                     modifier = chatAppBackgroundModifier,
-                    roomId = roomId
+                    roomId = roomId,
+                    session = session
                 )
 
                 LaunchedEffect(Unit) {
@@ -177,15 +205,22 @@ fun ChatAppWithScaffold(
 fun ChatApp(
     modifier: Modifier = Modifier,
     displayTextField: Boolean = true,
-    roomId: Int
+    roomId: Int,
+    session: DefaultWebSocketSession?
 ) {
     val chatRepository: ChatRepository = koinInject()
     val state by chatRepository.store.stateFlow.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
-    val user = koinInject<UserRespository>().getUser()
+    val user = koinInject<UserRespository>().getUserIdAndName()
     val chatViewModel: ChatViewModel = koinInject()
-    val chatTheme = chatViewModel.getRoomTheme(roomId) ?: ChatTheme.default()
-    val session = chatRepository.activeSessions.collectAsStateWithLifecycle().value[roomId]?.firstOrNull()
+
+    val isWideScreen = getPlatformType() == PlatformType.DESKTOP
+
+    val rooms by chatViewModel.roomsWithStatus.collectAsStateWithLifecycle()
+    val room = remember(rooms, roomId) {
+        rooms.find { it.id == roomId }
+    }
+    val chatTheme = room?.chatTheme ?: ChatTheme.default()
 
     AppTheme {
         Surface(
@@ -194,9 +229,10 @@ fun ChatApp(
             Box(
                 modifier = modifier.fillMaxSize()
             ) {
-                val backgroundImagePainter = chatTheme.backgroundImagePath?.let { path ->
-                    painterFromFile(path)
-                }
+                val backgroundImagePainter =
+                    chatTheme.backgroundImagePath?.let { path ->
+                        painterFromFile(path)
+                    }
 
                 if (backgroundImagePainter != null) {
                     Image(
@@ -218,6 +254,7 @@ fun ChatApp(
                             modifier = Modifier
                                 .padding(bottom = 70.dp),
                             roomId,
+                            isWideScreen,
                             state.rooms[roomId].orEmpty()
                         )
                         if (displayTextField) {
@@ -225,7 +262,11 @@ fun ChatApp(
                                 modifier = Modifier
                                     .align(Alignment.BottomCenter)
                             ) { text ->
-                                val message = Message(user, text)
+                                val message = Message(
+                                    userId = user.first ?: "Unknown",
+                                    roomId = roomId,
+                                    text = text
+                                )
                                 chatRepository.store.send(
                                     Action.SendMessage(
                                         roomId = roomId,

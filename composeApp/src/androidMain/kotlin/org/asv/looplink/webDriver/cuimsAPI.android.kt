@@ -19,6 +19,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.time.delay
 import kotlinx.coroutines.withContext
 import org.asv.looplink.data.model.UserModel
+import org.asv.looplink.data.repository.FileRepository
 import org.asv.looplink.errors.errorsLL
 import org.asv.looplink.secrets.APIKeys
 import org.jsoup.Jsoup
@@ -384,7 +385,7 @@ actual class cuimsAPI(private val webView: WebView) {
             "Program" to ("ContentPlaceHolder1_lblProgramCode"),
             "Contact" to ("ContentPlaceHolder1_gvStudentContacts_lblMobile_2"),
         )
-        val profileData = mutableMapOf<String, Any>()
+        val profileData = mutableMapOf<String, String>()
 
         for (i in eleList) {
             try {
@@ -410,8 +411,10 @@ actual class cuimsAPI(private val webView: WebView) {
         val pfpImageEle = "ContentPlaceHolder1_imgStu"
         withContext(Dispatchers.Main) {
             val pfpBase64 = eval("document.getElementById('$pfpImageEle')?.src || ''").trim('"')
-            profileData["pfpImage"] =
+            val pfpImage  =
                 Base64.decode(pfpBase64.removePrefix("data:image/png;base64,"))
+            val fileRepository: FileRepository = org.koin.java.KoinJavaComponent.get(FileRepository::class.java)
+            profileData["pfpPath"] = fileRepository.copyBlobToFile(pfpImage, profileData["UID"]?:"User")
         }
 
         return profileData
@@ -431,7 +434,7 @@ actual class cuimsAPI(private val webView: WebView) {
                     contact = profileData["Contact"] as? String,
                     cGPA = resultData["CGPA"],
                     email = "${profileData["UID"]}@cuchd.in",
-                    picture = profileData["pfpImage"] as ByteArray
+                    pfpPath = profileData["pfpPath"] as? String
                 )
 
                 Pair(successLog(true), userData)

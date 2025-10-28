@@ -58,8 +58,8 @@ class LoginFields(val onLoginSuccess: () -> Unit) : Screen {
         val cuimsAPI: cuimsAPI = koinInject()
         val navigator = LocalAppNavigator.currentOrThrow
 
-        var uidField by remember { mutableStateOf("23BSC10022") }
-        var passField by remember { mutableStateOf("19May2005!") }
+        var uidField by remember { mutableStateOf("") }
+        var passField by remember { mutableStateOf("") }
         val interactionSource = remember { MutableInteractionSource() }
         var isUIDError by remember { mutableStateOf(false) }
         var isPassError by remember { mutableStateOf(false) }
@@ -359,6 +359,7 @@ class LoginFields(val onLoginSuccess: () -> Unit) : Screen {
 
                                     val data = cuimsAPI.loadStudentData()
                                     if (data.first.success) {
+                                        println("Insert User data")
                                         get<UserRespository>(UserRespository::class.java).insertAndLoadUser(
                                             data.second!!
                                         )
@@ -371,6 +372,7 @@ class LoginFields(val onLoginSuccess: () -> Unit) : Screen {
                                     }
 
                                 } catch (e: Exception) {
+                                    println(e.message)
                                     isError = true
                                     errorMessage = errorsLL.unknownError
                                 }

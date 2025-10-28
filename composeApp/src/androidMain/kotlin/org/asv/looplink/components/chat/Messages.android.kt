@@ -8,11 +8,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import org.asv.looplink.data.repository.UserRespository
 import org.asv.looplink.theme.ChatTheme
@@ -23,11 +26,14 @@ import org.koin.compose.koinInject
 internal actual fun Messages(
     modifier: Modifier,
     roomId: Int,
+    isWideScreen: Boolean,
     messages: List<Message>
 ) {
     val listState = rememberLazyListState()
-    var lastChat: Message? = null
+    val userRespository: UserRespository = koinInject()
+//    var lastUserId: String? = null
     val chatViewModel: ChatViewModel = koinInject()
+    val currentUserId = userRespository.getUserIdAndName().first
     val chatTheme = chatViewModel.getRoomTheme(roomId) ?: ChatTheme.default()
 
     if (messages.isNotEmpty()) {
@@ -35,6 +41,7 @@ internal actual fun Messages(
             listState.animateScrollToItem(messages.lastIndex, scrollOffset = 2)
         }
     }
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -45,15 +52,14 @@ internal actual fun Messages(
                 .padding(start = 10.dp, end = 10.dp),
             state = listState,
         ) {
+
             item { Spacer(Modifier.size(20.dp)) }
-            items(messages, key = { it.id }) {
-                val space = lastChat?.user?.name == it.user.name
-                lastChat = it
+            itemsIndexed(messages, key = {_, message -> message.id }) { index, message ->
+                val prev = messages.getOrNull(index - 1)
+                val showElements = prev == null || prev.userId != message.userId
                 ChatMessage(
-                    isMyMessage = it.user == koinInject<UserRespository>().getUser(),
-                    roomId,
-                    it,
-                    space
+                    isMyMessage = message.userId == currentUserId,
+                    roomId, message, !showElements
                 )
             }
             item { Box(Modifier.height(10.dp)) }

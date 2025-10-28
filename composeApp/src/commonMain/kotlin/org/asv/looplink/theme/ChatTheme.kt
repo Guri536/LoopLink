@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
+import org.asv.looplink.components.chat.ColorProvider
 import org.asv.looplink.components.chat.RefColors
 import org.asv.looplink.ui.adaptiveTextColor
 import org.asv.looplink.ui.angledLinearGradientBrush
@@ -20,6 +21,7 @@ data class ChatTheme(
     val backgroundGradientAngle: Float? = null,
     val backgroundGradientArgb: List<Int>? = null,
     val backgroundImagePath: String? = null,
+    val defaultPeerColorArg: Int = ColorProvider.getColor().toArgb()
 ) {
 
     @Transient
@@ -55,6 +57,9 @@ data class ChatTheme(
 
     @Transient
     val topBarTextColor: Color = topBarColor.adaptiveTextColor()
+
+    @Transient
+    val defaultPeerColor: Color = Color(defaultPeerColorArg)
     companion object {
         fun default(): ChatTheme = ChatTheme()
     }

@@ -3,12 +3,16 @@ package org.asv.looplink.data.repository
 import androidx.compose.runtime.Composable
 import org.asv.looplink.data.model.ManagedFile
 import java.io.File
+import java.io.FileOutputStream
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import javax.swing.JFileChooser
 import kotlin.io.path.Path
 
 actual class FileRepository {
+    private val appDir = File(System.getProperty("user.home"), ".looplink/sharedfiles").apply { mkdirs() }
+    private val connDir = File(System.getProperty("user.home"), ".looplink/connections").apply { mkdirs() }
+    private val userDir = File(System.getProperty("user.home"), ".looplink/user").apply { mkdirs() }
 
     actual fun sanitizeFileName(name: String): String {
         // Remove path separators and dangerous characters
@@ -20,7 +24,6 @@ actual class FileRepository {
         // Truncate absurdly long names (some providers send 200+ chars)
         return clean.take(255)
     }
-    private val appDir = File(System.getProperty("user.home"), ".looplink/files").apply { mkdirs() }
     actual suspend fun copyFileToInternalStorage(sourcePath: String): ManagedFile? {
         return try{
             val sourceFile = File(sourcePath)
@@ -54,6 +57,14 @@ actual class FileRepository {
         } catch (e: Exception) {
             false
         }
+    }
+
+    actual suspend fun copyBlobToFile(blob: ByteArray, uid: String): String {
+        val file = File(userDir, "pfp_$uid.jpg")
+        FileOutputStream(file).use {
+            it.write(blob)
+        }
+        return file.absolutePath
     }
 
 }

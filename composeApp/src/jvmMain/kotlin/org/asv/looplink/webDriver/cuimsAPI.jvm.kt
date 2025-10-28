@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.toComposeImageBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.asv.looplink.data.model.UserModel
+import org.asv.looplink.data.repository.FileRepository
 import org.asv.looplink.errors.errorsLL
 import org.jetbrains.skia.Image
 import org.jsoup.Jsoup
@@ -218,7 +219,7 @@ actual class cuimsAPI {
         TODO("Not yet implemented")
     }
 
-    suspend fun loadProfile(): Map<String, Any> {
+    suspend fun loadProfile(): Map<String, String> {
         return withContext(Dispatchers.IO) {
             driver!!.get(BASEURL + endPoints["Profile"])
 
@@ -229,7 +230,7 @@ actual class cuimsAPI {
                 "Program" to By.id("ContentPlaceHolder1_lblProgramCode"),
                 "Contact" to By.id("ContentPlaceHolder1_gvStudentContacts_lblMobile_2"),
             )
-            val profileData = mutableMapOf<String, Any>()
+            val profileData = mutableMapOf<String, String>()
 
             for (i in eleList) {
                 try {
@@ -249,14 +250,21 @@ actual class cuimsAPI {
                 }
             }
 
-            wait!!.until {
+            val pfpImage = wait!!.until {
                 val pfpBase64 =
                     driver!!.findElement(By.id("ContentPlaceHolder1_imgStu")).getDomAttribute("src")
                 if (pfpBase64 != null) {
-                    profileData["pfpImage"] =
+                    val pfpImage =
                         Base64.getDecoder().decode(pfpBase64.removePrefix("data:image/png;base64,"))
+                    return@until pfpImage
                 }
+                return@until null
             }
+
+            val fileRepository: FileRepository =
+                org.koin.java.KoinJavaComponent.get(FileRepository::class.java)
+            if(pfpImage != null) profileData["pfpPath"] =
+                fileRepository.copyBlobToFile(pfpImage, profileData["UID"] ?: "User")
 
             return@withContext profileData
         }
@@ -294,19 +302,19 @@ actual class cuimsAPI {
                 val resultData = loadResults()
 
                 val userData = UserModel(
-                    uid = profileData["UID"] as? String ?: return@withContext Pair(
+                    uid = profileData["UID"] ?: return@withContext Pair(
                         successLog(
                             false,
                             "UID not found"
                         ), null
                     ),
                     name = profileData["Name"] as String,
-                    section = profileData["Section"] as? String,
-                    program = profileData["Program"] as? String,
-                    contact = profileData["Contact"] as? String,
+                    section = profileData["Section"],
+                    program = profileData["Program"],
+                    contact = profileData["Contact"],
                     cGPA = resultData["CGPA"],
                     email = "${profileData["UID"]}@cuchd.in",
-                    picture = profileData["pfpImage"] as ByteArray
+                    pfpPath = profileData["pfpPath"]
                 )
 
                 return@withContext Pair(successLog(true), userData)

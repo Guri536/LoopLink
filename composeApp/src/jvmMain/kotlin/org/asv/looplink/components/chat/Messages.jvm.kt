@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.shape.CircleShape
@@ -29,11 +29,14 @@ import org.koin.compose.koinInject
 internal actual fun Messages(
     modifier: Modifier,
     roomId: Int,
+    isWideScreen: Boolean,
     messages: List<Message>
 ) {
     val listState = rememberLazyListState()
-    var lastChat: Message? = null
+    val userRespository: UserRespository = koinInject()
+//    var lastUserId: String? = null
     val chatViewModel: ChatViewModel = koinInject()
+    val currentUserId = userRespository.getUserIdAndName().first
     val chatTheme = chatViewModel.getRoomTheme(roomId) ?: ChatTheme.default()
 
     if (messages.isNotEmpty()) {
@@ -41,6 +44,7 @@ internal actual fun Messages(
             listState.animateScrollToItem(messages.lastIndex, scrollOffset = 2)
         }
     }
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -51,28 +55,35 @@ internal actual fun Messages(
                 .padding(start = 10.dp, end = 10.dp),
             state = listState,
         ) {
+
             item { Spacer(Modifier.size(20.dp)) }
-            items(messages, key = { it.id }) {
-                val space = lastChat?.user?.name == it.user.name
-                lastChat = it
-                ChatMessage(isMyMessage = it.user == koinInject<UserRespository>().getUser(), roomId, it, space)
+            itemsIndexed(messages, key = {_, message -> message.id }) { index, message ->
+                val prev = messages.getOrNull(index - 1)
+                val showElements = prev == null || prev.userId != message.userId
+                ChatMessage(
+                    isMyMessage = message.userId == currentUserId,
+                    roomId, message, !showElements
+                )
             }
             item { Box(Modifier.height(10.dp)) }
 
         }
-        VerticalScrollbar(
-            adapter = rememberScrollbarAdapter(listState),
-            modifier = Modifier
-                .fillMaxHeight()
-                .align(Alignment.CenterEnd),
-            style = ScrollbarStyle(
-                minimalHeight = 10.dp,
-                thickness = 10.dp,
-                shape = CircleShape,
-                hoverDurationMillis = 1000,
-                unhoverColor = Color.Gray,
-                hoverColor = Color.White
+
+        if (isWideScreen) {
+            VerticalScrollbar(
+                adapter = rememberScrollbarAdapter(listState),
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .align(Alignment.CenterEnd),
+                style = ScrollbarStyle(
+                    minimalHeight = 10.dp,
+                    thickness = 10.dp,
+                    shape = CircleShape,
+                    hoverDurationMillis = 1000,
+                    unhoverColor = Color.Gray,
+                    hoverColor = Color.White
+                )
             )
-        )
+        }
     }
 }

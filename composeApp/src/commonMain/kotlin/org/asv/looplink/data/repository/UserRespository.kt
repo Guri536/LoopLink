@@ -2,6 +2,7 @@ package org.asv.looplink.data.repository
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import org.asv.looplink.DatabaseMng
 import org.asv.looplink.components.chat.User
 import org.asv.looplink.data.model.UserModel
@@ -11,6 +12,9 @@ class UserRespository {
     val database: DatabaseMng = get<DatabaseMng>(DatabaseMng::class.java)
     private val _curentUser = MutableStateFlow<UserModel?>(null)
     val currentUser = _curentUser.asStateFlow()
+
+    private val _knownUsers = MutableStateFlow<Map<String, User>>(emptyMap())
+    val knownUsers = _knownUsers.asStateFlow()
 
     fun loadUser(){
         if(database.getSize() > 0){
@@ -23,10 +27,12 @@ class UserRespository {
                 contact = userInfo.contact,
                 cGPA = userInfo.cGPA,
                 email = userInfo.email,
-                picture = userInfo.pfpImage
+                pfpPath = userInfo.pfpPath
             )
         }
     }
+
+    fun getUserIdAndName(): Pair<String?, String?> = Pair(_curentUser.value?.uid, _curentUser.value?.name)
 
     fun insertAndLoadUser(it: UserModel){
         database.insertUserData(
@@ -37,7 +43,7 @@ class UserRespository {
             it.contact,
             it.cGPA,
             it.email,
-            it.picture!!
+            it.pfpPath!!
         )
 
         _curentUser.value = it
@@ -48,7 +54,31 @@ class UserRespository {
         _curentUser.value = null
     }
 
-    fun getUser(): User {
-        return User(_curentUser.value?.name!!, _curentUser.value?.picture)
+    fun getCurrentUser(): User {
+        return User(_curentUser.value?.uid!!, _curentUser.value?.name!!)
+    }
+
+    fun getUserById(userId: String): User? {
+        return _knownUsers.value[userId]
+    }
+
+    fun getUserName(userId: String): String?{
+        return _knownUsers.value[userId]?.name
+    }
+
+    fun getUserpfpPath(userId: String): String?{
+        return _knownUsers.value[userId]?.pfpPath
+    }
+
+    fun addUserToCache(user: User) {
+        _knownUsers.update { currentUsers ->
+            currentUsers + (user.id to user)
+        }
+    }
+
+    fun setUserPfp(path: String){
+        _curentUser.update {
+            _curentUser.value?.copy(pfpPath = path)
+        }
     }
 }

@@ -14,6 +14,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val viewModel: MainViewModel = koinViewModel()
+            println(viewModel.database.getPfpImagePath())
             val onLoginSuccess = {
                 viewModel.startP2PServices()
             }

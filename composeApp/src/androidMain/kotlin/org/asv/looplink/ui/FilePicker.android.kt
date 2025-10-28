@@ -38,26 +38,6 @@ fun FilePickerWithMode(
             return@rememberLauncherForActivityResult
         }
 
-        // 2. CRITICAL: Immediately copy the file to survive process death
-//        try {
-//            // Get the original file name from the URI
-//            val fileName = uri.lastPathSegment?.substringAfterLast("/") ?: "temp_${UUID.randomUUID()}"
-//            val destinationFile = File(context.cacheDir, fileName)
-//
-//            // Use the ContentResolver to get the data stream and copy it
-//            context.contentResolver.openInputStream(uri)?.use { inputStream ->
-//                destinationFile.outputStream().use { outputStream ->
-//                    inputStream.copyTo(outputStream)
-//                }
-//            }
-//
-//            // 3. Return the stable, absolute path to YOUR COPY of the file
-//            onFileSelected(destinationFile.absolutePath)
-//
-//        } catch (e: Exception) {
-//            e.printStackTrace()
-//            onFileSelected(null)
-//        }
         handleSelectedUri(context, uri, onFileSelected)
     }
 

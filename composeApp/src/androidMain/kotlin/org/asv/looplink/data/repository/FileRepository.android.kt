@@ -6,10 +6,13 @@ import android.provider.OpenableColumns
 import androidx.core.net.toUri
 import org.asv.looplink.data.model.ManagedFile
 import java.io.File
+import java.io.FileOutputStream
 import java.util.UUID
 
 actual class FileRepository(private val context: Context) {
-
+    private val appDir = File(context.filesDir, "shared_files").apply { mkdirs() }
+    private val connDir = File(context.filesDir, "connections").apply { mkdirs() }
+    private val userDir = File(context.filesDir, "user").apply { mkdirs() }
     actual fun sanitizeFileName(name: String): String {
         // Remove path separators and dangerous characters
         val sanitized = name.replace(Regex("[\\\\/:*?\"<>|]"), "_")
@@ -21,7 +24,8 @@ actual class FileRepository(private val context: Context) {
         return clean.take(255)
     }
 
-    private val appDir = File(context.filesDir, "shared_files").apply { mkdirs() }
+
+
 
     actual suspend fun copyFileToInternalStorage(sourcePath: String): ManagedFile? {
         return try {
@@ -211,5 +215,14 @@ actual class FileRepository(private val context: Context) {
         } catch (e: Exception) {
             false
         }
+    }
+
+    actual suspend fun copyBlobToFile(blob: ByteArray, uid: String): String {
+        val file = File(userDir, "pfp_$uid.jpg")
+        FileOutputStream(file).use { output ->
+            output.write(blob)
+        }
+
+        return file.absolutePath
     }
 }

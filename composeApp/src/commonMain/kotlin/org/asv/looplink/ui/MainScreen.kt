@@ -85,6 +85,7 @@ class MainScreen : Screen {
         val mainNavigator = LocalNavigator.currentOrThrow
         val chatRepository: ChatRepository = koinInject()
         val userRepository: UserRespository = koinInject()
+        val currentUser = userRepository.currentUser.collectAsStateWithLifecycle()
 
         val chatViewModel: ChatViewModel = koinInject()
         val rooms by chatViewModel.roomsWithStatus.collectAsStateWithLifecycle()
@@ -135,25 +136,27 @@ class MainScreen : Screen {
                 )
             )
         )
-
-        chatRepository.store.send(
-            Action.SendMessage(
-                0,
-                Message(
-                    User(
-                        name = "Test User",
-                        picture = null
-                    ),
-                    text = "Hey there"
+        repeat(10){
+            chatRepository.store.send(
+                Action.SendMessage(
+                    0,
+                    Message(
+                        userId = "null",
+                        roomId = 0,
+                        text = "Hey there"
+                    )
                 )
             )
-        )
+        }
+
+
 
         chatRepository.store.send(
             Action.SendMessage(
                 0,
                 Message(
-                    userRepository.getUser(),
+                    currentUser.value?.uid?:"Unknown",
+                    0,
                     "Hey there back"
                 )
             )
@@ -296,6 +299,8 @@ fun Sidebar(
 private fun SidebarRoomItem(roomId: Int, onClick: () -> Unit) {
     val chatViewModel: ChatViewModel = koinInject()
     val room = chatViewModel.getRoom(roomId)!!
+    val chatRepository: ChatRepository = koinInject()
+
     Row(
         modifier = Modifier
             .defaultMinSize(minHeight = 65.dp)
@@ -311,7 +316,6 @@ private fun SidebarRoomItem(roomId: Int, onClick: () -> Unit) {
             ConnectionStatus.Connected -> Color.Green
             ConnectionStatus.Connecting -> Color.Green
             is ConnectionStatus.Error -> Color.Red
-            else -> Color.Gray
         }
 
         val infiniteTransition = rememberInfiniteTransition(label = "Blinking")
@@ -324,7 +328,7 @@ private fun SidebarRoomItem(roomId: Int, onClick: () -> Unit) {
             ),
             label = "BlinkAlpha"
         )
-        val indicatorAlpha = if (room?.status == ConnectionStatus.Connecting) blinkAlpha else 1f
+        val indicatorAlpha = if (room.status == ConnectionStatus.Connecting) blinkAlpha else 1f
 
         Box(
             modifier = Modifier
@@ -336,12 +340,14 @@ private fun SidebarRoomItem(roomId: Int, onClick: () -> Unit) {
                 (room.label.take(1)),
                 color = Color.Black, fontWeight = FontWeight.Bold
             )
-            Box(
-                modifier = Modifier.size(12.dp)
-                    .graphicsLayer(alpha = indicatorAlpha)
-                    .background(activeSessionColor, shape = CircleShape)
-                    .align(Alignment.BottomStart)
-            )
+            if(!room.isGroup) {
+                Box(
+                    modifier = Modifier.size(12.dp)
+                        .graphicsLayer(alpha = indicatorAlpha)
+                        .background(activeSessionColor, shape = CircleShape)
+                        .align(Alignment.BottomStart)
+                )
+            }
 
         }
         Spacer(modifier = Modifier.width(10.dp))
@@ -350,6 +356,13 @@ private fun SidebarRoomItem(roomId: Int, onClick: () -> Unit) {
             if (room.unread > 0) {
                 Text(
                     "${room.unread} unread",
+                    color = Color(0xFFFFB4A2),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            } else {
+                val lastMessage = chatRepository.store.stateFlow.collectAsStateWithLifecycle().value.rooms[roomId]?.last()
+                Text(
+                    lastMessage?.text?.take(15).also { "$it..." } ?: "Start Chatting!!",
                     color = Color(0xFFFFB4A2),
                     style = MaterialTheme.typography.bodySmall
                 )
@@ -444,9 +457,9 @@ data class ChatTab(val roomId: Int) : Tab {
 
     @Composable
     override fun Content() {
-//        val chatRepository: ChatRepository = koinInject()
-//        val session = chatRepository.activeSessions.collectAsStateWithLifecycle().value[room.id]?.firstOrNull()
-        ChatAppWithScaffold(true, roomId)
+        val chatRepository: ChatRepository = koinInject()
+        val session = chatRepository.activeSessions.collectAsStateWithLifecycle().value[roomId]?.firstOrNull()
+        ChatAppWithScaffold(true, roomId, session)
     }
 }
 
@@ -454,8 +467,8 @@ data class ChatTab(val roomId: Int) : Tab {
 class ChatTabScreen(val roomId: Int) : Screen {
     @Composable
     override fun Content() {
-//        val chatRepository: ChatRepository = koinInject()
-//        val session = chatRepository.activeSessions.collectAsStateWithLifecycle().value[room.id]?.firstOrNull()
-        ChatAppWithScaffold(true, roomId)
+        val chatRepository: ChatRepository = koinInject()
+        val session = chatRepository.activeSessions.collectAsStateWithLifecycle().value[roomId]?.firstOrNull()
+        ChatAppWithScaffold(true, roomId, session)
     }
 }

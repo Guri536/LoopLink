@@ -44,6 +44,8 @@ fun main() {
         }
         var isWindowVisible by remember { mutableStateOf(true) }
 
+        println(viewModel.database.getPfpImagePath())
+
         if (isWindowVisible) {
             Window(
                 onCloseRequest = {

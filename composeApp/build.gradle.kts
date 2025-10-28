@@ -138,7 +138,6 @@ kotlin {
             create("LLData") {
                 packageName = "com.db"
                 generateAsync = false
-                version = 1.0
             }
         }
     }

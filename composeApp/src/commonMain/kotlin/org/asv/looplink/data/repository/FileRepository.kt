@@ -18,4 +18,6 @@ expect class FileRepository {
     suspend fun deleteInternalFile(internalPath: String): Boolean
 
     fun sanitizeFileName(name: String): String
+
+    suspend fun copyBlobToFile(blob: ByteArray, uid: String): String
 }

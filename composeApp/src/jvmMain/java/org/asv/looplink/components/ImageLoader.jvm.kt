@@ -15,14 +15,15 @@ import java.io.InputStream
 
 @Composable
 internal actual fun painterFromFile(path: String): Painter? {
-    return remember(path) {
-        try {
-            FileInputStream(File(path)).use { input ->
-                BitmapPainter(input.readAllBytes().decodeToImageBitmap())
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
-        }
-    }
+//    return remember(path) {
+//        try {
+//            FileInputStream(File(path)).use { input ->
+//                BitmapPainter(input.readAllBytes().decodeToImageBitmap())
+//            }
+//        } catch (e: Exception) {
+//            e.printStackTrace()
+//            null
+//        }
+//    }
+    return rememberAsyncImagePainter(File(path))
 }

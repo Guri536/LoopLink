@@ -1,9 +1,10 @@
 package org.asv.looplink
 
+import androidx.compose.ui.text.capitalize
 import app.cash.sqldelight.db.SqlDriver
 import com.db.LLData
-import com.db.LLDataQueries
 import com.db.LoopLinkUser
+import java.util.Locale
 
 enum class PlatformType{
     ANDROID,
@@ -18,15 +19,14 @@ expect fun getPlatformType(): PlatformType
 expect fun getPlatform(): Platform
 
 expect class DriverFactory {
-    constructor()
     fun createDriver(): SqlDriver
 }
 
 
 class DatabaseMng constructor(private val driver: SqlDriver){
+    val dataBase = LLData(driver)
 
     fun insertIntoDatabase(name: String, uid: String){
-        val dataBase = LLData(driver)
         dataBase.lLDataQueries.insert(name, uid);
     }
 
@@ -38,24 +38,19 @@ class DatabaseMng constructor(private val driver: SqlDriver){
         studentContact: String? = null,
         cGPA: String? = null,
         cumail: String? = null,
-        pfpImage: ByteArray
+        pfpPath: String? = null
     ){
         val database = LLData(driver)
         database.lLDataQueries.insertAll(
-            name,
+            name.lowercase().capitalize(Locale.UK),
             uid,
             currentSection,
             programCode,
             studentContact,
             cGPA,
             cumail,
-            pfpImage
+            pfpPath
         )
-    }
-
-    fun getProfileImage(): ByteArray{
-        val database = LLData(driver)
-        return database.lLDataQueries.getPFP(){it!!}.executeAsOne()
     }
 
     fun getUserData(): LoopLinkUser {
@@ -71,6 +66,10 @@ class DatabaseMng constructor(private val driver: SqlDriver){
     fun getSize(): Int{
         val database = LLData(driver)
         return database.lLDataQueries.getSize().executeAsOne().toInt()
+    }
+
+    fun getPfpImagePath(): String? {
+        return dataBase.lLDataQueries.getPfpPath(){it!!}.executeAsOne()
     }
 }
 

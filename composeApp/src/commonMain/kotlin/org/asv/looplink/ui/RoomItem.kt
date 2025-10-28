@@ -36,7 +36,8 @@ data class GroupStructure(
     val admins: MutableList<String> = mutableListOf<String>(ownerId),
     val creationTimeStamp: Long,
     val groupType: GroupType = GroupType.GENERAL,
-    val tabs: List<GroupTabs> = listOf(GroupTabs(label = "Chat", type = TabType.CHAT))
+    val tabs: List<GroupTabs> = listOf(GroupTabs(label = "Chat", type = TabType.CHAT)),
+    val pfpPath: String? = null
 )
 
 @Serializable
@@ -48,5 +49,6 @@ data class RoomItem(
     val groupDetails: GroupStructure? = null,
     val members: List<String> = emptyList(),
     val status: ConnectionStatus = ConnectionStatus.Idle,
-    var chatTheme: ChatTheme = ChatTheme.default()
+    var chatTheme: ChatTheme = ChatTheme.default(),
+    val pfpPath: String? = null,
 )

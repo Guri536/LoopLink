@@ -1,5 +1,6 @@
 package org.asv.looplink.components
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -35,11 +36,13 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.currentOrThrow
+import coil3.compose.rememberAsyncImagePainter
 import org.asv.looplink.data.repository.UserRespository
 import org.asv.looplink.di.koinMainViewModel
 import org.asv.looplink.ui.AvailableServicesScreen
@@ -76,21 +79,23 @@ fun TallScreenLayout() {
         modifier = Modifier.padding(16.dp).fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        if (userInfo.value?.picture != null) {
-            GetProfileImage(
-                userInfo.value?.picture,
+        if (userInfo.value?.pfpPath != null) {
+            Image(
+                rememberAsyncImagePainter(
+                    userInfo.value!!.pfpPath!!
+                ),
+                contentDescription = "User Image",
                 modifier = Modifier
                     .clip(CircleShape)
-                    .size(200.dp)
+                    .size(200.dp),
+                contentScale = ContentScale.Crop
             )
         } else {
-            // Placeholder for when there's no image
             Box(
                 modifier = Modifier.size(200.dp).clip(CircleShape)
                     .background(MaterialTheme.colorScheme.secondaryContainer)
             )
         }
-
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -110,12 +115,16 @@ fun WideScreenLayout() {
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.padding(16.dp).fillMaxWidth().height(IntrinsicSize.Max)
     ) {
-        if (userInfo.value?.picture != null) {
-            GetProfileImage( // This composable needs to be defined
-                userInfo.value?.picture, // Example: Fetch image bytes
+        if (userInfo.value?.pfpPath != null) {
+            Image(
+                rememberAsyncImagePainter(
+                    userInfo.value!!.pfpPath!!
+                ),
+                contentDescription = "User Image",
                 modifier = Modifier
                     .clip(CircleShape)
-                    .size(200.dp)
+                    .size(200.dp),
+                contentScale = ContentScale.Crop
             )
         } else {
             // Placeholder for when there's no image

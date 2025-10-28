@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -27,10 +26,10 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.asv.looplink.data.repository.UserRespository
 import org.asv.looplink.theme.ChatTheme
 import org.asv.looplink.viewmodel.ChatViewModel
 import org.koin.compose.koinInject
@@ -49,11 +48,11 @@ fun Triangle(risingToTheRight: Boolean, background: Color) {
 @Composable
 fun ChatMessage(isMyMessage: Boolean, roomId: Int, message: Message, sameUser: Boolean = false) {
     val chatViewModel: ChatViewModel = koinInject()
+    val userRepository: UserRespository = koinInject()
     val chatTheme = chatViewModel.getRoomTheme(roomId) ?: ChatTheme.default()
     Box(
         modifier = Modifier.fillMaxWidth()
-            .padding(top = (if(sameUser) 2.dp else 8.dp))
-        ,
+            .padding(top = (if (sameUser) 2.dp else 8.dp)),
         contentAlignment = if (isMyMessage) Alignment.CenterEnd else Alignment.CenterStart
     ) {
 
@@ -65,12 +64,16 @@ fun ChatMessage(isMyMessage: Boolean, roomId: Int, message: Message, sameUser: B
                 )
         ) {
             if (!isMyMessage) {
-                Column {
-                    UserPic(message.user)
-                }
-                Spacer(Modifier.size(2.dp))
-                Column {
-                    Triangle(true, chatTheme.peerMessageColor)
+                if (sameUser) {
+                    Spacer(Modifier.width(56.dp))
+                } else {
+                    Column {
+                        UserPic(message.roomId)
+                    }
+                    Spacer(Modifier.size(2.dp))
+                    Column {
+                        Triangle(true, chatTheme.peerMessageColor)
+                    }
                 }
             }
 
@@ -89,16 +92,16 @@ fun ChatMessage(isMyMessage: Boolean, roomId: Int, message: Message, sameUser: B
                         .widthIn(max = 900.dp),
                 ) {
                     Column {
-                        if (!isMyMessage) {
+                        if (!isMyMessage && !sameUser) {
                             Row(verticalAlignment = Alignment.Bottom) {
                                 Text(
-                                    text = message.user.name,
+                                    text = userRepository.getUserName(message.userId) ?: "Unkown",
                                     style = MaterialTheme.typography.bodyMedium.copy(
                                         fontWeight = FontWeight.SemiBold,
                                         letterSpacing = 0.sp,
                                         fontSize = 14.sp
                                     ),
-                                    color = message.user.color,
+                                    color = chatTheme.defaultPeerColor,
                                     modifier = Modifier
                                 )
                             }
@@ -110,7 +113,7 @@ fun ChatMessage(isMyMessage: Boolean, roomId: Int, message: Message, sameUser: B
                                 fontSize = 18.sp,
                                 letterSpacing = 0.sp
                             ),
-                            color = if(isMyMessage) chatTheme.myTextColor else chatTheme.peerTextColor
+                            color = if (isMyMessage) chatTheme.myTextColor else chatTheme.peerTextColor
                         )
                         Spacer(Modifier.size(4.dp))
                         Row(
@@ -129,8 +132,12 @@ fun ChatMessage(isMyMessage: Boolean, roomId: Int, message: Message, sameUser: B
 //                Box(Modifier.height(10.dp))
             }
             if (isMyMessage) {
-                Column {
-                    Triangle(false, chatTheme.myMessageColor)
+                if (sameUser) {
+                    Spacer(Modifier.width(6.dp))
+                } else {
+                    Column {
+                        Triangle(false, chatTheme.myMessageColor)
+                    }
                 }
             }
         }
