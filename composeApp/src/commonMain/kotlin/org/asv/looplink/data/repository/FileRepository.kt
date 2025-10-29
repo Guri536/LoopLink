@@ -1,7 +1,13 @@
 package org.asv.looplink.data.repository
 
-import androidx.compose.runtime.Composable
 import org.asv.looplink.data.model.ManagedFile
+
+data object DIRECTORIES {
+    const val AppDIR = "appData"
+    const val ConnDIR = "connections"
+    const val FilesDIR = "shared_files"
+    const val UserDIR = "user"
+}
 
 expect class FileRepository {
     /**
@@ -19,5 +25,7 @@ expect class FileRepository {
 
     fun sanitizeFileName(name: String): String
 
-    suspend fun copyBlobToFile(blob: ByteArray, uid: String): String
+    suspend fun copyBlobToFile(blob: ByteArray, uid: String, dir: String = "data"): String
+
+    suspend fun getFileBytes(path: String): ByteArray?
 }

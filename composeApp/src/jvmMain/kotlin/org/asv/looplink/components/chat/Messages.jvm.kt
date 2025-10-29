@@ -20,7 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import org.asv.looplink.data.repository.UserRespository
+import org.asv.looplink.data.repository.UserRepository
 import org.asv.looplink.theme.ChatTheme
 import org.asv.looplink.viewmodel.ChatViewModel
 import org.koin.compose.koinInject
@@ -33,11 +33,12 @@ internal actual fun Messages(
     messages: List<Message>
 ) {
     val listState = rememberLazyListState()
-    val userRespository: UserRespository = koinInject()
+    val userRespository: UserRepository = koinInject()
 //    var lastUserId: String? = null
     val chatViewModel: ChatViewModel = koinInject()
     val currentUserId = userRespository.getUserIdAndName().first
-    val chatTheme = chatViewModel.getRoomTheme(roomId) ?: ChatTheme.default()
+
+    val showNameOfPeer = !chatViewModel.isGroup(roomId)
 
     if (messages.isNotEmpty()) {
         LaunchedEffect(messages.last()) {
@@ -62,7 +63,8 @@ internal actual fun Messages(
                 val showElements = prev == null || prev.userId != message.userId
                 ChatMessage(
                     isMyMessage = message.userId == currentUserId,
-                    roomId, message, !showElements
+                    roomId, message, !showElements,
+                    showNameOfPeer
                 )
             }
             item { Box(Modifier.height(10.dp)) }

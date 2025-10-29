@@ -8,18 +8,21 @@ import org.asv.looplink.components.chat.User
 import org.asv.looplink.data.model.UserModel
 import org.koin.java.KoinJavaComponent.get
 
-class UserRespository {
+class UserRepository {
     val database: DatabaseMng = get<DatabaseMng>(DatabaseMng::class.java)
-    private val _curentUser = MutableStateFlow<UserModel?>(null)
-    val currentUser = _curentUser.asStateFlow()
+    private val _currentUser = MutableStateFlow<UserModel?>(null)
+    val currentUser = _currentUser.asStateFlow()
 
     private val _knownUsers = MutableStateFlow<Map<String, User>>(emptyMap())
     val knownUsers = _knownUsers.asStateFlow()
 
+    private val _currentUserPort = MutableStateFlow(0)
+    val currentUserPort = _currentUserPort.asStateFlow()
+
     fun loadUser(){
         if(database.getSize() > 0){
             val userInfo = database.getUserData()
-            _curentUser.value = UserModel(
+            _currentUser.value = UserModel(
                 name = userInfo.name,
                 uid = userInfo.uid,
                 section = userInfo.section,
@@ -32,7 +35,7 @@ class UserRespository {
         }
     }
 
-    fun getUserIdAndName(): Pair<String?, String?> = Pair(_curentUser.value?.uid, _curentUser.value?.name)
+    fun getUserIdAndName(): Pair<String?, String?> = Pair(_currentUser.value?.uid, _currentUser.value?.name)
 
     fun insertAndLoadUser(it: UserModel){
         database.insertUserData(
@@ -46,16 +49,16 @@ class UserRespository {
             it.pfpPath!!
         )
 
-        _curentUser.value = it
+        _currentUser.value = it
     }
 
 
     fun logout(){
-        _curentUser.value = null
+        _currentUser.value = null
     }
 
     fun getCurrentUser(): User {
-        return User(_curentUser.value?.uid!!, _curentUser.value?.name!!)
+        return User(_currentUser.value?.uid!!, _currentUser.value?.name!!)
     }
 
     fun getUserById(userId: String): User? {
@@ -72,13 +75,29 @@ class UserRespository {
 
     fun addUserToCache(user: User) {
         _knownUsers.update { currentUsers ->
+            if(currentUsers.containsKey(user.id)) return@update currentUsers
             currentUsers + (user.id to user)
         }
     }
 
-    fun setUserPfp(path: String){
-        _curentUser.update {
-            _curentUser.value?.copy(pfpPath = path)
+    fun setCurrentUserPfp(path: String){
+        _currentUser.update {
+            _currentUser.value?.copy(pfpPath = path)
         }
+    }
+
+    fun updateUserPfpPath(userId: String, pfpPath: String){
+        _knownUsers.update { currUsers ->
+            val user = currUsers[userId]
+            if(user != null){
+                currUsers + (userId to user.copy(pfpPath = pfpPath))
+            } else {
+                currUsers
+            }
+        }
+    }
+
+    fun setCurrentUsrPort(port: Int){
+        _currentUserPort.value = port
     }
 }

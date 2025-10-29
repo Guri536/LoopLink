@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import org.asv.looplink.components.painterFromFile
+import org.asv.looplink.data.repository.UserRepository
 import org.asv.looplink.viewmodel.ChatViewModel
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 import org.koin.compose.koinInject
@@ -27,10 +28,11 @@ internal expect fun Messages(
 
 @OptIn(ExperimentalResourceApi::class)
 @Composable
-fun UserPic(roomId: Int) {
+fun UserPic(userId: String, roomId: Int) {
     val chatViewModel: ChatViewModel = koinInject()
+    val userRepository: UserRepository = koinInject()
     val imageSize = 48f
-    val pfpPath = chatViewModel.getPfp(roomId)
+    val pfpPath = userRepository.getUserpfpPath(userId = userId)
     val userColor = chatViewModel.getPeerDefaultColor(roomId)
     val painter = pfpPath?.let {
         painterFromFile(pfpPath)

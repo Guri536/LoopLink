@@ -8,16 +8,17 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.asv.looplink.data.repository.ChatRepository
+import org.asv.looplink.data.repository.FileRepository
+import org.asv.looplink.data.repository.UserRepository
 import org.asv.looplink.network.discovery.LANServiceDiscovery
 import org.asv.looplink.viewmodel.ChatViewModel
-import org.asv.looplink.viewmodel.PeerDiscoveryViewModel
+import org.koin.java.KoinJavaComponent.get
 
-object jvmKtorServerRunner{
+object jvmKtorServerRunner {
     private var serverEngine: EmbeddedServer<ApplicationEngine, *>? = null
     private var serverJob: Job? = null
     private val serverScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -27,12 +28,15 @@ object jvmKtorServerRunner{
     @Volatile
     private var isRunning: Boolean = false
 
-    private val serviceDiscovery: LANServiceDiscovery by lazy{
+    private val serviceDiscovery: LANServiceDiscovery by lazy {
         LANServiceDiscovery().apply { initialize() }
     }
 
     private const val SERVICE_TYPE = "_looplink._tcp"
     private var serviceInstanceName = "LoopLinkJVM-${System.currentTimeMillis()}"
+
+    private val userRespository: UserRepository = get(UserRepository::class.java)
+    private val fileRepository: FileRepository = get(FileRepository::class.java)
 
     fun start(
         port: Int = 0,
@@ -42,7 +46,7 @@ object jvmKtorServerRunner{
         chatRepository: ChatRepository,
         connectionManager: ConnectionManager
     ): Int {
-        if(isRunning){
+        if (isRunning) {
             println("Server already running on $currentPort")
             return currentPort
         }
@@ -52,22 +56,32 @@ object jvmKtorServerRunner{
         val engineFactory = createKtorServerFactory()
 
         serverJob = serverScope.launch {
-            try{
+            try {
                 serverEngine = embeddedServer(
                     factory = engineFactory,
                     port = port,
                     host = "0.0.0.0",
-                    module = { configureLoopLinkServer(chatViewModel, chatRepository, connectionManager) }
+                    module = {
+                        configureLoopLinkServer(
+                            chatViewModel,
+                            chatRepository,
+                            connectionManager,
+                            userRespository,
+                            fileRepository
+                        )
+                    }
                 ).start(wait = false)
 
                 currentPort = serverEngine?.engine?.resolvedConnectors()?.firstOrNull()?.port ?: 0
                 if (currentPort == 0 && port != 0) currentPort = port
-                if(currentPort == 0){
+                if (currentPort == 0) {
                     println("Error starting sever on port 0")
                 }
 
                 isRunning = true
                 println("JVM Ktor server started on port $currentPort")
+
+                userRespository.setCurrentUsrPort(currentPort)
 
                 serviceDiscovery.registerService(
                     instanceName = this@jvmKtorServerRunner.serviceInstanceName,
@@ -80,7 +94,7 @@ object jvmKtorServerRunner{
                     )
                 )
 
-                while(this.isActive && serverEngine?.application?.isActive == true){
+                while (this.isActive && serverEngine?.application?.isActive == true) {
                     delay(100L)
                 }
 
@@ -96,12 +110,13 @@ object jvmKtorServerRunner{
                     isRunning = false
                     serverEngine = null
                     currentPort = 0
+                    userRespository.setCurrentUsrPort(0)
                     println("Service '${this@jvmKtorServerRunner.serviceInstanceName}' unregistered")
                 }
             }
         }
 
-        return if(port == 0){
+        return if (port == 0) {
             println("Server Starting on random port")
             0
         } else {
@@ -109,7 +124,7 @@ object jvmKtorServerRunner{
         }
     }
 
-    fun stop(){
+    fun stop() {
         serverJob?.cancel()
 
         println("JVM Ktor Server stopped")
@@ -117,7 +132,7 @@ object jvmKtorServerRunner{
 
     fun isRunning(): Boolean = isRunning
 
-    fun close(){
+    fun close() {
         stop()
         serviceDiscovery.close()
         serverScope.cancel()

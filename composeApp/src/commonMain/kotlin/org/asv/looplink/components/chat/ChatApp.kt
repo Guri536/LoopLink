@@ -54,7 +54,7 @@ import org.asv.looplink.PlatformType
 import org.asv.looplink.components.LocalAppNavigator
 import org.asv.looplink.components.painterFromFile
 import org.asv.looplink.data.repository.ChatRepository
-import org.asv.looplink.data.repository.UserRespository
+import org.asv.looplink.data.repository.UserRepository
 import org.asv.looplink.getPlatformType
 import org.asv.looplink.theme.ChatTheme
 import org.asv.looplink.ui.FilePicker
@@ -211,7 +211,7 @@ fun ChatApp(
     val chatRepository: ChatRepository = koinInject()
     val state by chatRepository.store.stateFlow.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
-    val user = koinInject<UserRespository>().getUserIdAndName()
+    val user = koinInject<UserRepository>().getUserIdAndName()
     val chatViewModel: ChatViewModel = koinInject()
 
     val isWideScreen = getPlatformType() == PlatformType.DESKTOP

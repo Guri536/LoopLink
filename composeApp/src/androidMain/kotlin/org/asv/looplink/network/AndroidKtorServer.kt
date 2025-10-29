@@ -14,9 +14,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.asv.looplink.data.repository.ChatRepository
+import org.asv.looplink.data.repository.FileRepository
+import org.asv.looplink.data.repository.UserRepository
 import org.asv.looplink.network.discovery.LANServiceDiscovery
 import org.asv.looplink.viewmodel.ChatViewModel
-import org.asv.looplink.viewmodel.PeerDiscoveryViewModel
+import org.koin.java.KoinJavaComponent.get
 
 class AndroidKtorServer(private val context: Context) {
     private var serverEngine: EmbeddedServer<ApplicationEngine, *>? = null
@@ -37,6 +39,9 @@ class AndroidKtorServer(private val context: Context) {
     private var serviceInstanceName: String = "LoopLink-${Build.MODEL.replace(" ", "")}"
 
     var onServerPortChanged: ((Int) -> Unit)? = null
+
+    private val userRespository: UserRepository = get(UserRepository::class.java)
+    private val fileRepository: FileRepository = get(FileRepository::class.java)
 
     fun start(
         port: Int = 0,
@@ -62,7 +67,15 @@ class AndroidKtorServer(private val context: Context) {
                     factory = engineFactory,
                     port = port,
                     host = "0.0.0.0",
-                    module = { configureLoopLinkServer(chatViewModel, chatRepository,connectionManager) }
+                    module = {
+                        configureLoopLinkServer(
+                            chatViewModel,
+                            chatRepository,
+                            connectionManager,
+                            userRespository,
+                            fileRepository
+                        )
+                    }
                 ).start(wait = false)
 
 
@@ -77,6 +90,8 @@ class AndroidKtorServer(private val context: Context) {
                 isRunning = true
                 println("Android Ktor Server Started on port $currentPort")
                 onServerPortChanged?.invoke(currentPort)
+
+                userRespository.setCurrentUsrPort(currentPort)
 
                 serviceDiscovery.registerService(
                     instanceName = this@AndroidKtorServer.serviceInstanceName,
@@ -94,11 +109,11 @@ class AndroidKtorServer(private val context: Context) {
                 while (this.isActive) {
                     delay(60_000L)
                 }
-            } catch (e: Exception){
+            } catch (e: Exception) {
                 println("Error starting server: ${e.message}")
             } finally {
                 println("Android Ktor Server Coroutine ending")
-                if(isRunning){
+                if (isRunning) {
                     serviceDiscovery.unregisterService()
                     println("Service '${this@AndroidKtorServer.serviceInstanceName}' unregistered")
                 }
@@ -106,6 +121,7 @@ class AndroidKtorServer(private val context: Context) {
                 isRunning = false
                 serverEngine = null
                 currentPort = 0
+                userRespository.setCurrentUsrPort(0)
                 onServerPortChanged?.invoke(0)
                 println("Android Ktor Server stopped")
             }
@@ -121,7 +137,7 @@ class AndroidKtorServer(private val context: Context) {
 
     fun getCurrentPort(): Int = if (isRunning) currentPort else 0
 
-    fun close(){
+    fun close() {
         stop()
         serviceDiscovery.close()
         serverScope.cancel()

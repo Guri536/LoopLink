@@ -32,7 +32,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,11 +42,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.currentOrThrow
 import coil3.compose.rememberAsyncImagePainter
-import org.asv.looplink.data.repository.UserRespository
+import org.asv.looplink.data.repository.UserRepository
 import org.asv.looplink.di.koinMainViewModel
 import org.asv.looplink.ui.AvailableServicesScreen
 import org.asv.looplink.viewmodel.MainViewModel
-import org.asv.looplink.viewmodel.PeerDiscoveryViewModel
 import org.koin.compose.koinInject
 
 @Composable
@@ -72,7 +70,7 @@ fun UserProfileCard(
 
 @Composable
 fun TallScreenLayout() {
-    val user: UserRespository = koinInject()
+    val user: UserRepository = koinInject()
     val userInfo = user.currentUser.collectAsStateWithLifecycle()
 
     Column(
@@ -108,7 +106,7 @@ fun TallScreenLayout() {
 
 @Composable
 fun WideScreenLayout() {
-    val user: UserRespository = koinInject()
+    val user: UserRepository = koinInject()
     val userInfo = user.currentUser.collectAsStateWithLifecycle()
 
     Row(
@@ -234,7 +232,7 @@ fun FindDevicesButton(modifier: Modifier = Modifier) {
 
 @Composable
 fun ShowUserData() {
-    val user: UserRespository = koinInject()
+    val user: UserRepository = koinInject()
     val userInfo = user.currentUser.collectAsStateWithLifecycle()
 
     userInfo.value?.name?.let {

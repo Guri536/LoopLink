@@ -44,7 +44,7 @@ import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.currentOrThrow
 import kotlinx.coroutines.launch
-import org.asv.looplink.data.repository.UserRespository
+import org.asv.looplink.data.repository.UserRepository
 import org.asv.looplink.errors.errorsLL
 import org.asv.looplink.ui.MainScreen
 import org.asv.looplink.webDriver.cuimsAPI
@@ -360,7 +360,7 @@ class LoginFields(val onLoginSuccess: () -> Unit) : Screen {
                                     val data = cuimsAPI.loadStudentData()
                                     if (data.first.success) {
                                         println("Insert User data")
-                                        get<UserRespository>(UserRespository::class.java).insertAndLoadUser(
+                                        get<UserRepository>(UserRepository::class.java).insertAndLoadUser(
                                             data.second!!
                                         )
                                         onLoginSuccess()

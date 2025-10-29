@@ -1,20 +1,9 @@
 package org.asv.looplink
 
-import app.cash.sqldelight.db.AfterVersion
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.db.LLData
-import com.db.LLDataQueries
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import org.asv.looplink.data.repository.FileRepository
-import org.asv.looplink.data.repository.UserRespository
 import java.util.Properties
-import org.koin.java.KoinJavaComponent.get
-import javax.security.auth.callback.Callback
 
 class JVMPlatform: Platform {
     override val name: String = "Java ${System.getProperty("java.version")}"

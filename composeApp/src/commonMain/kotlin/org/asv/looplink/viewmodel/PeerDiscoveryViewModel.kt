@@ -1,6 +1,8 @@
 package org.asv.looplink.viewmodel
 
 import io.ktor.client.plugins.websocket.webSocketSession
+import io.ktor.client.request.get
+import io.ktor.client.statement.bodyAsBytes
 import io.ktor.http.HttpMethod
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -13,19 +15,25 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import org.asv.looplink.components.chat.User
 import org.asv.looplink.network.createKtorClient
 import org.asv.looplink.network.discovery.LANServiceDiscovery
 import org.asv.looplink.network.discovery.ServiceInfo
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import org.asv.looplink.data.repository.ChatRepository
+import org.asv.looplink.data.repository.DIRECTORIES
+import org.asv.looplink.data.repository.FileRepository
+import org.asv.looplink.data.repository.UserRepository
 import org.asv.looplink.ui.ConnectionStatus
 import org.asv.looplink.ui.RoomItem
+import org.koin.java.KoinJavaComponent.get
 
 class PeerDiscoveryViewModel(
     private val serviceDiscovery: LANServiceDiscovery,
     private val chatViewModel: ChatViewModel,
     private val chatRepository: ChatRepository,
+    private val userRepository: UserRepository
 ) {
     private val viewModelScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private val _discoveredServices = MutableStateFlow<List<ServiceInfo>>(emptyList())
@@ -39,6 +47,7 @@ class PeerDiscoveryViewModel(
 
     // Use this as the primary service type for discovery requests
     val currentDiscoveryServiceType = NSD_SERVICE_TYPE
+    private val fileRepository: FileRepository = get(FileRepository::class.java)
 
     fun startDiscovery() {
         if (_isDiscovering.value) return
@@ -91,18 +100,48 @@ class PeerDiscoveryViewModel(
                 val encodedName =
                     URLEncoder.encode(localUserName, StandardCharsets.UTF_8.toString())
 
+                val localUserPort = userRepository.currentUserPort.value
+                if (localUserPort == 0) {
+                    println("PDVM: Error - Local server port is 0. Cannot connect.")
+                    chatViewModel.updateRoomConnection(roomId, ConnectionStatus.Error("Local server not running"))
+                    return@launch
+                }
+                val encodedPort = localUserPort.toString()
+
                 val client = createKtorClient()
                 val session = client.webSocketSession(
                     method = HttpMethod.Get,
                     host = host,
                     port = service.port,
-                    path = "/looplink/sync/$roomId?peerUid=$encodedUID&peerName=$encodedName"
+                    path = "/looplink/sync/$roomId?peerUid=$encodedUID&peerName=$encodedName&peerPort=$encodedPort"
                 )
                 chatViewModel.updateRoomConnection(roomId, ConnectionStatus.Connected)
                 chatRepository.addAndListenToSession(roomId, session)
                 println("PDVM: WebSocket connection established and session stored for room $roomId.")
+
+                userRepository.addUserToCache(
+                    User(
+                        peerUid,
+                        peerName,
+                        null
+                    )
+                )
+
+                launch(Dispatchers.IO){
+                    try {
+                        println("PDVM: Fetching PFP from $peerName from http://$host:${service.port}/user/pfp")
+                        val pfpBytes: ByteArray = client.get("http://$host:${service.port}/user/pfp").bodyAsBytes()
+                        val localPfpPath = fileRepository.copyBlobToFile(pfpBytes, uid = peerUid, dir = DIRECTORIES.ConnDIR)
+
+                        userRepository.updateUserPfpPath(peerUid, localPfpPath)
+                        chatViewModel.addRoomPfpPath(roomId, localPfpPath)
+                        println("PDVM: Successfully downloaded $peerName pfp at $localPfpPath")
+                    } catch (e: Exception){
+                        println("PDVM: Failed to download PFP for $peerName: ${e.message}")
+                    }
+                }
             } catch (e: Exception) {
-                chatViewModel.updateRoomConnection(roomId, ConnectionStatus.Error("Work"))
+                chatViewModel.updateRoomConnection(roomId, ConnectionStatus.Error("Error"))
                 println("PDVM: WebSocket connection failed: ${e.message}")
             }
         }

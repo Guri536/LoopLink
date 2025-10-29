@@ -33,7 +33,6 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -47,7 +46,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import org.asv.looplink.components.LocalAppNavigator
-import org.asv.looplink.data.repository.UserRespository
+import org.asv.looplink.data.repository.UserRepository
 import org.asv.looplink.network.discovery.ServiceInfo
 import org.asv.looplink.viewmodel.PeerDiscoveryViewModel
 import org.koin.compose.koinInject
@@ -81,7 +80,7 @@ fun AvailableServices(){
     val viewModel: PeerDiscoveryViewModel = koinInject()
     val discoveredServices by viewModel.discoveredServices.collectAsStateWithLifecycle()
     val isDiscovering by viewModel.isDiscovering.collectAsStateWithLifecycle()
-    val user: UserRespository = koinInject()
+    val user: UserRepository = koinInject()
     val userInfo = user.currentUser.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {

@@ -29,7 +29,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import org.asv.looplink.data.repository.UserRespository
+import org.asv.looplink.data.repository.UserRepository
 import org.asv.looplink.theme.ChatTheme
 import org.asv.looplink.viewmodel.ChatViewModel
 import org.koin.compose.koinInject
@@ -46,9 +46,9 @@ fun Triangle(risingToTheRight: Boolean, background: Color) {
 }
 
 @Composable
-fun ChatMessage(isMyMessage: Boolean, roomId: Int, message: Message, sameUser: Boolean = false) {
+fun ChatMessage(isMyMessage: Boolean, roomId: Int, message: Message, sameUser: Boolean = false, showNameOfPeer: Boolean = true) {
     val chatViewModel: ChatViewModel = koinInject()
-    val userRepository: UserRespository = koinInject()
+    val userRepository: UserRepository = koinInject()
     val chatTheme = chatViewModel.getRoomTheme(roomId) ?: ChatTheme.default()
     Box(
         modifier = Modifier.fillMaxWidth()
@@ -68,7 +68,7 @@ fun ChatMessage(isMyMessage: Boolean, roomId: Int, message: Message, sameUser: B
                     Spacer(Modifier.width(56.dp))
                 } else {
                     Column {
-                        UserPic(message.roomId)
+                        UserPic(message.userId, message.roomId)
                     }
                     Spacer(Modifier.size(2.dp))
                     Column {
@@ -92,7 +92,7 @@ fun ChatMessage(isMyMessage: Boolean, roomId: Int, message: Message, sameUser: B
                         .widthIn(max = 900.dp),
                 ) {
                     Column {
-                        if (!isMyMessage && !sameUser) {
+                        if (!isMyMessage && !sameUser && !showNameOfPeer) {
                             Row(verticalAlignment = Alignment.Bottom) {
                                 Text(
                                     text = userRepository.getUserName(message.userId) ?: "Unkown",

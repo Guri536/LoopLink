@@ -4,15 +4,17 @@ import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.core.net.toUri
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.asv.looplink.data.model.ManagedFile
 import java.io.File
 import java.io.FileOutputStream
 import java.util.UUID
-
 actual class FileRepository(private val context: Context) {
-    private val appDir = File(context.filesDir, "shared_files").apply { mkdirs() }
-    private val connDir = File(context.filesDir, "connections").apply { mkdirs() }
-    private val userDir = File(context.filesDir, "user").apply { mkdirs() }
+    private val appDir = File(context.filesDir, DIRECTORIES.AppDIR).apply { mkdirs() }
+    private val filesDir = File(context.filesDir, DIRECTORIES.FilesDIR).apply { mkdirs() }
+    private val connDir = File(context.filesDir, DIRECTORIES.ConnDIR).apply { mkdirs() }
+    private val userDir = File(context.filesDir, DIRECTORIES.UserDIR).apply { mkdirs() }
     actual fun sanitizeFileName(name: String): String {
         // Remove path separators and dangerous characters
         val sanitized = name.replace(Regex("[\\\\/:*?\"<>|]"), "_")
@@ -25,18 +27,17 @@ actual class FileRepository(private val context: Context) {
     }
 
 
-
-
     actual suspend fun copyFileToInternalStorage(sourcePath: String): ManagedFile? {
         return try {
             println("FileRepository: Starting copy from: $sourcePath")
 
-            val sourceUri = if (sourcePath.startsWith("content://") || sourcePath.startsWith("file://")) {
-                sourcePath.toUri()
-            } else {
-                // It's a plain file path, convert it to file:// URI
-                File(sourcePath).toUri()
-            }
+            val sourceUri =
+                if (sourcePath.startsWith("content://") || sourcePath.startsWith("file://")) {
+                    sourcePath.toUri()
+                } else {
+                    // It's a plain file path, convert it to file:// URI
+                    File(sourcePath).toUri()
+                }
 
             val scheme = sourceUri.scheme
 
@@ -85,7 +86,8 @@ actual class FileRepository(private val context: Context) {
 
             if (fileName == null) {
                 // Fallback: generate a filename from the URI
-                fileName = "file_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(8)}"
+                fileName =
+                    "file_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(8)}"
                 val mimeType = context.contentResolver.getType(sourceUri)
                 val extension = getExtensionFromMimeType(mimeType)
                 if (extension != null) {
@@ -217,12 +219,31 @@ actual class FileRepository(private val context: Context) {
         }
     }
 
-    actual suspend fun copyBlobToFile(blob: ByteArray, uid: String): String {
-        val file = File(userDir, "pfp_$uid.jpg")
+    actual suspend fun copyBlobToFile(blob: ByteArray, uid: String, dir: String): String {
+        val fileDir = File(context.filesDir, dir).apply { mkdirs() }
+        val file = File(fileDir, "pfp_$uid.jpg")
         FileOutputStream(file).use { output ->
             output.write(blob)
         }
 
         return file.absolutePath
+    }
+
+    actual suspend fun getFileBytes(path: String): ByteArray? {
+        return withContext(Dispatchers.IO) {
+            try {
+                val file = File(path)
+                if (file.exists() && file.canRead()) {
+                    file.readBytes()
+                } else {
+                    println("File Repository: File not found or unreadable at $path")
+                    null
+                }
+            } catch (e: Exception) {
+                println("FileRepository: Error reading file bytes: ${e.message}")
+                e.printStackTrace()
+                null
+            }
+        }
     }
 }

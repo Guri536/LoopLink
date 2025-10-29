@@ -44,6 +44,16 @@ class ChatViewModel(private val chatRepository: ChatRepository) : ViewModel() {
         }
     }
 
+    fun addRoomPfpPath(roomId: Int, pfpPath: String) {
+        _rooms.update { curRooms ->
+            if(!curRooms.containsKey(roomId)) return@update curRooms
+
+            val room = curRooms[roomId]!!
+            if (room.pfpPath == null) curRooms + (roomId to (room.copy(pfpPath = pfpPath) ))
+            else curRooms
+        }
+    }
+
     fun updateRoomProperty(roomId: Int, updateProperty: (RoomItem) -> RoomItem) {
         _rooms.update { roomMap ->
             val room = roomMap[roomId] ?: return@update roomMap
@@ -53,22 +63,26 @@ class ChatViewModel(private val chatRepository: ChatRepository) : ViewModel() {
     }
 
     fun updateRoomConnection(roomId: Int, connectionStatus: ConnectionStatus) {
-        updateRoomProperty(roomId){ it.copy(status = connectionStatus) }
+        updateRoomProperty(roomId) { it.copy(status = connectionStatus) }
     }
 
     fun roomExists(roomId: Int): Boolean = _rooms.value.containsKey(roomId)
 
 
     fun updateRoomTheme(roomId: Int, newTheme: ChatTheme) {
-        updateRoomProperty(roomId){ it.copy(chatTheme = newTheme) }
+        updateRoomProperty(roomId) { it.copy(chatTheme = newTheme) }
     }
 
     fun getRoomTheme(roomId: Int): ChatTheme? = _rooms.value[roomId]?.chatTheme
     fun getRoomLabel(roomId: Int): String? = _rooms.value[roomId]?.label
     fun getRoomStatus(roomId: Int): ConnectionStatus? = _rooms.value[roomId]?.status
     fun getRoom(roomId: Int): RoomItem? = _rooms.value[roomId]
-    fun getPfp(roomId: Int): String? = _rooms.value[roomId]?.pfpPath ?: _rooms.value[roomId]?.groupDetails?.pfpPath
-    fun getPeerDefaultColor(roomId: Int): Color = _rooms.value[roomId]?.chatTheme?.defaultPeerColor!!
+    fun getPfp(roomId: Int): String? =
+        _rooms.value[roomId]?.pfpPath
+    fun isGroup(roomId: Int): Boolean = _rooms.value[roomId]?.isGroup ?: false
+
+    fun getPeerDefaultColor(roomId: Int): Color =
+        _rooms.value[roomId]?.chatTheme?.defaultPeerColor!!
 
     fun setBackgroundImage(roomId: Int, newSourcePath: String) {
         val fileRepository: FileRepository = get(FileRepository::class.java)

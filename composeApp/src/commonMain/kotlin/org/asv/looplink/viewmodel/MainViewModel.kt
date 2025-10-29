@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.asv.looplink.DatabaseMng
-import org.asv.looplink.data.repository.UserRespository
+import org.asv.looplink.data.repository.UserRepository
 import org.asv.looplink.network.ServerManager
 import org.asv.looplink.network.discovery.LANServiceDiscovery
 import org.asv.looplink.webDriver.cuimsAPI
@@ -20,7 +20,7 @@ class MainViewModel(
     val lanServiceDiscovery: LANServiceDiscovery,
     val chatViewModel: ChatViewModel,
     val peerDiscoveryViewModel: PeerDiscoveryViewModel,
-    val userRepository: UserRespository,
+    val userRepository: UserRepository,
     private val serverManager: ServerManager
 ) : ViewModel() {
     private val _p2pState = MutableStateFlow<P2PState>(P2PState.Stopped)

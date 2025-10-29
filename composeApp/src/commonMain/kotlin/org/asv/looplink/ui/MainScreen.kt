@@ -6,6 +6,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -37,15 +38,16 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -62,17 +64,16 @@ import org.asv.looplink.components.LocalAppNavigator
 import org.asv.looplink.components.chat.Action
 import org.asv.looplink.components.chat.ChatAppWithScaffold
 import org.asv.looplink.components.chat.Message
-import org.asv.looplink.components.chat.User
 import org.asv.looplink.components.fabButtons.FabButtonItem
 import org.asv.looplink.components.fabButtons.FabButtonMain
 import org.asv.looplink.components.fabButtons.FabButtonSub
 import org.asv.looplink.components.fabButtons.MultiFloatingActionButton
 import org.asv.looplink.data.repository.ChatRepository
-import org.asv.looplink.data.repository.UserRespository
+import org.asv.looplink.data.repository.UserRepository
 import org.asv.looplink.getPlatformType
+import org.asv.looplink.operations.getBytesFromFile
 import org.asv.looplink.theme.ChatTheme
 import org.asv.looplink.viewmodel.ChatViewModel
-import org.asv.looplink.viewmodel.PeerDiscoveryViewModel
 import org.koin.compose.koinInject
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
@@ -84,7 +85,7 @@ class MainScreen : Screen {
         val isWideScreen = getPlatformType() == PlatformType.DESKTOP
         val mainNavigator = LocalNavigator.currentOrThrow
         val chatRepository: ChatRepository = koinInject()
-        val userRepository: UserRespository = koinInject()
+        val userRepository: UserRepository = koinInject()
         val currentUser = userRepository.currentUser.collectAsStateWithLifecycle()
 
         val chatViewModel: ChatViewModel = koinInject()
@@ -136,7 +137,7 @@ class MainScreen : Screen {
                 )
             )
         )
-        repeat(10){
+        repeat(10) {
             chatRepository.store.send(
                 Action.SendMessage(
                     0,
@@ -155,7 +156,7 @@ class MainScreen : Screen {
             Action.SendMessage(
                 0,
                 Message(
-                    currentUser.value?.uid?:"Unknown",
+                    currentUser.value?.uid ?: "Unknown",
                     0,
                     "Hey there back"
                 )
@@ -336,11 +337,29 @@ private fun SidebarRoomItem(roomId: Int, onClick: () -> Unit) {
                 .background(Color(0xFFF7A8A8), shape = CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                (room.label.take(1)),
-                color = Color.Black, fontWeight = FontWeight.Bold
-            )
-            if(!room.isGroup) {
+            if (room.pfpPath != null) {
+                val imgBitmap = getBytesFromFile(room.pfpPath)
+                if (imgBitmap == null) {
+                    Text(
+                        (room.label.take(1)),
+                        color = Color.Black, fontWeight = FontWeight.Bold
+                    )
+                } else {
+                    Image(
+                        imgBitmap,
+                        contentDescription = "Room Image",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .clip(CircleShape)
+                    )
+                }
+            } else {
+                Text(
+                    (room.label.take(1)),
+                    color = Color.Black, fontWeight = FontWeight.Bold
+                )
+            }
+            if (!room.isGroup) {
                 Box(
                     modifier = Modifier.size(12.dp)
                         .graphicsLayer(alpha = indicatorAlpha)
@@ -360,7 +379,8 @@ private fun SidebarRoomItem(roomId: Int, onClick: () -> Unit) {
                     style = MaterialTheme.typography.bodySmall
                 )
             } else {
-                val lastMessage = chatRepository.store.stateFlow.collectAsStateWithLifecycle().value.rooms[roomId]?.last()
+                val lastMessage =
+                    chatRepository.store.stateFlow.collectAsStateWithLifecycle().value.rooms[roomId]?.last()
                 Text(
                     lastMessage?.text?.take(15).also { "$it..." } ?: "Start Chatting!!",
                     color = Color(0xFFFFB4A2),
@@ -458,7 +478,8 @@ data class ChatTab(val roomId: Int) : Tab {
     @Composable
     override fun Content() {
         val chatRepository: ChatRepository = koinInject()
-        val session = chatRepository.activeSessions.collectAsStateWithLifecycle().value[roomId]?.firstOrNull()
+        val session =
+            chatRepository.activeSessions.collectAsStateWithLifecycle().value[roomId]?.firstOrNull()
         ChatAppWithScaffold(true, roomId, session)
     }
 }
@@ -468,7 +489,8 @@ class ChatTabScreen(val roomId: Int) : Screen {
     @Composable
     override fun Content() {
         val chatRepository: ChatRepository = koinInject()
-        val session = chatRepository.activeSessions.collectAsStateWithLifecycle().value[roomId]?.firstOrNull()
+        val session =
+            chatRepository.activeSessions.collectAsStateWithLifecycle().value[roomId]?.firstOrNull()
         ChatAppWithScaffold(true, roomId, session)
     }
 }

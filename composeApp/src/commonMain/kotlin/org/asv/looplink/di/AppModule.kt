@@ -4,7 +4,7 @@ package org.asv.looplink.di
 import org.asv.looplink.DatabaseMng
 import org.asv.looplink.DriverFactory
 import org.asv.looplink.data.repository.ChatRepository
-import org.asv.looplink.data.repository.UserRespository
+import org.asv.looplink.data.repository.UserRepository
 import org.asv.looplink.network.ConnectionManager
 import org.asv.looplink.viewmodel.ChatViewModel
 import org.asv.looplink.viewmodel.PeerDiscoveryViewModel
@@ -14,10 +14,10 @@ import org.koin.dsl.module
 val commonModule = module {
     single { DatabaseMng(get<DriverFactory>().createDriver()) }
     single { ChatViewModel(get()) }
-    single { UserRespository() }
+    single { UserRepository() }
     single { ChatRepository() }
     single { ConnectionManager(get()) }
-    single { PeerDiscoveryViewModel(get(), get(), get()) }
+    single { PeerDiscoveryViewModel(get(), get(), get(), get()) }
 }
 
 expect fun platformModule(): Module
