@@ -49,6 +49,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.core.screen.Screen
@@ -150,8 +151,6 @@ class MainScreen : Screen {
             )
         }
 
-
-
         chatRepository.store.send(
             Action.SendMessage(
                 0,
@@ -163,17 +162,13 @@ class MainScreen : Screen {
             )
         )
 
-        val addRoom: () -> Unit = {
-            chatViewModel.addRoom(RoomItem(rooms.size, "Room ${rooms.size + 1}"))
-        }
-
         if (isWideScreen) {
             TabNavigator(EmptyChatTab) { tabNavigator ->
                 val appNavigator = remember { AppNavigator(mainNavigator, tabNavigator) }
                 CompositionLocalProvider(LocalAppNavigator provides appNavigator)
                 {
                     Row(modifier = Modifier.fillMaxSize()) {
-                        InitiateSideBar(true, rooms, addRoom)
+                        InitiateSideBar(true, rooms)
                         Column(
                             modifier = Modifier
                                 .weight(1f, fill = true)
@@ -186,7 +181,7 @@ class MainScreen : Screen {
                 }
             }
         } else {
-            InitiateSideBar(false, rooms, addRoom)
+            InitiateSideBar(false, rooms)
         }
 
     }
@@ -196,7 +191,6 @@ class MainScreen : Screen {
 fun InitiateSideBar(
     isWideScreen: Boolean,
     rooms: List<RoomItem>,
-    onIconClick: () -> Unit
 ) {
     val navigator = LocalAppNavigator.currentOrThrow
 
@@ -213,7 +207,6 @@ fun InitiateSideBar(
         onRoomClick = onRoomClick,
         onProfileClick = onProfileClick,
         onSettingsClick = onSettingsClick,
-        onIconClick = onIconClick
     )
 
 }
@@ -226,7 +219,6 @@ fun Sidebar(
     onRoomClick: (RoomItem) -> Unit,
     onProfileClick: () -> Unit,
     onSettingsClick: () -> Unit,
-    onIconClick: () -> Unit
 ) {
     val navigator = LocalAppNavigator.currentOrThrow
 
@@ -301,6 +293,8 @@ private fun SidebarRoomItem(roomId: Int, onClick: () -> Unit) {
     val chatViewModel: ChatViewModel = koinInject()
     val room = chatViewModel.getRoom(roomId)!!
     val chatRepository: ChatRepository = koinInject()
+    val lastMessageState = chatViewModel.lastMessageFor(roomId)
+    val lastMessage by lastMessageState.collectAsStateWithLifecycle()
 
     Row(
         modifier = Modifier
@@ -379,13 +373,22 @@ private fun SidebarRoomItem(roomId: Int, onClick: () -> Unit) {
                     style = MaterialTheme.typography.bodySmall
                 )
             } else {
-                val lastMessage =
-                    chatRepository.store.stateFlow.collectAsStateWithLifecycle().value.rooms[roomId]?.last()
-                Text(
-                    lastMessage?.text?.take(15).also { "$it..." } ?: "Start Chatting!!",
-                    color = Color(0xFFFFB4A2),
-                    style = MaterialTheme.typography.bodySmall
-                )
+                if(lastMessage == null){
+                    Text(
+                        "Start Chatting!!",
+                        color = Color(0xFFFFB4A2),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                } else {
+                    Text(
+                        lastMessage!!.text,
+                        color = Color.White,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
             }
         }
     }

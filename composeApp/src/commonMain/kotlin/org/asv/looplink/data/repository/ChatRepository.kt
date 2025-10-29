@@ -14,8 +14,12 @@ import kotlin.collections.plus
 import io.ktor.websocket.Frame
 import io.ktor.websocket.close
 import io.ktor.websocket.readText
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import org.asv.looplink.components.chat.Action
@@ -33,6 +37,11 @@ class ChatRepository {
         listenToSession(roomId, session)
     }
 
+    fun getLastMessage(roomId: Int): Flow<Message?> {
+        return store.stateFlow.map { state ->
+            state.rooms[roomId]?.lastOrNull()
+        }
+    }
     private fun listenToSession(roomId: Int, session: DefaultWebSocketSession) {
         println("ChatRepo: Starting to listening to ${session.toString().split('@').get(1)} for room: $roomId")
 

@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import org.asv.looplink.components.chat.Message
 import org.asv.looplink.data.repository.ChatRepository
 import org.asv.looplink.data.repository.FileRepository
 import org.asv.looplink.theme.ChatTheme
@@ -83,6 +84,14 @@ class ChatViewModel(private val chatRepository: ChatRepository) : ViewModel() {
 
     fun getPeerDefaultColor(roomId: Int): Color =
         _rooms.value[roomId]?.chatTheme?.defaultPeerColor!!
+
+    fun lastMessageFor(roomId: Int): StateFlow<Message?>{
+        return chatRepository.getLastMessage(roomId).stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = null
+        )
+    }
 
     fun setBackgroundImage(roomId: Int, newSourcePath: String) {
         val fileRepository: FileRepository = get(FileRepository::class.java)
