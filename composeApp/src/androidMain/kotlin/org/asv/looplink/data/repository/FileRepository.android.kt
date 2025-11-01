@@ -3,6 +3,8 @@ package org.asv.looplink.data.repository
 import android.content.Context
 import android.content.Intent
 import android.provider.OpenableColumns
+import android.webkit.MimeTypeMap
+import androidx.core.content.FileProvider
 import androidx.core.net.toUri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -45,12 +47,25 @@ actual class FileRepository(private val context: Context) {
     }
 
     actual fun openFileInDefaultApp(filePath: String) {
-        val uri = File(filePath).toUri()
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, context.contentResolver.getType(uri))
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        try {
+            val file = File(filePath)
+            val authority = "${context.packageName}.provider"
+
+            val uri = FileProvider.getUriForFile(context, authority, file)
+            val fileExtension = file.extension
+            val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(fileExtension.lowercase())
+                ?: "application/octet-stream"
+
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, mimeType)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            println("FileRepository: Error opening file $filePath - ${e.message}")
+            e.printStackTrace()
         }
-        context.startActivity(intent)
     }
 
     actual fun getFileInternalPath(fileId: String, dir: DIRECTORIES): String {
@@ -72,14 +87,27 @@ actual class FileRepository(private val context: Context) {
             var fileName: String? = null
             var fileSize = 0L
 
-            // 1. Get Metadata
-            context.contentResolver.query(sourceUri, null, null, null, null)?.use { cursor ->
-                if (cursor.moveToFirst()) {
-                    fileName =
-                        cursor.getString(cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME))
-                    fileSize = cursor.getLong(cursor.getColumnIndexOrThrow(OpenableColumns.SIZE))
+            // Get Metadata
+            if (sourceUri.scheme == "content") {
+                // Use ContentResolver for content:// URIs
+                println("FileRepository: Using ContentResolver for content:// URI")
+                context.contentResolver.query(sourceUri, null, null, null, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        fileName =
+                            cursor.getString(cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME))
+                        fileSize = cursor.getLong(cursor.getColumnIndexOrThrow(OpenableColumns.SIZE))
+                    }
+                }
+            } else if (sourceUri.scheme == "file") {
+                // Use File API for file:/// URIs
+                println("FileRepository: Using File API for file:// URI")
+                sourceUri.path?.let { path ->
+                    val file = File(path)
+                    fileName = file.name
+                    fileSize = file.length()
                 }
             }
+
             if (fileName == null) {
                 fileName = "file_${UUID.randomUUID()}"
             }
@@ -101,7 +129,14 @@ actual class FileRepository(private val context: Context) {
             }
 
             if (fileSize == 0L) fileSize = destinationFile.length()
-            val mimeType = context.contentResolver.getType(sourceUri) ?: "application/octet-stream"
+
+            val mimeTypeFromExtension = if (fileExtension.isNotEmpty()) {
+                MimeTypeMap.getSingleton().getMimeTypeFromExtension(fileExtension.lowercase())
+            } else null
+
+            val mimeType = mimeTypeFromExtension
+                ?: context.contentResolver.getType(sourceUri)
+                ?: "application/octet-stream"
 
             ManagedFile(
                 fileId = uniqueId,

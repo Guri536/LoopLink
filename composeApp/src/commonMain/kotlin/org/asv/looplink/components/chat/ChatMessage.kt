@@ -194,7 +194,7 @@ fun FileMessageDisplay(
 
     val isDownloaded = downloadedFileIds.contains(fileInfo.fileId)
     val currentProgress = downloadProgressMap[fileInfo.fileId]
-    val internalPath = fileRepository.getFileInternalPath(fileInfo.fileId)
+    val internalPath = fileRepository.getFileInternalPath(fileInfo.fileId, fileInfo.dir)
 
     val isVisualMedia =
         fileInfo.mimeType.startsWith("image/") || fileInfo.mimeType.startsWith("video/")
