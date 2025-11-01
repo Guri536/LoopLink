@@ -1,6 +1,7 @@
 package org.asv.looplink.components.chat
 
 import androidx.compose.ui.graphics.Color
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 import org.asv.looplink.data.repository.DIRECTORIES
@@ -8,6 +9,9 @@ import kotlin.random.Random
 import kotlin.random.nextInt
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
+
+@Serializable
+sealed interface LoopLinkEvent
 
 @Serializable
 data class User(
@@ -28,15 +32,17 @@ data class ManagedFile(
 )
 
 @Serializable
+@SerialName("message")
 data class Message(
     val userId: String,
     val roomId: Int,
     val text: String? = null,
     val seconds: Long,
     val id: Long,
+    @SerialName("message_type")
     val type: MessageType = MessageType.TEXT,
     val fileInfo: ManagedFile? = null
-) {
+): LoopLinkEvent {
     @OptIn(ExperimentalTime::class)
     constructor(
         userId: String,
@@ -66,6 +72,14 @@ data class Message(
         fileInfo = fileInfo
     )
 }
+
+@Serializable
+@SerialName("typing")
+data class TypingEvent(
+    val roomId: Int,
+    val userId: String,
+    val isTyping: Boolean
+) : LoopLinkEvent
 
 @Serializable
 enum class MessageType{

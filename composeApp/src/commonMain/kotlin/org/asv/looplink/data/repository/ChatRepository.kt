@@ -24,7 +24,10 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import org.asv.looplink.components.chat.Action
+import org.asv.looplink.components.chat.LoopLinkEvent
 import org.asv.looplink.components.chat.Message
+import org.asv.looplink.components.chat.TypingEvent
+import org.asv.looplink.network.AppJson
 import org.asv.looplink.network.ConnectionManager
 import org.asv.looplink.ui.ConnectionStatus
 import org.asv.looplink.viewmodel.ChatViewModel
@@ -42,10 +45,17 @@ class ChatRepository {
         if (frame is Frame.Text) {
             val receivedText = frame.readText()
             try {
-                val message = Json.decodeFromString<Message>(receivedText)
-                chatViewModel.onMessageReceived(roomId)
-                println("ChatRepo: Added message to store for $roomId and incremented unread count")
-                store.send(Action.SendMessage(roomId = roomId, message = message))
+                val event = AppJson.decodeFromString<LoopLinkEvent>(receivedText)
+                when (event) {
+                    is Message -> {
+                        chatViewModel.onMessageReceived(roomId)
+                        println("ChatRepo: Added message to store for $roomId and incremented unread count")
+                        store.send(Action.SendMessage(roomId = roomId, message = event))
+                    }
+                    is TypingEvent -> {
+                        chatViewModel.onTypingEvent(event.roomId, event.userId, event.isTyping)
+                    }
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
                 println("ChatRepo: Error decoding message for room: $roomId")

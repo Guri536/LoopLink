@@ -68,6 +68,7 @@ import org.asv.looplink.components.chat.Action
 import org.asv.looplink.components.chat.ChatAppWithScaffold
 import org.asv.looplink.components.chat.Message
 import org.asv.looplink.components.chat.MessageType
+import org.asv.looplink.components.chat.User
 import org.asv.looplink.components.fabButtons.FabButtonItem
 import org.asv.looplink.components.fabButtons.FabButtonMain
 import org.asv.looplink.components.fabButtons.FabButtonSub
@@ -290,9 +291,16 @@ fun Sidebar(
 private fun SidebarRoomItem(room: RoomItem) {
     val chatViewModel: ChatViewModel = koinInject()
     val chatRepository: ChatRepository = koinInject()
+    val userRepository: UserRepository = koinInject()
     val roomId = room.id
     val lastMessageState = chatViewModel.lastMessageFor(roomId)
     val lastMessage by lastMessageState.collectAsStateWithLifecycle()
+
+    val typingUsersMap by chatViewModel.typingUsers.collectAsStateWithLifecycle()
+    val currentUserId = userRepository.getUserIdAndName().first
+
+    // ADDED: Check if anyone *else* in this room is typing
+    val isSomeoneTyping = (typingUsersMap[room.id] ?: emptySet()).any { it != currentUserId }
 
     val navigator = LocalAppNavigator.currentOrThrow
 
@@ -361,7 +369,9 @@ private fun SidebarRoomItem(room: RoomItem) {
         Spacer(modifier = Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(room.label, color = Color.White)
+
             val lastMessageText = when {
+                isSomeoneTyping -> "is typing..."
                 room.unread > 0 -> "${room.unread} unread"
                 lastMessage == null -> "Start Chatting!"
                 lastMessage?.text != null -> lastMessage!!.text
@@ -369,8 +379,11 @@ private fun SidebarRoomItem(room: RoomItem) {
                 else -> ""
             }
 
-            val lastMessageColor =
-                if (room.unread > 0) Color(0xFFFFB4A2) else Color.White.copy(alpha = 0.7f)
+            val lastMessageColor = when {
+                isSomeoneTyping -> Color(0xFF00E676)
+                room.unread > 0 -> Color(0xFF006bff)
+                else -> Color.White.copy(alpha = 0.7f)
+            }
 
             Text(
                 text = lastMessageText ?: "",

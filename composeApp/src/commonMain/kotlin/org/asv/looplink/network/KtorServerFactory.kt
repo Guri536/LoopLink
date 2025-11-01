@@ -50,12 +50,7 @@ fun Application.configureLoopLinkServer(
     val userInfo = userRepository.currentUser.value
 
     install(ContentNegotiation) {
-        json(Json {
-            prettyPrint = true
-            isLenient = true
-            ignoreUnknownKeys = true
-            explicitNulls = false
-        })
+        json(AppJson)
     }
 
     install(WebSockets) {
@@ -254,7 +249,7 @@ private suspend fun handlePeerConnection(
     try {
         // This loop keeps the connection alive
         for (frame in webSocketSession.incoming) {
-            println("Server: Recieved from ${webSocketSession.toString().split('@')[1]} a frame: ${frame.toString().take(20)}")
+            println("Server: Recieved from ${webSocketSession.toString().split('@')[1]} a frame: ${frame.toString()}")
             chatRepository.handleIncomingMessage(roomId, frame)
         }
     } catch (e: Exception) {

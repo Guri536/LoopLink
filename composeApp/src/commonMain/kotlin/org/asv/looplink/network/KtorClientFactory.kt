@@ -19,12 +19,7 @@ fun createKtorClient(): HttpClient {
 
         // Content Negotiation for JSON
         install(ContentNegotiation) {
-            json(Json {
-                prettyPrint = true
-                isLenient = true
-                ignoreUnknownKeys = true // Be flexible with server responses
-                explicitNulls = false
-            })
+            json(AppJson)
         }
 
         install(WebSockets){

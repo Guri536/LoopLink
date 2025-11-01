@@ -27,10 +27,13 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -51,6 +54,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import chaintech.videoplayer.util.isMobile
+import org.asv.looplink.data.repository.UserRepository
 import org.asv.looplink.isPlatformMobile
 import org.asv.looplink.ui.FilePicker
 import org.asv.looplink.ui.FilePickerMode
@@ -92,6 +96,14 @@ fun SendMessage(
         }
     )
 
+    LaunchedEffect(inputText) {
+        if (inputText.isNotEmpty()) {
+            chatViewModel.sendTypingEventDebounced(roomId)
+        } else {
+            chatViewModel.sendTypingEvent(roomId, false)
+        }
+    }
+
     Column(
         modifier = modifier
     ) {
@@ -114,6 +126,8 @@ fun SendMessage(
                 onClear = { attachedFilePath = null }
             )
         }
+
+        TypingIndicator(roomId = roomId)
 
         OutlinedTextField(
             modifier = Modifier
@@ -226,6 +240,39 @@ fun AttachedFileChip(filePath: String?, onClear: () -> Unit) {
             }
         }
     )
+}
+
+@Composable
+fun TypingIndicator(
+    roomId: Int,
+    chatViewModel: ChatViewModel = koinInject(),
+    userRepository: UserRepository = koinInject()
+) {
+    val typingUsersMap by chatViewModel.typingUsers.collectAsState()
+    val currentUserId = userRepository.getUserIdAndName().first
+
+    // Get the set of typing users for this room, remove the current user
+    val typingNames = remember(typingUsersMap, currentUserId) {
+        val usersInThisRoom = typingUsersMap[roomId] ?: emptySet()
+        usersInThisRoom
+            .filterNot { it == currentUserId } // Don't show "you" are typing
+            .map { userRepository.getUserName(it) ?: "Someone" } // Get their name
+    }
+
+    // Display the text
+    AnimatedVisibility(visible = typingNames.isNotEmpty()) {
+        val text = when (typingNames.size) {
+            1 -> "${typingNames.first()} is typing..."
+            2 -> "${typingNames.joinToString(" and ")} are typing..."
+            else -> "${typingNames.size} users are typing..."
+        }
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.Gray,
+            modifier = Modifier.padding(start = 16.dp, bottom = 4.dp)
+        )
+    }
 }
 
 @Composable

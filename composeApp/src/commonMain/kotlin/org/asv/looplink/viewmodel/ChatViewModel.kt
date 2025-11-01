@@ -15,6 +15,8 @@ import io.ktor.utils.io.readRemaining
 import io.ktor.websocket.DefaultWebSocketSession
 import io.ktor.websocket.Frame
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -27,13 +29,16 @@ import kotlinx.coroutines.launch
 import kotlinx.io.readByteArray
 import kotlinx.serialization.json.Json
 import org.asv.looplink.components.chat.Action
+import org.asv.looplink.components.chat.LoopLinkEvent
 import org.asv.looplink.components.chat.Message
 import org.asv.looplink.components.chat.MessageType
+import org.asv.looplink.components.chat.TypingEvent
 import org.asv.looplink.components.chat.User
 import org.asv.looplink.data.repository.ChatRepository
 import org.asv.looplink.data.repository.DIRECTORIES
 import org.asv.looplink.data.repository.FileRepository
 import org.asv.looplink.data.repository.UserRepository
+import org.asv.looplink.network.AppJson
 import org.asv.looplink.network.createKtorClient
 import org.asv.looplink.theme.ChatTheme
 import org.asv.looplink.ui.ConnectionStatus
@@ -51,6 +56,62 @@ class ChatViewModel(
 
     private val _activeRoomId = MutableStateFlow<Int?>(null)
     val activeRoomId = _activeRoomId.asStateFlow()
+
+    private val _typingUsers = MutableStateFlow<Map<Int, Set<String>>>(emptyMap())
+    val typingUsers = _typingUsers.asStateFlow()
+
+    private val stopTypingJobs = mutableMapOf<Int, Job>()
+
+    fun onTypingEvent(roomId: Int, userId: String, isTyping: Boolean) {
+        _typingUsers.update { currentMap ->
+            val currentTypingUsers = currentMap[roomId] ?: emptySet()
+            val newTypingUsers = if (isTyping) {
+                currentTypingUsers + userId
+            } else {
+                currentTypingUsers - userId
+            }
+            // If the set is empty, remove the key from the map
+            if (newTypingUsers.isEmpty()) {
+                currentMap - roomId
+            } else {
+                currentMap + (roomId to newTypingUsers)
+            }
+        }
+    }
+
+    // ADDED: Function called by SendMessage.kt when the user types
+    fun sendTypingEvent(roomId: Int, isTyping: Boolean) {
+        // Cancel any pending "stop typing" job for this room
+        stopTypingJobs[roomId]?.cancel()
+
+        viewModelScope.launch(Dispatchers.IO) {
+            val currentUserId = userRepository.getUserIdAndName().first ?: return@launch
+            val typingEvent: LoopLinkEvent = TypingEvent(
+                roomId = roomId,
+                userId = currentUserId,
+                isTyping = isTyping
+            )
+
+            // Encode using the parent interface
+            val eventJson = AppJson.encodeToString<LoopLinkEvent>(typingEvent)
+            chatRepository.sendMessage(roomId, eventJson)
+        }
+    }
+
+    // ADDED: A debounced version for the UI to call
+    fun sendTypingEventDebounced(roomId: Int) {
+        // Cancel any pending "stop" job
+        stopTypingJobs[roomId]?.cancel()
+
+        // Send the "is typing" event immediately
+        sendTypingEvent(roomId, true)
+
+        // Launch a new job that will send "stop typing" after a delay
+        stopTypingJobs[roomId] = viewModelScope.launch {
+            delay(2000L) // 2-second window
+            sendTypingEvent(roomId, false)
+        }
+    }
 
     fun setActiveRoom(roomId: Int?) {
         println("Chat View Model: Setting active room to $roomId")
@@ -201,7 +262,7 @@ class ChatViewModel(
                     text = text.ifBlank { null }
                 )
                 chatRepository.store.send(Action.SendMessage(roomId, fileMessage))
-                val messageJson = Json.encodeToString(fileMessage)
+                val messageJson = AppJson.encodeToString<LoopLinkEvent>(fileMessage)
                 chatRepository.sendMessage(roomId, messageJson)
             } else if(text.isNotEmpty()){
                 val textMessage = Message(
@@ -210,7 +271,7 @@ class ChatViewModel(
                     text
                 )
                 chatRepository.store.send(Action.SendMessage(roomId, textMessage))
-                val messageJson = Json.encodeToString(textMessage)
+                val messageJson = AppJson.encodeToString<LoopLinkEvent>(textMessage)
                 println("Passing text to ChatRepository")
                 chatRepository.sendMessage(roomId, messageJson)
             }
