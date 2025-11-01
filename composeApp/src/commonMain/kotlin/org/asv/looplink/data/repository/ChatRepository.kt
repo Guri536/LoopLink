@@ -38,10 +38,13 @@ class ChatRepository {
     val activeSessions = _activeSessions.asStateFlow()
 
     fun handleIncomingMessage(roomId: Int, frame: Frame) {
+        val chatViewModel: ChatViewModel = get(ChatViewModel::class.java)
         if (frame is Frame.Text) {
             val receivedText = frame.readText()
             try {
                 val message = Json.decodeFromString<Message>(receivedText)
+                chatViewModel.onMessageReceived(roomId)
+                println("ChatRepo: Added message to store for $roomId and incremented unread count")
                 store.send(Action.SendMessage(roomId = roomId, message = message))
             } catch (e: Exception) {
                 e.printStackTrace()

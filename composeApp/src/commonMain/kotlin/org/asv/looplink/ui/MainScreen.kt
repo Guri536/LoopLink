@@ -30,7 +30,6 @@ import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.GroupAdd
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -38,11 +37,12 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -61,9 +61,6 @@ import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import coil3.compose.AsyncImage
-import coil3.compose.AsyncImagePainter
-import coil3.compose.SubcomposeAsyncImage
-import coil3.compose.SubcomposeAsyncImageContent
 import kotlinx.serialization.Serializable
 import org.asv.looplink.PlatformType
 import org.asv.looplink.components.LocalAppNavigator
@@ -98,76 +95,77 @@ class MainScreen : Screen {
         val chatViewModel: ChatViewModel = koinInject()
         val rooms by chatViewModel.roomsWithStatus.collectAsStateWithLifecycle()
 
-        chatViewModel.addRoom(
-            RoomItem(
-                0, "Self", status = ConnectionStatus.Idle,
-                chatTheme = ChatTheme(
-                    backgroundGradientArgb = listOf(
-                        Color.Red.toArgb(),
-                        Color.Blue.toArgb(),
-                        Color.Yellow.toArgb(),
-                        Color.Green.toArgb()
-                    ),
-                    backgroundGradientAngle = 60f
-                )
-            )
-        )
-
-        chatViewModel.addRoom(
-            RoomItem(
-                1, "Test 1", status = ConnectionStatus.Connecting,
-                chatTheme =
-                    ChatTheme(backGroundColorArgb = Color(0xff13314b).toArgb())
-            )
-        )
-        chatViewModel.addRoom(
-            RoomItem(
-                2, "Test 2", status = ConnectionStatus.Connected
-            ),
-        )
-        chatViewModel.addRoom(RoomItem(3, "Test 3", status = ConnectionStatus.Error("What")))
-        chatViewModel.addRoom(RoomItem(4, "Test 4"))
-        chatViewModel.addRoom(
-            RoomItem(
-                5,
-                "Group Test",
-                isGroup = true,
-                groupDetails = GroupStructure(
-                    "23BSC10022",
-                    "This is a test group",
-                    creationTimeStamp = Clock.System.now().toEpochMilliseconds(),
-                    groupType = GroupType.GENERAL,
-                    tabs = listOf(
-                        GroupTabs(label = "Main Chat", type = TabType.CHAT),
-                        GroupTabs(label = "Files", type = TabType.FILES)
+        LaunchedEffect(Unit) {
+            chatViewModel.addRoom(
+                RoomItem(
+                    0, "Self", status = ConnectionStatus.Idle,
+                    chatTheme = ChatTheme(
+                        backgroundGradientArgb = listOf(
+                            Color.Red.toArgb(),
+                            Color.Blue.toArgb(),
+                            Color.Yellow.toArgb(),
+                            Color.Green.toArgb()
+                        ),
+                        backgroundGradientAngle = 60f
                     )
                 )
             )
-        )
-        repeat(10) {
+
+            chatViewModel.addRoom(
+                RoomItem(
+                    1, "Test 1", status = ConnectionStatus.Connecting,
+                    chatTheme =
+                        ChatTheme(backGroundColorArgb = Color(0xff13314b).toArgb())
+                )
+            )
+            chatViewModel.addRoom(
+                RoomItem(
+                    2, "Test 2", status = ConnectionStatus.Connected
+                ),
+            )
+            chatViewModel.addRoom(RoomItem(3, "Test 3", status = ConnectionStatus.Error("What")))
+            chatViewModel.addRoom(RoomItem(4, "Test 4"))
+            chatViewModel.addRoom(
+                RoomItem(
+                    5,
+                    "Group Test",
+                    isGroup = true,
+                    groupDetails = GroupStructure(
+                        "23BSC10022",
+                        "This is a test group",
+                        creationTimeStamp = Clock.System.now().toEpochMilliseconds(),
+                        groupType = GroupType.GENERAL,
+                        tabs = listOf(
+                            GroupTabs(label = "Main Chat", type = TabType.CHAT),
+                            GroupTabs(label = "Files", type = TabType.FILES)
+                        )
+                    )
+                )
+            )
+            repeat(10) {
+                chatRepository.store.send(
+                    Action.SendMessage(
+                        0,
+                        Message(
+                            userId = "null",
+                            roomId = 0,
+                            text = "Hey there"
+                        )
+                    )
+                )
+            }
+
             chatRepository.store.send(
                 Action.SendMessage(
                     0,
                     Message(
-                        userId = "null",
-                        roomId = 0,
-                        text = "Hey there"
+                        currentUser.value?.uid ?: "Unknown",
+                        0,
+                        "Hey there back"
                     )
                 )
             )
         }
-
-        chatRepository.store.send(
-            Action.SendMessage(
-                0,
-                Message(
-                    currentUser.value?.uid ?: "Unknown",
-                    0,
-                    "Hey there back"
-                )
-            )
-        )
-
         if (isWideScreen) {
             TabNavigator(EmptyChatTab) { tabNavigator ->
                 val appNavigator = remember { AppNavigator(mainNavigator, tabNavigator) }
@@ -199,10 +197,6 @@ fun InitiateSideBar(
     rooms: List<RoomItem>,
 ) {
     val navigator = LocalAppNavigator.currentOrThrow
-
-    val onRoomClick: (RoomItem) -> Unit = { room ->
-        navigator.navigateToChat(room.id)
-    }
     val onSettingsClick = { navigator.navigateToSettings() }
     val onProfileClick: () -> Unit = {}
     val sidebarModifier = Modifier.fillMaxWidth(if (isWideScreen) 0.15f else 1f).fillMaxHeight()
@@ -210,7 +204,6 @@ fun InitiateSideBar(
     Sidebar(
         modifier = sidebarModifier,
         rooms = rooms,
-        onRoomClick = onRoomClick,
         onProfileClick = onProfileClick,
         onSettingsClick = onSettingsClick,
     )
@@ -222,7 +215,6 @@ fun InitiateSideBar(
 fun Sidebar(
     modifier: Modifier = Modifier,
     rooms: List<RoomItem>,
-    onRoomClick: (RoomItem) -> Unit,
     onProfileClick: () -> Unit,
     onSettingsClick: () -> Unit,
 ) {
@@ -283,7 +275,7 @@ fun Sidebar(
                         .weight(1f, fill = false)
                 ) {
                     items(rooms) { room ->
-                        SidebarRoomItem(roomId = room.id, onClick = { onRoomClick(room) })
+                        SidebarRoomItem(room = room)
                         Spacer(modifier = Modifier.height(8.dp))
                     }
                 }
@@ -295,12 +287,18 @@ fun Sidebar(
 }
 
 @Composable
-private fun SidebarRoomItem(roomId: Int, onClick: () -> Unit) {
+private fun SidebarRoomItem(room: RoomItem) {
     val chatViewModel: ChatViewModel = koinInject()
-    val room = chatViewModel.getRoom(roomId)!!
     val chatRepository: ChatRepository = koinInject()
+    val roomId = room.id
     val lastMessageState = chatViewModel.lastMessageFor(roomId)
     val lastMessage by lastMessageState.collectAsStateWithLifecycle()
+
+    val navigator = LocalAppNavigator.currentOrThrow
+
+    val navigateToRoom: () -> Unit = {
+        navigator.navigateToChat(roomId)
+    }
 
     Row(
         modifier = Modifier
@@ -308,7 +306,7 @@ private fun SidebarRoomItem(roomId: Int, onClick: () -> Unit) {
             .fillMaxWidth()
             .background(Color(0xFFEFEFEF).copy(alpha = 0.08f), shape = RoundedCornerShape(8.dp))
             .padding(horizontal = 8.dp, vertical = 6.dp)
-            .clickable { onClick() },
+            .clickable { navigateToRoom() },
         verticalAlignment = Alignment.CenterVertically
     ) {
 
@@ -339,7 +337,7 @@ private fun SidebarRoomItem(roomId: Int, onClick: () -> Unit) {
         ) {
             val commonModifier = Modifier.fillMaxSize()
 
-            if(room.pfpPath != null){
+            if (room.pfpPath != null) {
                 AsyncImage(
                     model = File(room.pfpPath), // Pass a File object or null
                     contentDescription = "Room Image",
@@ -358,8 +356,8 @@ private fun SidebarRoomItem(roomId: Int, onClick: () -> Unit) {
                         .align(Alignment.BottomStart)
                 )
             }
-
         }
+
         Spacer(modifier = Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(room.label, color = Color.White)
@@ -470,6 +468,12 @@ object EmptyChatTab : Tab {
 
     @Composable
     override fun Content() {
+        val chatViewModel: ChatViewModel = koinInject()
+
+        LaunchedEffect(Unit) {
+            chatViewModel.setActiveRoom(null)
+        }
+
         EmptyChatPlaceholder()
     }
 }
@@ -486,8 +490,21 @@ data class ChatTab(val roomId: Int) : Tab {
     @Composable
     override fun Content() {
         val chatRepository: ChatRepository = koinInject()
+        val chatViewModel: ChatViewModel = koinInject()
         val session =
             chatRepository.activeSessions.collectAsStateWithLifecycle().value[roomId]?.firstOrNull()
+
+        DisposableEffect(roomId) {
+            // When this tab becomes active:
+            chatViewModel.clearUnreadCount(roomId)
+            chatViewModel.setActiveRoom(roomId)
+
+            onDispose {
+                // When this tab is no longer active:
+                chatViewModel.setActiveRoom(null)
+            }
+        }
+
         ChatAppWithScaffold(true, roomId, session)
     }
 }
@@ -497,8 +514,21 @@ class ChatTabScreen(val roomId: Int) : Screen {
     @Composable
     override fun Content() {
         val chatRepository: ChatRepository = koinInject()
+        val chatViewModel: ChatViewModel = koinInject()
         val session =
             chatRepository.activeSessions.collectAsStateWithLifecycle().value[roomId]?.firstOrNull()
+
+        DisposableEffect(roomId) {
+            // When this screen becomes active:
+            chatViewModel.clearUnreadCount(roomId)
+            chatViewModel.setActiveRoom(roomId)
+
+            onDispose {
+                // When this screen is no longer active:
+                chatViewModel.setActiveRoom(null)
+            }
+        }
+
         ChatAppWithScaffold(true, roomId, session)
     }
 }

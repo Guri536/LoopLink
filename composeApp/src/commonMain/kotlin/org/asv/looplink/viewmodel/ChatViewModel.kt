@@ -49,14 +49,46 @@ class ChatViewModel(
     private val _rooms = MutableStateFlow<Map<Int, RoomItem>>(emptyMap())
     val rooms = _rooms.asStateFlow()
 
+    private val _activeRoomId = MutableStateFlow<Int?>(null)
+    val activeRoomId = _activeRoomId.asStateFlow()
+
+    fun setActiveRoom(roomId: Int?) {
+        println("Chat View Model: Setting active room to $roomId")
+        _activeRoomId.value = roomId
+    }
+
+    fun onMessageReceived(roomId: Int) {
+        if (roomId != _activeRoomId.value) {
+            updateRoomProperty(roomId) {
+                it.copy(unread = it.unread + 1)
+            }
+            println("Incrementing value of $roomId unread message to ${_rooms.value[roomId]?.unread}")
+        }
+    }
+
+    fun clearUnreadCount(roomId: Int) {
+        updateRoomProperty(roomId) {
+            it.copy(unread = 0)
+        }
+        println("Clearing unread messages for $roomId")
+    }
+
     val roomsWithStatus: StateFlow<List<RoomItem>> =
-        _rooms.combine(chatRepository.activeSessions) { rooms, sessions ->
-            rooms.values.map { room ->
+        combine(_rooms,
+            chatRepository.activeSessions,
+            chatRepository.store.stateFlow
+        ) { rooms, sessions, storeState ->
+
+            val roomsWithStatus = rooms.values.map { room ->
                 if (sessions.containsKey(room.id)) {
                     room.copy(status = ConnectionStatus.Connected)
                 } else {
                     room
                 }
+            }
+
+            roomsWithStatus.sortedByDescending { room ->
+                storeState.rooms[room.id]?.lastOrNull()?.seconds ?: room.id.toLong()
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(2000), emptyList<RoomItem>())
 
