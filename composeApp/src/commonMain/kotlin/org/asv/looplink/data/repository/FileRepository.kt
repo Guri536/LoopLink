@@ -1,31 +1,42 @@
 package org.asv.looplink.data.repository
 
-import org.asv.looplink.data.model.ManagedFile
+import kotlinx.coroutines.flow.Flow
+import org.asv.looplink.components.chat.ManagedFile
+import java.io.File
 
-data object DIRECTORIES {
-    const val AppDIR = "appData"
-    const val ConnDIR = "connections"
-    const val FilesDIR = "shared_files"
-    const val UserDIR = "user"
+enum class DIRECTORIES {
+    AppDir, UserDir, FilesDir, ConnDir
+}
+
+fun getDirectoryName(dir: DIRECTORIES): String {
+    return when(dir){
+        DIRECTORIES.AppDir -> "looplink_data"
+        DIRECTORIES.UserDir -> "user_files"
+        DIRECTORIES.FilesDir -> "shared_files"
+        DIRECTORIES.ConnDir -> "connection_files"
+    }
 }
 
 expect class FileRepository {
-    /**
-     * Copies a file from an external source (given by its path/URI)
-     * into the app's internal storage.
-     * @return A ManagedFile object on success, or null on failure.
-     */
-    suspend fun copyFileToInternalStorage(sourcePath: String): ManagedFile?
 
-    /**
-     * Deletes a file from the app's internal storage.
-     * @return True if deletion was successful.
-     */
+    fun getDirectory(dir: DIRECTORIES): File
+    suspend fun copyFileToInternalStorage(sourcePath: String, dir: DIRECTORIES = DIRECTORIES.FilesDir): ManagedFile?
+
     suspend fun deleteInternalFile(internalPath: String): Boolean
+    suspend fun deleteSharedFile(fileId: String): Boolean
+
+    suspend fun copyBlobToFile(blob: ByteArray, fileName: String, dir: DIRECTORIES = DIRECTORIES.FilesDir): ManagedFile?
+
+    suspend fun getSharedFile(fileId: String): ByteArray?
+
+    suspend fun getSharedFileAsFile(fileId: String): File?
 
     fun sanitizeFileName(name: String): String
 
-    suspend fun copyBlobToFile(blob: ByteArray, uid: String, dir: String = "data"): String
-
     suspend fun getFileBytes(path: String): ByteArray?
+
+    fun doesFileExist(filePath: String): Boolean
+
+    fun getFileInternalPath(fileId: String, dir: DIRECTORIES = DIRECTORIES.FilesDir): String
+    fun openFileInDefaultApp(filePath: String)
 }

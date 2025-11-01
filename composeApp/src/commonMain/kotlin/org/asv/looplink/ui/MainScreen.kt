@@ -6,7 +6,6 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -31,6 +30,7 @@ import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.GroupAdd
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -42,6 +42,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -59,12 +60,17 @@ import cafe.adriel.voyager.navigator.tab.CurrentTab
 import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
+import coil3.compose.AsyncImage
+import coil3.compose.AsyncImagePainter
+import coil3.compose.SubcomposeAsyncImage
+import coil3.compose.SubcomposeAsyncImageContent
 import kotlinx.serialization.Serializable
 import org.asv.looplink.PlatformType
 import org.asv.looplink.components.LocalAppNavigator
 import org.asv.looplink.components.chat.Action
 import org.asv.looplink.components.chat.ChatAppWithScaffold
 import org.asv.looplink.components.chat.Message
+import org.asv.looplink.components.chat.MessageType
 import org.asv.looplink.components.fabButtons.FabButtonItem
 import org.asv.looplink.components.fabButtons.FabButtonMain
 import org.asv.looplink.components.fabButtons.FabButtonSub
@@ -72,10 +78,10 @@ import org.asv.looplink.components.fabButtons.MultiFloatingActionButton
 import org.asv.looplink.data.repository.ChatRepository
 import org.asv.looplink.data.repository.UserRepository
 import org.asv.looplink.getPlatformType
-import org.asv.looplink.operations.getBytesFromFile
 import org.asv.looplink.theme.ChatTheme
 import org.asv.looplink.viewmodel.ChatViewModel
 import org.koin.compose.koinInject
+import java.io.File
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
@@ -331,28 +337,19 @@ private fun SidebarRoomItem(roomId: Int, onClick: () -> Unit) {
                 .background(Color(0xFFF7A8A8), shape = CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            if (room.pfpPath != null) {
-                val imgBitmap = getBytesFromFile(room.pfpPath)
-                if (imgBitmap == null) {
-                    Text(
-                        (room.label.take(1)),
-                        color = Color.Black, fontWeight = FontWeight.Bold
-                    )
-                } else {
-                    Image(
-                        imgBitmap,
-                        contentDescription = "Room Image",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .clip(CircleShape)
-                    )
-                }
-            } else {
-                Text(
-                    (room.label.take(1)),
-                    color = Color.Black, fontWeight = FontWeight.Bold
+            val commonModifier = Modifier.fillMaxSize()
+
+            if(room.pfpPath != null){
+                AsyncImage(
+                    model = File(room.pfpPath), // Pass a File object or null
+                    contentDescription = "Room Image",
+                    contentScale = ContentScale.Crop,
+                    modifier = commonModifier.clip(CircleShape)
                 )
+            } else {
+                FallbackAvatar(room.label, commonModifier)
             }
+
             if (!room.isGroup) {
                 Box(
                     modifier = Modifier.size(12.dp)
@@ -364,33 +361,41 @@ private fun SidebarRoomItem(roomId: Int, onClick: () -> Unit) {
 
         }
         Spacer(modifier = Modifier.width(10.dp))
-        Column {
+        Column(modifier = Modifier.weight(1f)) {
             Text(room.label, color = Color.White)
-            if (room.unread > 0) {
-                Text(
-                    "${room.unread} unread",
-                    color = Color(0xFFFFB4A2),
-                    style = MaterialTheme.typography.bodySmall
-                )
-            } else {
-                if(lastMessage == null){
-                    Text(
-                        "Start Chatting!!",
-                        color = Color(0xFFFFB4A2),
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                } else {
-                    Text(
-                        lastMessage!!.text,
-                        color = Color.White,
-                        style = MaterialTheme.typography.bodySmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
+            val lastMessageText = when {
+                room.unread > 0 -> "${room.unread} unread"
+                lastMessage == null -> "Start Chatting!"
+                lastMessage?.text != null -> lastMessage!!.text
+                lastMessage?.type == MessageType.FILE -> "📎 File"
+                else -> ""
             }
+
+            val lastMessageColor =
+                if (room.unread > 0) Color(0xFFFFB4A2) else Color.White.copy(alpha = 0.7f)
+
+            Text(
+                text = lastMessageText ?: "",
+                color = lastMessageColor,
+                style = MaterialTheme.typography.bodySmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
+    }
+}
+
+@Composable
+fun FallbackAvatar(label: String, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label.take(1).uppercase(),
+            color = Color.Black,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 

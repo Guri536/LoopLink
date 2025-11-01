@@ -1,8 +1,10 @@
 package org.asv.looplink.network
 
+import io.ktor.client.plugins.websocket.webSocketSession
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsBytes
 import io.ktor.http.ContentType
+import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
@@ -13,31 +15,28 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.origin
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondBytes
+import io.ktor.server.response.respondOutputStream
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import io.ktor.server.websocket.WebSockets
 import io.ktor.server.websocket.webSocket
 import io.ktor.websocket.CloseReason
-import io.ktor.websocket.Frame
+import io.ktor.websocket.DefaultWebSocketSession
 import io.ktor.websocket.close
-import io.ktor.websocket.readText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
-import org.asv.looplink.components.chat.Action
-import org.asv.looplink.components.chat.Message
+import org.asv.looplink.components.chat.User
 import org.asv.looplink.data.repository.ChatRepository
 import org.asv.looplink.data.repository.DIRECTORIES
 import org.asv.looplink.data.repository.FileRepository
 import org.asv.looplink.data.repository.UserRepository
+import org.asv.looplink.ui.ConnectionStatus
 import org.asv.looplink.ui.RoomItem
 import org.asv.looplink.viewmodel.ChatViewModel
-import org.koin.java.KoinJavaComponent.get
-import io.ktor.client.request.get
-import io.ktor.client.statement.bodyAsBytes
-import org.asv.looplink.components.chat.User
-import org.asv.looplink.ui.ConnectionStatus
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 internal expect fun createKtorServerFactory(): ApplicationEngineFactory<ApplicationEngine, *>
 
@@ -48,8 +47,7 @@ fun Application.configureLoopLinkServer(
     userRepository: UserRepository,
     fileRepository: FileRepository
 ) {
-    val user = get<UserRepository>(UserRepository::class.java)
-    val userInfo = user.currentUser.value
+    val userInfo = userRepository.currentUser.value
 
     install(ContentNegotiation) {
         json(Json {
@@ -75,6 +73,13 @@ fun Application.configureLoopLinkServer(
         }
         get("/user/pfp") {
             try {
+                val requesterIp = call.request.origin.remoteAddress
+//                if (!connectionManager.isPeerAuthorized(requesterIp)) {
+//                    println("Blocked PFP request from non-connected IP: $requesterIp")
+//                    call.respond(HttpStatusCode.Unauthorized, "Not authorized.")
+//                    return@get
+//                }
+
                 val pfpPath = userRepository.currentUser.value?.pfpPath
                 if (pfpPath == null) {
                     call.respond(HttpStatusCode.NotFound, "PFP for User not set")
@@ -96,7 +101,47 @@ fun Application.configureLoopLinkServer(
             }
         }
 
-        webSocket("/looplink/sync/{roomId}") {
+        get("/files/{fileId}") {
+            val fileId = call.parameters["fileId"]
+            if (fileId == null) {
+                call.respond(HttpStatusCode.BadRequest, "File ID is required.")
+                return@get
+            }
+
+            val requesterIp = call.request.origin.remoteAddress
+            if (!connectionManager.isPeerAuthorized(requesterIp)) {
+                println("Blocked PFP request from non-connected IP: $requesterIp")
+                call.respond(HttpStatusCode.Unauthorized, "Not authorized.")
+                return@get
+            }
+
+            try {
+                // Sanitize again on the server-side as a security measure
+                val safeFileId = fileRepository.sanitizeFileName(fileId)
+                if (safeFileId != fileId) {
+                    call.respond(HttpStatusCode.BadRequest, "Invalid file ID.")
+                    return@get
+                }
+
+                val fileBytes = fileRepository.getSharedFile(safeFileId)
+                val sharedFile = fileRepository.getSharedFileAsFile(safeFileId)
+                if (sharedFile != null && sharedFile.exists()) {
+                    println("Serving shared file $safeFileId (${sharedFile.length()} bytes)")
+                    call.respondOutputStream {
+                        sharedFile.inputStream().use { input ->
+                            input.copyTo(this)
+                        }
+                    }
+                } else {
+                    call.respond(HttpStatusCode.NotFound, "File not found.")
+                }
+            } catch (e: Exception) {
+                println("Error serving shared file: ${e.message}")
+                call.respond(HttpStatusCode.InternalServerError, "Error serving file.")
+            }
+        }
+
+        webSocket("/looplink/initiate/{roomId}") {
             val roomId = call.parameters["roomId"]?.toIntOrNull()
             val peerUid = call.request.queryParameters["peerUid"]
             val peerName = call.request.queryParameters["peerName"]
@@ -108,73 +153,117 @@ fun Application.configureLoopLinkServer(
                 return@webSocket
             }
 
-            userRepository.addUserToCache(
-                User(
-                    peerUid,
-                    peerName,
-                    null
-                )
+            handlePeerConnection(
+                isInitiator = true,
+                roomId, peerUid, peerName, peerHost, peerPort, this,
+                connectionManager, userRepository, chatRepository, fileRepository, chatViewModel
             )
+        }
 
-            if (!chatViewModel.roomExists(roomId)) {
-                val newRoom = RoomItem(
-                    roomId,
-                    label = peerName,
-                    members = listOf(userInfo?.uid ?: "Unknown", peerUid)
-                )
-                chatViewModel.addRoom(newRoom)
+        webSocket("/looplink/mutual/{roomId}") {
+            val params = call.parameters
+            val query = call.request.queryParameters
+            val peerHost = call.request.origin.remoteAddress
+
+            val roomId = params["roomId"]?.toIntOrNull()
+            val peerUid = query["peerUid"]
+            val peerName = query["peerName"]
+            val peerPort = query["peerPort"]?.toIntOrNull()
+
+            if (roomId == null || peerUid == null || peerName == null) {
+                close(CloseReason(CloseReason.Codes.CANNOT_ACCEPT, "Invalid request"))
+                return@webSocket
             }
 
-            if (peerPort != null && peerPort != 0) {
-                launch(Dispatchers.IO) {
-                    try {
-                        println("Server: Peer $peerName connected, fetching their PFP from http://$peerHost:$peerPort/user/pfp")
-                        val client = createKtorClient()
-                        val pfpBytes: ByteArray =
-                            client.get("http://$peerHost:$peerPort/user/pfp").bodyAsBytes()
-                        val localPath = fileRepository.copyBlobToFile(
-                            pfpBytes, peerUid,
-                            DIRECTORIES.ConnDIR
-                        )
-                        userRepository.updateUserPfpPath(peerUid, localPath)
-                        chatViewModel.addRoomPfpPath(roomId, localPath)
-                        println("Server: Successfully downloaded and saved PFP for $peerName at $localPath")
-                    } catch (e: Exception) {
-                        println("Server: Failed to download PFP from $peerName: ${e.message}")
-                    }
-                }
-            }
+            // Call the common handler, marking this as NOT the initiator
+            handlePeerConnection(
+                isInitiator = false,
+                roomId, peerUid, peerName, peerHost, peerPort, this,
+                connectionManager, userRepository, chatRepository, fileRepository, chatViewModel
+            )
+        }
+    }
+}
 
-            println("Server: New websocket connection for /looplink/sync/$roomId")
+private suspend fun handlePeerConnection(
+    isInitiator: Boolean,
+    roomId: Int,
+    peerUid: String,
+    peerName: String,
+    peerHost: String,
+    peerPort: Int?,
+    webSocketSession: DefaultWebSocketSession,
+    connectionManager: ConnectionManager,
+    userRepository: UserRepository,
+    chatRepository: ChatRepository,
+    fileRepository: FileRepository,
+    chatViewModel: ChatViewModel
+) {
+    connectionManager.addPeer(peerHost)
+    println("Server: Peer $peerName ($peerHost) added to connection list.")
 
-            chatRepository.addSession(roomId, this)
-            println("KSF: This session: $this")
+    userRepository.addUserToCache(User(peerUid, peerName, null, peerHost, peerPort.toString()))
+    if (!chatViewModel.roomExists(roomId)) {
+        chatViewModel.addRoom(RoomItem(roomId, label = peerName, members = listOf(/*...uids...*/)))
+    }
 
-            chatViewModel.updateRoomConnection(roomId, ConnectionStatus.Connected)
-
+    // 2. Launch a coroutine for connect-back and PFP download.
+    if (peerPort != null && peerPort != 0) {
+        webSocketSession.launch(Dispatchers.IO) {
             try {
-                for (frame in incoming) {
-                    if (frame is Frame.Text) {
-                        val receivedText = frame.readText()
-                        println("Server received from client: ${receivedText.take(50)}")
-                        try {
-                            val message = Json.decodeFromString<Message>(receivedText)
-                            chatRepository.store.send(Action.SendMessage(roomId, message))
+                val client = createKtorClient()
 
-                            connectionManager.broadcast(roomId, receivedText, this)
-                        } catch (e: Exception) {
-                            println("Error parsing message: ${e.message}")
-                        }
-                    }
+                if (isInitiator) {
+                    val localUserInfo = userRepository.currentUser.value
+                    val localUserPort = userRepository.currentUserPort.value
+                    val localUid = localUserInfo?.uid ?: "Unknown"
+                    val localName = localUserInfo?.name ?: "Unknown"
+
+                    val encodedUID = URLEncoder.encode(localUid, StandardCharsets.UTF_8.toString())
+                    val encodedName = URLEncoder.encode(localName, StandardCharsets.UTF_8.toString())
+                    val encodedPort = localUserPort.toString()
+
+                    println("Server: /initiate received. Establishing mutual connection back to $peerName...")
+                    val session = client.webSocketSession(
+                        method = HttpMethod.Get,
+                        host = peerHost,
+                        port = peerPort,
+                        path = "/looplink/mutual/$roomId?peerUid=$encodedUID&peerName=$encodedName&peerPort=$encodedPort"
+                    )
+                    chatRepository.addAndListenToClientSession(roomId, session, peerHost)
+                    println("Server: Mutual connection to $peerName established.")
                 }
+
+                // Fetch the peer's PFP.
+                println("Server: Fetching PFP from $peerName at http://$peerHost:$peerPort/user/pfp")
+                val pfpBytes: ByteArray = client.get("http://$peerHost:$peerPort/user/pfp").bodyAsBytes()
+                val fileModel = fileRepository.copyBlobToFile(pfpBytes, peerUid, DIRECTORIES.ConnDir)!!
+                val localPath = fileRepository.getFileInternalPath(fileModel.fileId, fileModel.dir)
+                userRepository.updateUserPfpPath(peerUid, localPath)
+                chatViewModel.addRoomPfpPath(roomId, localPath)
+                println("Server: Successfully downloaded PFP for $peerName.")
+
             } catch (e: Exception) {
-                println("Error in websocket: ${e.message}")
-                chatViewModel.updateRoomConnection(roomId, ConnectionStatus.Error("Error"))
-            } finally {
-                println("Server: Websocket connection closed for /looplink/sync")
-                chatViewModel.updateRoomConnection(roomId, ConnectionStatus.Idle)
-                chatRepository.removeSession(roomId, this)
+                println("Server: Failed during mutual connection/PFP download for $peerName: ${e.message}")
             }
         }
+    }
+
+    chatViewModel.updateRoomConnection(roomId, ConnectionStatus.Connected)
+
+    try {
+        // This loop keeps the connection alive
+        for (frame in webSocketSession.incoming) {
+            println("Server: Recieved from ${webSocketSession.toString().split('@')[1]} a frame: ${frame.toString().take(20)}")
+            chatRepository.handleIncomingMessage(roomId, frame)
+        }
+    } catch (e: Exception) {
+        println("Server: Error in WebSocket session for $peerName: ${e.message}")
+    } finally {
+        // This now runs correctly when the connection closes
+        println("Server: WebSocket connection closed for $peerName ($peerHost)")
+        connectionManager.removePeer(peerHost)
+        chatRepository.removeSession(roomId, webSocketSession)
+        chatViewModel.updateRoomConnection(roomId, ConnectionStatus.Idle)
     }
 }

@@ -38,13 +38,8 @@ fun createKtorClient(): HttpClient {
                     println("Ktor HTTP Client: $message") // Simple logger
                 }
             }
-            level = LogLevel.ALL // Log everything, adjust as needed (INFO, HEADERS, BODY)
+            level = LogLevel.HEADERS
+            level = LogLevel.INFO// Log everything, adjust as needed (INFO, HEADERS, BODY)
         }
-
-        // Default request parameters (optional)
-        // defaultRequest {
-        // url("https://api.example.com/") // Base URL if all requests go to the same server
-        // header(HttpHeaders.ContentType, ContentType.Application.Json)
-        // }
     }
 }

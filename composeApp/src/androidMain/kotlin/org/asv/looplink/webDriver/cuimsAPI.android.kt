@@ -19,6 +19,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.time.delay
 import kotlinx.coroutines.withContext
 import org.asv.looplink.data.model.UserModel
+import org.asv.looplink.data.repository.DIRECTORIES
 import org.asv.looplink.data.repository.FileRepository
 import org.asv.looplink.errors.errorsLL
 import org.asv.looplink.secrets.APIKeys
@@ -414,7 +415,15 @@ actual class cuimsAPI(private val webView: WebView) {
             val pfpImage  =
                 Base64.decode(pfpBase64.removePrefix("data:image/png;base64,"))
             val fileRepository: FileRepository = org.koin.java.KoinJavaComponent.get(FileRepository::class.java)
-            profileData["pfpPath"] = fileRepository.copyBlobToFile(pfpImage, profileData["UID"]?:"User")
+            profileData["pfpPath"] =
+                fileRepository.getFileInternalPath(
+                    fileRepository.copyBlobToFile(
+                        pfpImage,
+                        "${profileData["UID"] ?: "User"}.jpg",
+                        DIRECTORIES.UserDir
+                    )?.fileId ?: "def",
+                    DIRECTORIES.UserDir
+                )
         }
 
         return profileData

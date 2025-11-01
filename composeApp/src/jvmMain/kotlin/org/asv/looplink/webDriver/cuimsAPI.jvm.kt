@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.toComposeImageBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.asv.looplink.data.model.UserModel
+import org.asv.looplink.data.repository.DIRECTORIES
 import org.asv.looplink.data.repository.FileRepository
 import org.asv.looplink.errors.errorsLL
 import org.jetbrains.skia.Image
@@ -263,8 +264,15 @@ actual class cuimsAPI {
 
             val fileRepository: FileRepository =
                 org.koin.java.KoinJavaComponent.get(FileRepository::class.java)
-            if(pfpImage != null) profileData["pfpPath"] =
-                fileRepository.copyBlobToFile(pfpImage, profileData["UID"] ?: "User")
+            if (pfpImage != null) profileData["pfpPath"] =
+                fileRepository.getFileInternalPath(
+                    fileRepository.copyBlobToFile(
+                        pfpImage,
+                        "${profileData["UID"] ?: "User"}.jpg",
+                        DIRECTORIES.UserDir
+                    )?.fileId ?: "def",
+                    DIRECTORIES.UserDir
+                )
 
             return@withContext profileData
         }

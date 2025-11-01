@@ -6,11 +6,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -18,9 +19,14 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.EmojiEmotions
-import androidx.compose.material.icons.filled.Send
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -44,24 +50,45 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.asv.looplink.ui.FilePicker
+import org.asv.looplink.ui.FilePickerMode
+import org.asv.looplink.viewmodel.ChatViewModel
+import org.koin.compose.koinInject
+import java.io.File
 
 @Composable
 fun SendMessage(
     modifier: Modifier = Modifier,
+    roomId: Int,
     sendMessage: (String) -> Unit
 ) {
     var inputText by remember { mutableStateOf("") }
     var showEmojiPanel by remember { mutableStateOf(false) }
+    var showFilePicker by remember { mutableStateOf(false) }
+    var attachedFilePath by remember { mutableStateOf<String?>(null) }
+    val chatViewModel: ChatViewModel = koinInject()
 
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
 
     fun send() {
-        if (inputText.isNotBlank() && inputText.isNotEmpty()) {
-            sendMessage(inputText)
+        if (inputText.isNotBlank() || attachedFilePath != null) {
+            chatViewModel.sendMessage(roomId, inputText, attachedFilePath)
             inputText = ""
+            attachedFilePath = null
         }
     }
+
+    FilePicker(
+        show = showFilePicker,
+        mode = FilePickerMode.ALL_FILES,
+        onFileSelected = { filePath ->
+            showFilePicker = false
+            if (filePath != null) {
+                attachedFilePath = filePath
+            }
+        }
+    )
 
     Column(
         modifier = modifier
@@ -78,6 +105,14 @@ fun SendMessage(
                     .focusable(true)
             )
         }
+
+        AnimatedVisibility(visible = attachedFilePath != null) {
+            AttachedFileChip(
+                filePath = attachedFilePath,
+                onClear = { attachedFilePath = null }
+            )
+        }
+
         OutlinedTextField(
             modifier = Modifier
                 .fillMaxWidth()
@@ -117,38 +152,76 @@ fun SendMessage(
             },
             maxLines = 4,
             leadingIcon = {
-                Icon(
-                    imageVector = Icons.Default.EmojiEmotions,
-                    contentDescription = "Emoji Picker",
+                IconButton(
+                    onClick = { showEmojiPanel = !showEmojiPanel },
                     modifier = Modifier
                         .padding(end = 8.dp)
-                        .clickable{
-                            showEmojiPanel = !showEmojiPanel
-                        }
                         .pointerHoverIcon(PointerIcon.Hand)
-                )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.EmojiEmotions,
+                        contentDescription = "Emoji Picker",
+                    )
+                }
             },
             trailingIcon = {
-                if (inputText.isNotEmpty()) {
-                    Row(
-                        modifier = Modifier
-                            .clickable {
-                                send()
-                            }
+                Row {
+                    IconButton(
+                        onClick = { showFilePicker = true }, modifier = Modifier
+                            .padding(end = 8.dp)
                             .pointerHoverIcon(PointerIcon.Hand)
-                            .padding(10.dp),
-                        verticalAlignment = Alignment.Bottom,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AttachFile,
+                            contentDescription = "Attach File"
+                        )
+                    }
+
+                    Spacer(Modifier.width(20.dp))
+
+                    IconButton(
+                        onClick = { send() },
+                        enabled = inputText.isNotEmpty() || attachedFilePath != null,
+                        modifier = Modifier
+                            .padding(end = 8.dp)
+                            .pointerHoverIcon(PointerIcon.Hand)
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Default.Send,
                             contentDescription = "Send"
                         )
-                        Text("  Send")
                     }
                 }
             }
         )
     }
+}
+
+@Composable
+fun AttachedFileChip(filePath: String?, onClear: () -> Unit) {
+    if (filePath == null) return
+
+    val fileName = remember(filePath) { File(filePath).name }
+
+    AssistChip(
+        modifier = Modifier.padding(start = 10.dp, bottom = 4.dp),
+        onClick = {},
+        label = { Text(fileName) },
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Default.Description,
+                contentDescription = null
+            )
+        },
+        trailingIcon = {
+            IconButton(onClick = onClear, modifier = Modifier.size(AssistChipDefaults.IconSize)) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Remove attached file"
+                )
+            }
+        }
+    )
 }
 
 @Composable

@@ -1,4 +1,3 @@
-
 package org.asv.looplink.di
 
 import org.asv.looplink.DatabaseMng
@@ -13,11 +12,19 @@ import org.koin.dsl.module
 
 val commonModule = module {
     single { DatabaseMng(get<DriverFactory>().createDriver()) }
-    single { ChatViewModel(get()) }
+    single { ChatViewModel(get(), get(), get()) }
     single { UserRepository() }
     single { ChatRepository() }
     single { ConnectionManager(get()) }
-    single { PeerDiscoveryViewModel(get(), get(), get(), get()) }
+    single {
+        PeerDiscoveryViewModel(
+            get(),
+            get(),
+            get(),
+            get(),
+            get()
+        )
+    }
 }
 
 expect fun platformModule(): Module

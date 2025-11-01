@@ -60,6 +60,10 @@ kotlin {
 
             // Voyager
             implementation(libs.voyager.hilt)
+
+            //Media
+            implementation(libs.androidx.media3.exoplayer)
+            implementation(libs.androidx.media3.ui)
         }
         commonMain.dependencies {
             implementation(compose.runtime)
@@ -106,6 +110,11 @@ kotlin {
             implementation(libs.voyager.kodein)
             implementation(libs.voyager.tabNavigator)
 
+            //Media
+            implementation(libs.compose.media.player)
+            implementation(libs.qdsfdhvh.image.loader)
+            implementation(libs.compose.connectivity.monitor)
+            implementation(libs.sdp.ssp.compose.multiplatform)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -129,6 +138,9 @@ kotlin {
             implementation(libs.ktor.client.content.negotiation)
             implementation(libs.ktor.serialization.kotlinx.json)
             implementation(libs.ktor.logging)
+
+            //Media
+//            implementation(libs.compose.media.player)
         }
 
     }
@@ -182,6 +194,9 @@ android {
 
 dependencies {
     implementation(libs.core.ktx)
+    implementation(libs.qdsfdhvh.image.loader)
+    implementation(libs.sdp.ssp.compose.multiplatform)
+    implementation(libs.gluegen.rt)
     debugImplementation(compose.uiTooling)
 }
 
@@ -203,10 +218,13 @@ compose.desktop {
                 includeAllModules = true
             }
         }
+        buildTypes.release.proguard {
+            configurationFiles.from("compose-desktop.pro")
+        }
     }
 }
 
-repositories {
-    google()
-    mavenCentral()
-}
+//repositories {
+//    google()
+//    mavenCentral()
+//}

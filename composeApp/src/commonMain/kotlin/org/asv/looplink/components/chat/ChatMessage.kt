@@ -1,20 +1,29 @@
 package org.asv.looplink.components.chat
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -29,10 +38,15 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil3.compose.SubcomposeAsyncImage
+import org.asv.looplink.data.repository.FileRepository
 import org.asv.looplink.data.repository.UserRepository
 import org.asv.looplink.theme.ChatTheme
+import org.asv.looplink.ui.VideoPlayer
 import org.asv.looplink.viewmodel.ChatViewModel
 import org.koin.compose.koinInject
+import java.io.File
 
 @Composable
 fun Triangle(risingToTheRight: Boolean, background: Color) {
@@ -46,10 +60,17 @@ fun Triangle(risingToTheRight: Boolean, background: Color) {
 }
 
 @Composable
-fun ChatMessage(isMyMessage: Boolean, roomId: Int, message: Message, sameUser: Boolean = false, showNameOfPeer: Boolean = true) {
+fun ChatMessage(
+    isMyMessage: Boolean,
+    roomId: Int,
+    message: Message,
+    sameUser: Boolean = false,
+    showNameOfPeer: Boolean = true
+) {
     val chatViewModel: ChatViewModel = koinInject()
     val userRepository: UserRepository = koinInject()
     val chatTheme = chatViewModel.getRoomTheme(roomId) ?: ChatTheme.default()
+
     Box(
         modifier = Modifier.fillMaxWidth()
             .padding(top = (if (sameUser) 2.dp else 8.dp)),
@@ -107,14 +128,27 @@ fun ChatMessage(isMyMessage: Boolean, roomId: Int, message: Message, sameUser: B
                             }
                         }
                         Spacer(Modifier.size(3.dp))
-                        Text(
-                            text = message.text,
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontSize = 18.sp,
-                                letterSpacing = 0.sp
-                            ),
-                            color = if (isMyMessage) chatTheme.myTextColor else chatTheme.peerTextColor
-                        )
+                        when (message.type) {
+                            MessageType.TEXT -> {
+                                Text(
+                                    text = message.text ?: "",
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        fontSize = 18.sp,
+                                        letterSpacing = 0.sp
+                                    ),
+                                    color = if (isMyMessage) chatTheme.myTextColor else chatTheme.peerTextColor
+                                )
+                            }
+
+                            MessageType.FILE -> {
+                                FileMessageDisplay(
+                                    message,
+                                    isMyMessage = isMyMessage,
+                                    chatTheme
+                                )
+                            }
+                        }
+
                         Spacer(Modifier.size(4.dp))
                         Row(
                             horizontalArrangement = Arrangement.End,
@@ -140,6 +174,138 @@ fun ChatMessage(isMyMessage: Boolean, roomId: Int, message: Message, sameUser: B
                     }
                 }
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun FileMessageDisplay(
+    message: Message,
+    isMyMessage: Boolean,
+    chatTheme: ChatTheme
+) {
+    val fileRepository: FileRepository = koinInject()
+    val chatViewModel: ChatViewModel = koinInject()
+    val fileInfo = message.fileInfo!!
+
+    val downloadedFileIds by chatViewModel.downloadedFileIds.collectAsStateWithLifecycle()
+    val downloadProgressMap by chatViewModel.downloadProgress.collectAsStateWithLifecycle()
+
+    val isDownloaded = downloadedFileIds.contains(fileInfo.fileId)
+    val currentProgress = downloadProgressMap[fileInfo.fileId]
+    val internalPath = fileRepository.getFileInternalPath(fileInfo.fileId)
+
+    val isVisualMedia =
+        fileInfo.mimeType.startsWith("image/") || fileInfo.mimeType.startsWith("video/")
+
+    val textColor =
+        if (isMyMessage) ChatTheme.default().myTextColor else ChatTheme.default().peerTextColor
+
+    val fileSizeFormatted = when {
+        fileInfo.sizeInBytes > 1024 * 1024 -> "%.1f MB".format(fileInfo.sizeInBytes / (1024.0 * 1024.0))
+        fileInfo.sizeInBytes > 1024 -> "%d KB".format(fileInfo.sizeInBytes / 1024)
+        else -> "${fileInfo.sizeInBytes} B"
+    }
+
+    val onDownloadClick: () -> Unit = {
+        chatViewModel.onDownloadFile(message)
+    }
+
+    Column {
+        if (isDownloaded && isVisualMedia) {
+            Box(
+                modifier = Modifier
+                    .padding(bottom = 8.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable { fileRepository.openFileInDefaultApp(internalPath) }
+            ) {
+                // Use when to decide which preview to show
+                when {
+                    fileInfo.mimeType.startsWith("image/") -> {
+                        SubcomposeAsyncImage(
+                            model = File(internalPath),
+                            contentDescription = "Image preview",
+                            modifier = Modifier.widthIn(max = 500.dp)
+                        )
+                    }
+
+                    fileInfo.mimeType.startsWith("video/") -> {
+                        VideoPlayer(
+                            filePath = internalPath,
+                            modifier = Modifier.widthIn(max = 500.dp).aspectRatio(16 / 9f)
+                        )
+                    }
+                }
+            }
+        }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.widthIn(max = 250.dp)
+                .clickable {
+                    if (isDownloaded) {
+                        fileRepository.openFileInDefaultApp(
+                            fileRepository.getFileInternalPath(
+                                fileInfo.fileId,
+                                fileInfo.dir
+                            )
+                        )
+                    } else if (currentProgress == null) {
+                        chatViewModel.onDownloadFile(message)
+                    }
+                }
+        ) {
+            if (!isVisualMedia || !isDownloaded) {
+                Icon(
+                    imageVector = Icons.Default.Description,
+                    contentDescription = "File",
+                    tint = textColor,
+                    modifier = Modifier.size(40.dp)
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = fileInfo.originalFileName,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                    color = textColor
+                )
+                Text(
+                    text = fileSizeFormatted,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = textColor.copy(alpha = 0.8f)
+                )
+            }
+
+            if (!isDownloaded && currentProgress == null) {
+                Spacer(Modifier.width(8.dp))
+                Icon(
+                    imageVector = Icons.Default.Download,
+                    contentDescription = "Download",
+                    tint = textColor,
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clickable { onDownloadClick() }
+                )
+            }
+        }
+
+        if (currentProgress != null) {
+            LinearProgressIndicator(
+                progress = { currentProgress },
+                modifier = Modifier.padding(top = 4.dp).fillMaxWidth()
+            )
+        }
+
+        if (message.text != null) {
+            Text(
+                text = message.text,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontSize = 18.sp,
+                    letterSpacing = 0.sp
+                ),
+                color = if (isMyMessage) chatTheme.myTextColor else chatTheme.peerTextColor
+            )
         }
     }
 }

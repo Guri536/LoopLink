@@ -90,7 +90,7 @@ actual class LANServiceDiscovery actual constructor(){
                 val jmdnsInfo = event.info ?: return Unit.also {
                     println("JmDNS: Service Resolved but event info is null for ${event.name}")
                 }
-                println("JmDNS: Service Resolved: ${jmdnsInfo.niceTextString}")
+//                println("JmDNS: Service Resolved: ${jmdnsInfo.niceTextString}")
 
                 val suitableHostAddress = jmdnsInfo.inet4Addresses.firstOrNull { !it.isLoopbackAddress }?.hostAddress
                     ?: jmdnsInfo.inetAddresses.firstOrNull { !it.isLoopbackAddress }?.hostAddress
@@ -113,7 +113,7 @@ actual class LANServiceDiscovery actual constructor(){
                     val serviceKey = "${event.type}${event.name}"
                     currentMap[serviceKey] = serviceInfo
                     currentServicesFlow.value = currentMap
-                    println("JmDNS: Updated service map with ${serviceInfo.instanceName}")
+//                    println("JmDNS: Updated service map with ${serviceInfo.instanceName}")
 
                 } else {
                     println("JmDNS: Resolved service ${jmdnsInfo.name} has no suitable address or invalid port. Addresses: ${jmdnsInfo.hostAddresses.joinToString()}, Port: ${jmdnsInfo.port}")

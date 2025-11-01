@@ -126,7 +126,9 @@ fun ChatAppWithScaffold(
                 TopAppBar(
                     title = {
                         Text(
-                            chatLabel,
+                            chatLabel
+//                            session.toString()
+                            ,
                             color = chatTheme.topBarTextColor
                         )
                     },
@@ -257,10 +259,12 @@ fun ChatApp(
                             isWideScreen,
                             state.rooms[roomId].orEmpty()
                         )
+
                         if (displayTextField) {
                             SendMessage(
                                 modifier = Modifier
-                                    .align(Alignment.BottomCenter)
+                                    .align(Alignment.BottomCenter),
+                                roomId
                             ) { text ->
                                 val message = Message(
                                     userId = user.first ?: "Unknown",

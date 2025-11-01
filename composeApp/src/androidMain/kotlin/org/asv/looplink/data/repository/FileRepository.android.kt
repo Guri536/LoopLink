@@ -1,20 +1,34 @@
 package org.asv.looplink.data.repository
 
 import android.content.Context
-import android.net.Uri
+import android.content.Intent
 import android.provider.OpenableColumns
 import androidx.core.net.toUri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.asv.looplink.data.model.ManagedFile
+import org.asv.looplink.components.chat.ManagedFile
 import java.io.File
-import java.io.FileOutputStream
 import java.util.UUID
+
 actual class FileRepository(private val context: Context) {
-    private val appDir = File(context.filesDir, DIRECTORIES.AppDIR).apply { mkdirs() }
-    private val filesDir = File(context.filesDir, DIRECTORIES.FilesDIR).apply { mkdirs() }
-    private val connDir = File(context.filesDir, DIRECTORIES.ConnDIR).apply { mkdirs() }
-    private val userDir = File(context.filesDir, DIRECTORIES.UserDIR).apply { mkdirs() }
+    private val rootAppDir = File(context.filesDir, "looplink").apply { mkdirs() }
+
+    private val appDir =
+        File(rootAppDir, getDirectoryName(DIRECTORIES.AppDir)).apply { mkdirs() }
+    private val filesDir =
+        File(rootAppDir, getDirectoryName(DIRECTORIES.FilesDir)).apply { mkdirs() }
+    private val connDir =
+        File(rootAppDir, getDirectoryName(DIRECTORIES.ConnDir)).apply { mkdirs() }
+    private val userDir =
+        File(rootAppDir, getDirectoryName(DIRECTORIES.UserDir)).apply { mkdirs() }
+    actual fun getDirectory(dir: DIRECTORIES): File {
+        return when(dir){
+            DIRECTORIES.AppDir -> appDir
+            DIRECTORIES.UserDir -> userDir
+            DIRECTORIES.FilesDir -> filesDir
+            DIRECTORIES.ConnDir -> connDir
+        }
+    }
     actual fun sanitizeFileName(name: String): String {
         // Remove path separators and dangerous characters
         val sanitized = name.replace(Regex("[\\\\/:*?\"<>|]"), "_")
@@ -26,8 +40,25 @@ actual class FileRepository(private val context: Context) {
         return clean.take(255)
     }
 
+    actual fun doesFileExist(filePath: String): Boolean {
+        return File(filesDir, filePath).exists()
+    }
 
-    actual suspend fun copyFileToInternalStorage(sourcePath: String): ManagedFile? {
+    actual fun openFileInDefaultApp(filePath: String) {
+        val uri = File(filePath).toUri()
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, context.contentResolver.getType(uri))
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(intent)
+    }
+
+    actual fun getFileInternalPath(fileId: String, dir: DIRECTORIES): String {
+        val directory = getDirectory(dir)
+        return File(directory, fileId).absolutePath
+    }
+
+    actual suspend fun copyFileToInternalStorage(sourcePath: String, dir: DIRECTORIES): ManagedFile? {
         return try {
             println("FileRepository: Starting copy from: $sourcePath")
 
@@ -35,179 +66,53 @@ actual class FileRepository(private val context: Context) {
                 if (sourcePath.startsWith("content://") || sourcePath.startsWith("file://")) {
                     sourcePath.toUri()
                 } else {
-                    // It's a plain file path, convert it to file:// URI
                     File(sourcePath).toUri()
                 }
 
-            val scheme = sourceUri.scheme
-
-            println("FileRepository: URI scheme: $scheme")
-
-            // Handle different URI schemes
-            when (scheme) {
-                "content" -> copyFromContentUri(sourceUri)
-                "file" -> copyFromFilePath(sourceUri)
-                else -> {
-                    println("FileRepository: Unsupported URI scheme: $scheme")
-                    null
-                }
-            }
-        } catch (e: Exception) {
-            println("FileRepository: Error - ${e.message}")
-            e.printStackTrace()
-            null
-        }
-    }
-
-    private fun copyFromContentUri(sourceUri: Uri): ManagedFile? {
-        return try {
             var fileName: String? = null
             var fileSize = 0L
 
-            println("FileRepository: Querying content URI")
-
-            // Query the content provider for file metadata
-            context.contentResolver.query(sourceUri, null, null, null, null)
-                ?.use { cursor ->
-                    if (cursor.moveToFirst()) {
-                        val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                        val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
-
-                        if (nameIndex != -1) {
-                            fileName = cursor.getString(nameIndex)
-                        }
-                        if (sizeIndex != -1) {
-                            fileSize = cursor.getLong(sizeIndex)
-                        }
-                    }
+            // 1. Get Metadata
+            context.contentResolver.query(sourceUri, null, null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    fileName =
+                        cursor.getString(cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME))
+                    fileSize = cursor.getLong(cursor.getColumnIndexOrThrow(OpenableColumns.SIZE))
                 }
-
-            println("FileRepository: fileName=$fileName, fileSize=$fileSize")
-
+            }
             if (fileName == null) {
-                // Fallback: generate a filename from the URI
-                fileName =
-                    "file_${System.currentTimeMillis()}_${UUID.randomUUID().toString().take(8)}"
-                val mimeType = context.contentResolver.getType(sourceUri)
-                val extension = getExtensionFromMimeType(mimeType)
-                if (extension != null) {
-                    fileName = "$fileName.$extension"
-                }
+                fileName = "file_${UUID.randomUUID()}"
             }
 
-            val sanitizedFileName = sanitizeFileName(fileName!!)
-            val destinationFile = File(appDir, sanitizedFileName)
+            val originalFileName = fileName
+            val fileExtension = originalFileName.substringAfterLast(".", "")
+            val baseName = originalFileName.removeSuffix(".$fileExtension")
+            val sanitizedBase = sanitizeFileName(baseName)
+            val uniqueId =
+                "${sanitizedBase}_${System.currentTimeMillis()}" + (if (fileExtension.isNotEmpty()) ".$fileExtension" else "")
 
-            // Prevent path traversal
-            if (!destinationFile.canonicalPath.startsWith(appDir.canonicalPath)) {
-                throw SecurityException("Invalid file path: ${destinationFile.path}")
-            }
+            val directory = getDirectory(dir)
+            val destinationFile = File(directory, uniqueId)
 
-            println("FileRepository: Copying to: ${destinationFile.absolutePath}")
-
-            // Copy the file
             context.contentResolver.openInputStream(sourceUri)?.use { input ->
                 destinationFile.outputStream().use { output ->
                     input.copyTo(output)
                 }
             }
 
-            // Get actual file size if not available from cursor
-            if (fileSize == 0L) {
-                fileSize = destinationFile.length()
-            }
-
+            if (fileSize == 0L) fileSize = destinationFile.length()
             val mimeType = context.contentResolver.getType(sourceUri) ?: "application/octet-stream"
 
-            println("FileRepository: Success! Internal path: ${Uri.fromFile(destinationFile)}")
-
             ManagedFile(
-                internalPath = Uri.fromFile(destinationFile).toString(),
-                originalFileName = fileName,
+                fileId = uniqueId,
+                originalFileName = originalFileName,
                 mimeType = mimeType,
                 sizeInBytes = fileSize
             )
         } catch (e: Exception) {
-            println("FileRepository: copyFromContentUri error - ${e.message}")
+            println("FileRepository: Error - ${e.message}")
             e.printStackTrace()
             null
-        }
-    }
-
-    private fun copyFromFilePath(sourceUri: Uri): ManagedFile? {
-        return try {
-            val sourceFile = File(sourceUri.path!!)
-
-            if (!sourceFile.exists()) {
-                println("FileRepository: Source file doesn't exist: ${sourceFile.absolutePath}")
-                return null
-            }
-
-            val fileName = sourceFile.name
-            val fileSize = sourceFile.length()
-            val sanitizedFileName = sanitizeFileName(fileName)
-            val destinationFile = File(appDir, sanitizedFileName)
-
-            // Prevent path traversal
-            if (!destinationFile.canonicalPath.startsWith(appDir.canonicalPath)) {
-                throw SecurityException("Invalid file path: ${destinationFile.path}")
-            }
-
-            println("FileRepository: Copying file from ${sourceFile.absolutePath} to ${destinationFile.absolutePath}")
-
-            // Copy the file
-            sourceFile.inputStream().use { input ->
-                destinationFile.outputStream().use { output ->
-                    input.copyTo(output)
-                }
-            }
-
-            // Guess MIME type from extension
-            val extension = fileName.substringAfterLast('.', "")
-            val mimeType = getMimeTypeFromExtension(extension) ?: "application/octet-stream"
-
-            println("FileRepository: Success! Internal path: ${Uri.fromFile(destinationFile)}")
-
-            ManagedFile(
-                internalPath = Uri.fromFile(destinationFile).toString(),
-                originalFileName = fileName,
-                mimeType = mimeType,
-                sizeInBytes = fileSize
-            )
-        } catch (e: Exception) {
-            println("FileRepository: copyFromFilePath error - ${e.message}")
-            e.printStackTrace()
-            null
-        }
-    }
-
-    private fun getExtensionFromMimeType(mimeType: String?): String? {
-        return when (mimeType) {
-            "image/jpeg" -> "jpg"
-            "image/png" -> "png"
-            "image/gif" -> "gif"
-            "image/webp" -> "webp"
-            "video/mp4" -> "mp4"
-            "video/mpeg" -> "mpg"
-            "application/pdf" -> "pdf"
-            "text/plain" -> "txt"
-            else -> null
-        }
-    }
-
-    private fun getMimeTypeFromExtension(extension: String): String? {
-        return when (extension.lowercase()) {
-            "jpg", "jpeg" -> "image/jpeg"
-            "png" -> "image/png"
-            "gif" -> "image/gif"
-            "webp" -> "image/webp"
-            "mp4" -> "video/mp4"
-            "mpg", "mpeg" -> "video/mpeg"
-            "pdf" -> "application/pdf"
-            "txt" -> "text/plain"
-            "doc" -> "application/msword"
-            "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            else -> null
         }
     }
 
@@ -219,15 +124,36 @@ actual class FileRepository(private val context: Context) {
         }
     }
 
-    actual suspend fun copyBlobToFile(blob: ByteArray, uid: String, dir: String): String {
-        val fileDir = File(context.filesDir, dir).apply { mkdirs() }
-        val file = File(fileDir, "pfp_$uid.jpg")
-        FileOutputStream(file).use { output ->
-            output.write(blob)
+    actual suspend fun deleteSharedFile(fileId: String): Boolean{
+        return try {
+            File(filesDir, fileId).delete()
+        } catch (e: Exception){
+            false
         }
-
-        return file.absolutePath
     }
+
+    actual suspend fun copyBlobToFile(blob: ByteArray, fileName: String, dir: DIRECTORIES): ManagedFile? =
+        withContext(Dispatchers.IO) {
+            try {
+                val directory = getDirectory(dir)
+                val destinationFile = File(directory, fileName)
+                destinationFile.writeBytes(blob)
+                val mimeType = context.contentResolver.getType(destinationFile.toUri())
+                    ?: "application/octet-stream"
+
+                ManagedFile(
+                    fileId = fileName,
+                    originalFileName = fileName,
+                    mimeType = mimeType,
+                    sizeInBytes = blob.size.toLong(),
+                    dir = dir
+                )
+            } catch (e: Exception) {
+                println("FileRepository: saveReceivedFile error - ${e.message}")
+                e.printStackTrace()
+                null
+            }
+        }
 
     actual suspend fun getFileBytes(path: String): ByteArray? {
         return withContext(Dispatchers.IO) {
@@ -241,6 +167,49 @@ actual class FileRepository(private val context: Context) {
                 }
             } catch (e: Exception) {
                 println("FileRepository: Error reading file bytes: ${e.message}")
+                e.printStackTrace()
+                null
+            }
+        }
+    }
+
+    actual suspend fun getSharedFile(fileId: String): ByteArray? {
+        return withContext(Dispatchers.IO) {
+            try {
+                val safeFileName = sanitizeFileName(fileId)
+                if (safeFileName != fileId) {
+                    println("FileRepository: Access denied for malicious fileId: $fileId")
+                    return@withContext null
+                }
+
+                val file = File(filesDir, fileId)
+                if (file.exists() && file.canRead()) {
+                    file.readBytes()
+                } else {
+                    null
+                }
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+                null
+            }
+        }
+    }
+
+    actual suspend fun getSharedFileAsFile(fileId: String): File? {
+        return withContext(Dispatchers.IO){
+            try {
+
+            val file = File(filesDir, fileId)
+
+            if(file.exists() && file.canRead()){
+                file
+            } else {
+                println("FileRepository: Cannot access file or unreadabe for $fileId")
+                null
+            }
+            } catch (e: Exception){
+                println("FileRepository: Error getting $fileId file: ${e.message}")
                 e.printStackTrace()
                 null
             }

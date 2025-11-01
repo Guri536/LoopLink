@@ -11,20 +11,15 @@ import androidx.compose.ui.platform.LocalContext
 import java.io.File
 import java.util.UUID
 
-enum class FilePickerMode {
-    MEDIA_ONLY,      // Images and Videos (uses Photo Picker on Android 13+)
-    ALL_FILES        // All file types including documents
-}
-
 @Composable
-actual fun FilePicker(show: Boolean, onFileSelected: (String?) -> Unit) {
-    FilePickerWithMode(show, FilePickerMode.MEDIA_ONLY, onFileSelected)
+actual fun FilePicker(show: Boolean, mode: FilePickerMode, onFileSelected: (String?) -> Unit) {
+    FilePickerWithMode(show, mode, onFileSelected)
 }
 
 @Composable
 fun FilePickerWithMode(
     show: Boolean,
-    mode: FilePickerMode = FilePickerMode.ALL_FILES,
+    mode: FilePickerMode,
     onFileSelected: (String?) -> Unit
 ) {
     val context = LocalContext.current

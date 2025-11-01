@@ -3,6 +3,18 @@ package org.asv.looplink.viewmodel
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import io.ktor.client.call.body
+import io.ktor.client.plugins.onDownload
+import io.ktor.client.request.get
+import io.ktor.client.request.prepareGet
+import io.ktor.client.statement.bodyAsBytes
+import io.ktor.utils.io.ByteReadChannel
+import io.ktor.utils.io.core.isEmpty
+import io.ktor.utils.io.core.readBytes
+import io.ktor.utils.io.readRemaining
+import io.ktor.websocket.DefaultWebSocketSession
+import io.ktor.websocket.Frame
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -10,16 +22,30 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.io.readByteArray
+import kotlinx.serialization.json.Json
+import org.asv.looplink.components.chat.Action
 import org.asv.looplink.components.chat.Message
+import org.asv.looplink.components.chat.MessageType
+import org.asv.looplink.components.chat.User
 import org.asv.looplink.data.repository.ChatRepository
+import org.asv.looplink.data.repository.DIRECTORIES
 import org.asv.looplink.data.repository.FileRepository
+import org.asv.looplink.data.repository.UserRepository
+import org.asv.looplink.network.createKtorClient
 import org.asv.looplink.theme.ChatTheme
 import org.asv.looplink.ui.ConnectionStatus
 import org.asv.looplink.ui.RoomItem
 import org.koin.java.KoinJavaComponent.get
+import java.io.File
 
-class ChatViewModel(private val chatRepository: ChatRepository) : ViewModel() {
+class ChatViewModel(
+    private val chatRepository: ChatRepository,
+    private val fileRepository: FileRepository,
+    private val userRepository: UserRepository
+) : ViewModel() {
     private val _rooms = MutableStateFlow<Map<Int, RoomItem>>(emptyMap())
     val rooms = _rooms.asStateFlow()
 
@@ -47,10 +73,10 @@ class ChatViewModel(private val chatRepository: ChatRepository) : ViewModel() {
 
     fun addRoomPfpPath(roomId: Int, pfpPath: String) {
         _rooms.update { curRooms ->
-            if(!curRooms.containsKey(roomId)) return@update curRooms
+            if (!curRooms.containsKey(roomId)) return@update curRooms
 
             val room = curRooms[roomId]!!
-            if (room.pfpPath == null) curRooms + (roomId to (room.copy(pfpPath = pfpPath) ))
+            if (room.pfpPath == null) curRooms + (roomId to (room.copy(pfpPath = pfpPath)))
             else curRooms
         }
     }
@@ -77,15 +103,22 @@ class ChatViewModel(private val chatRepository: ChatRepository) : ViewModel() {
     fun getRoomTheme(roomId: Int): ChatTheme? = _rooms.value[roomId]?.chatTheme
     fun getRoomLabel(roomId: Int): String? = _rooms.value[roomId]?.label
     fun getRoomStatus(roomId: Int): ConnectionStatus? = _rooms.value[roomId]?.status
+
+    private val _downloadedFileIds = MutableStateFlow<Set<String>>(emptySet())
+    val downloadedFileIds = _downloadedFileIds.asStateFlow()
+
+    private val _downloadProgress = MutableStateFlow<Map<String, Float>>(emptyMap())
+    val downloadProgress = _downloadProgress.asStateFlow()
     fun getRoom(roomId: Int): RoomItem? = _rooms.value[roomId]
     fun getPfp(roomId: Int): String? =
         _rooms.value[roomId]?.pfpPath
+
     fun isGroup(roomId: Int): Boolean = _rooms.value[roomId]?.isGroup ?: false
 
     fun getPeerDefaultColor(roomId: Int): Color =
         _rooms.value[roomId]?.chatTheme?.defaultPeerColor!!
 
-    fun lastMessageFor(roomId: Int): StateFlow<Message?>{
+    fun lastMessageFor(roomId: Int): StateFlow<Message?> {
         return chatRepository.getLastMessage(roomId).stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -98,21 +131,122 @@ class ChatViewModel(private val chatRepository: ChatRepository) : ViewModel() {
         println("Got: $newSourcePath")
         viewModelScope.launch {
             val newManagedFile = fileRepository.copyFileToInternalStorage(newSourcePath)
-            println(newManagedFile?.internalPath)
+            println(newManagedFile?.fileId)
             val currentTheme = getRoomTheme(roomId) ?: ChatTheme.default()
             val currentBackgroundImage = currentTheme.backgroundImagePath
 
-            if (currentBackgroundImage != null && currentBackgroundImage != newManagedFile?.internalPath) {
+            if (currentBackgroundImage != null && currentBackgroundImage != newManagedFile?.fileId) {
                 null
             }
-
+            val internalPath = fileRepository.getFileInternalPath(fileId = newManagedFile!!.fileId)
             val updataedTheme = currentTheme.copy(
-                backgroundImagePath = newManagedFile?.internalPath
+                backgroundImagePath = internalPath
             )
             println("New theme back: ${updataedTheme.backgroundImagePath}")
             updateRoomTheme(roomId, updataedTheme)
 
 //            cleanupOrphanFiles()
+        }
+    }
+
+    fun sendMessage(roomId: Int, text: String, attachedFile: String? = null){
+        viewModelScope.launch(Dispatchers.IO) {
+            val currentUserId = userRepository.getUserIdAndName().first ?: return@launch
+            println("Got message from $roomId with Text: $text")
+            if(attachedFile != null){
+                val managedFile = fileRepository.copyFileToInternalStorage(attachedFile)
+                if(managedFile == null){
+                    println("ChatViewModel: Failed to process shared file, returned null")
+                    return@launch
+                }
+
+                _downloadedFileIds.update { it +  managedFile.fileId}
+
+                val fileMessage = Message(
+                    userId = currentUserId,
+                    roomId = roomId,
+                    fileInfo = managedFile,
+                    text = text.ifBlank { null }
+                )
+                chatRepository.store.send(Action.SendMessage(roomId, fileMessage))
+                val messageJson = Json.encodeToString(fileMessage)
+                chatRepository.sendMessage(roomId, messageJson)
+            } else if(text.isNotEmpty()){
+                val textMessage = Message(
+                    currentUserId,
+                    roomId,
+                    text
+                )
+                chatRepository.store.send(Action.SendMessage(roomId, textMessage))
+                val messageJson = Json.encodeToString(textMessage)
+                println("Passing text to ChatRepository")
+                chatRepository.sendMessage(roomId, messageJson)
+            }
+
+        }
+    }
+
+    fun onDownloadFile(message: Message) {
+        val fileInfo = message.fileInfo ?: return
+        val fileId = fileInfo.fileId
+
+        if (_downloadedFileIds.value.contains(fileId)) {
+            println("File already downloaded.")
+            return
+        }
+
+        val sender: User? = userRepository.getUserById(message.userId)
+
+        val host = sender?.hostAddress
+        val port = sender?.port
+
+        if (host == null || port == null) {
+            println("Error: Cannot download file. Peer network info is missing.")
+            return
+        }
+
+        println("Downloading file ${fileInfo.originalFileName} from http://$host:$port/files/$fileId")
+
+        viewModelScope.launch(Dispatchers.IO){
+            try{
+                val client = createKtorClient()
+                val outputFile = File(fileRepository.getDirectory(DIRECTORIES.FilesDir), fileId)
+
+
+                client.prepareGet("http://$host:$port/files/$fileId"){
+                    onDownload {
+                        bytesSentTotal, contentLength ->
+                        val progress = if (contentLength != null && contentLength > 0) {
+                            bytesSentTotal.toFloat() / contentLength.toFloat()
+                        } else {
+                            0f
+                        }
+
+                        _downloadProgress.update { currentProgress ->
+                            currentProgress + (fileId to progress)
+                        }
+                    }
+                }.execute{ httpResponse ->
+                    val channel: ByteReadChannel = httpResponse.body()
+                    outputFile.outputStream().use { fileOutputStream ->
+                        while(!channel.isClosedForRead){
+                            val packet = channel.readRemaining(DEFAULT_BUFFER_SIZE.toLong())
+                            while(!packet.exhausted()){
+                                val bytes = packet.readByteArray()
+                                fileOutputStream.write(bytes)
+                            }
+                        }
+                    }
+                }
+
+                println("File downloaded successfully: ${fileInfo.originalFileName}")
+                _downloadedFileIds.update { it + fileId }
+                _downloadProgress.update { it - fileId }
+
+            } catch (e: Exception){
+                println("Cannot download file: ${e.message}")
+                e.printStackTrace()
+            }
         }
     }
 

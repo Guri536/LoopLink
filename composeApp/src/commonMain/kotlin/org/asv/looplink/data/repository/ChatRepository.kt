@@ -20,10 +20,15 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import org.asv.looplink.components.chat.Action
 import org.asv.looplink.components.chat.Message
+import org.asv.looplink.network.ConnectionManager
+import org.asv.looplink.ui.ConnectionStatus
+import org.asv.looplink.viewmodel.ChatViewModel
+import org.koin.java.KoinJavaComponent.get
 
 class ChatRepository {
     private val coroutineScope = CoroutineScope(SupervisorJob())
@@ -32,9 +37,17 @@ class ChatRepository {
     private val _activeSessions = MutableStateFlow<Map<Int, Set<DefaultWebSocketSession>>>(emptyMap())
     val activeSessions = _activeSessions.asStateFlow()
 
-    fun addAndListenToSession(roomId: Int, session: DefaultWebSocketSession){
-        addSession(roomId, session)
-        listenToSession(roomId, session)
+    fun handleIncomingMessage(roomId: Int, frame: Frame) {
+        if (frame is Frame.Text) {
+            val receivedText = frame.readText()
+            try {
+                val message = Json.decodeFromString<Message>(receivedText)
+                store.send(Action.SendMessage(roomId = roomId, message = message))
+            } catch (e: Exception) {
+                e.printStackTrace()
+                println("ChatRepo: Error decoding message for room: $roomId")
+            }
+        }
     }
 
     fun getLastMessage(roomId: Int): Flow<Message?> {
@@ -42,25 +55,46 @@ class ChatRepository {
             state.rooms[roomId]?.lastOrNull()
         }
     }
-    private fun listenToSession(roomId: Int, session: DefaultWebSocketSession) {
-        println("ChatRepo: Starting to listening to ${session.toString().split('@').get(1)} for room: $roomId")
+    suspend fun sendMessage(roomId: Int, message: String){
+        _activeSessions.value[roomId]?.forEach { session ->
+            println("Sending text to ${session.toString()}")
 
-        session.incoming.consumeAsFlow().onEach {
-            frame ->
-            if(frame is Frame.Text){
-                val receivedText = frame.readText()
+            session.send(Frame.Text(message))
+        }
+    }
+
+    fun addAndListenToClientSession(roomId: Int, session: DefaultWebSocketSession, host: String) {
+        addSession(roomId, session) // Use your existing function to add it
+
+        println("ChatRepo: [Client] Starting to listen to ${session.toString().split('@')[1]} for room: $roomId")
+
+        // This launches the listener in the repository's scope
+        session.incoming.consumeAsFlow().onEach { frame ->
+            handleIncomingMessage(roomId, frame) // Use your existing handler
+        }.catch { e ->
+            // This 'catch' block acts as the 'finally' for the client-side
+            println("ChatRepo: [Client] Error/Closed session for room $roomId: ${e.message}")
+            val chatViewModel: ChatViewModel = get(ChatViewModel::class.java)
+            val connectionManager: ConnectionManager = get(ConnectionManager::class.java)
+
+            // Clean up resources for this connection
+            connectionManager.removePeer(host)
+            chatViewModel.updateRoomConnection(roomId, ConnectionStatus.Idle)
+            removeSession(roomId, session)
+        }.launchIn(coroutineScope)
+    }
+
+    suspend fun broadcast(roomId: Int, message: String, sender: DefaultWebSocketSession){
+        activeSessions.value[roomId]?.forEach {
+                session ->
+            if(session.isActive && session != sender){
                 try{
-                    val message = Json.decodeFromString<Message>(receivedText)
-                    store.send(Action.SendMessage(roomId = roomId, message = message))
-                } catch (e: Exception){
-                    e.printStackTrace()
-                    println("ChatRepo: Error decoding message for room: $roomId")
+                    session.send(Frame.Text(message))
+                } catch (e: Exception) {
+                    println("ConnectionManager: Error broadcasting to session: ${e.message}")
                 }
             }
-        }.catch{
-            e ->
-            println("ChatRepo: Error in incoming flow for room $roomId: ${e.message}")
-        }.launchIn(coroutineScope)
+        }
     }
 
     fun addSession(roomId: Int, session: DefaultWebSocketSession) {

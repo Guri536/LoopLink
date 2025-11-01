@@ -3,6 +3,7 @@ package org.asv.looplink.components.chat
 import androidx.compose.ui.graphics.Color
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
+import org.asv.looplink.data.repository.DIRECTORIES
 import kotlin.random.Random
 import kotlin.random.nextInt
 import kotlin.time.Clock
@@ -12,16 +13,29 @@ import kotlin.time.ExperimentalTime
 data class User(
     val id: String,
     val name: String,
-    val pfpPath: String? = null
+    val pfpPath: String? = null,
+    @Transient val hostAddress: String? = null,
+    @Transient val port: String? = null
+)
+
+@Serializable
+data class ManagedFile(
+    val fileId: String,
+    val originalFileName: String,
+    val mimeType: String,
+    val sizeInBytes: Long,
+    val dir: DIRECTORIES = DIRECTORIES.FilesDir
 )
 
 @Serializable
 data class Message(
     val userId: String,
     val roomId: Int,
-    val text: String,
+    val text: String? = null,
     val seconds: Long,
-    val id: Long
+    val id: Long,
+    val type: MessageType = MessageType.TEXT,
+    val fileInfo: ManagedFile? = null
 ) {
     @OptIn(ExperimentalTime::class)
     constructor(
@@ -36,11 +50,28 @@ data class Message(
         id = Random.nextLong()
     )
 
+    @OptIn(ExperimentalTime::class)
+    constructor(
+        userId: String,
+        roomId: Int,
+        fileInfo: ManagedFile,
+        text: String? = null
+    ): this(
+        userId = userId,
+        roomId = roomId,
+        seconds = Clock.System.now().epochSeconds,
+        text = text,
+        id = Random.nextLong(),
+        type = MessageType.FILE,
+        fileInfo = fileInfo
+    )
 }
 
-data class MessageList(
-    val messages: MutableList<Message> = mutableListOf<Message>()
-)
+@Serializable
+enum class MessageType{
+    TEXT,
+    FILE
+}
 
 object ColorProvider {
     val colors = mutableListOf(
