@@ -212,8 +212,6 @@ fun ChatApp(
 ) {
     val chatRepository: ChatRepository = koinInject()
     val state by chatRepository.store.stateFlow.collectAsStateWithLifecycle()
-    val scope = rememberCoroutineScope()
-    val user = koinInject<UserRepository>().getUserIdAndName()
     val chatViewModel: ChatViewModel = koinInject()
 
     val isWideScreen = getPlatformType() == PlatformType.DESKTOP
@@ -265,27 +263,7 @@ fun ChatApp(
                                 modifier = Modifier
                                     .align(Alignment.BottomCenter),
                                 roomId
-                            ) { text ->
-                                val message = Message(
-                                    userId = user.first ?: "Unknown",
-                                    roomId = roomId,
-                                    text = text
-                                )
-                                chatRepository.store.send(
-                                    Action.SendMessage(
-                                        roomId = roomId,
-                                        message = message
-                                    )
-                                )
-                                scope.launch {
-                                    try {
-                                        session?.send(Frame.Text(Json.encodeToString(message)))
-                                    } catch (e: Exception) {
-                                        println("Error sending message: ${e.message}")
-                                        e.printStackTrace()
-                                    }
-                                }
-                            }
+                            )
                         }
                     }
                 }

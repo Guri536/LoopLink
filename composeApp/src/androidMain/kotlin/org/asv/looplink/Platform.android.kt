@@ -11,6 +11,8 @@ class AndroidPlatform : Platform {
     override val name: String = "Android ${Build.VERSION.SDK_INT}"
 }
 
+actual fun isPlatformMobile(): Boolean = true
+
 actual fun getPlatform(): Platform = AndroidPlatform()
 
 // This is the actual implementation of the DriverFactory expected from commonMain

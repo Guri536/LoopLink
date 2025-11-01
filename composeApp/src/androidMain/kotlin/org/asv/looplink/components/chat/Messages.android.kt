@@ -14,9 +14,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import org.asv.looplink.data.repository.UserRepository
+import org.asv.looplink.ui.rememberFormattedDate
 import org.asv.looplink.viewmodel.ChatViewModel
 import org.koin.compose.koinInject
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
 @Composable
 internal actual fun Messages(
@@ -50,14 +55,25 @@ internal actual fun Messages(
         ) {
 
             item { Spacer(Modifier.size(20.dp)) }
-            itemsIndexed(messages, key = {_, message -> message.id }) { index, message ->
-                val prev = messages.getOrNull(index - 1)
-                val showElements = prev == null || prev.userId != message.userId
-                ChatMessage(
-                    isMyMessage = message.userId == currentUserId,
-                    roomId, message, !showElements,
-                    showNameOfPeer
-                )
+            messages.forEachIndexed { index, message ->
+                val prevMessage = messages.getOrNull(index - 1)
+                val showDateChip = prevMessage == null || !areOnSameDay(prevMessage.seconds, message.seconds)
+
+                if (showDateChip) {
+                    item(key = "date_chip_${message.id}") {
+                        val formattedDate = rememberFormattedDate(message.seconds)
+                        DateSeparatorChip(formattedDate)
+                    }
+                }
+
+                item(key = message.id) {
+                    val showElements = prevMessage == null || prevMessage.userId != message.userId
+                    ChatMessage(
+                        isMyMessage = message.userId == currentUserId,
+                        roomId, message, !showElements,
+                        showNameOfPeer
+                    )
+                }
             }
             item { Box(Modifier.height(10.dp)) }
 

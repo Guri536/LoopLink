@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import org.asv.looplink.data.repository.UserRepository
 import org.asv.looplink.theme.ChatTheme
+import org.asv.looplink.ui.rememberFormattedDate
 import org.asv.looplink.viewmodel.ChatViewModel
 import org.koin.compose.koinInject
 
@@ -58,14 +59,25 @@ internal actual fun Messages(
         ) {
 
             item { Spacer(Modifier.size(20.dp)) }
-            itemsIndexed(messages, key = {_, message -> message.id }) { index, message ->
-                val prev = messages.getOrNull(index - 1)
-                val showElements = prev == null || prev.userId != message.userId
-                ChatMessage(
-                    isMyMessage = message.userId == currentUserId,
-                    roomId, message, !showElements,
-                    showNameOfPeer
-                )
+            messages.forEachIndexed { index, message ->
+                val prevMessage = messages.getOrNull(index - 1)
+                val showDateChip = prevMessage == null || !areOnSameDay(prevMessage.seconds, message.seconds)
+
+                if (showDateChip) {
+                    item(key = "date_chip_${message.id}") {
+                        val formattedDate = rememberFormattedDate(message.seconds)
+                        DateSeparatorChip(formattedDate)
+                    }
+                }
+
+                item(key = message.id) {
+                    val showElements = prevMessage == null || prevMessage.userId != message.userId
+                    ChatMessage(
+                        isMyMessage = message.userId == currentUserId,
+                        roomId, message, !showElements,
+                        showNameOfPeer
+                    )
+                }
             }
             item { Box(Modifier.height(10.dp)) }
 

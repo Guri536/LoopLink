@@ -14,6 +14,7 @@ interface Platform {
     val name: String
 }
 
+expect fun isPlatformMobile(): Boolean
 expect fun getPlatformType(): PlatformType
 
 expect fun getPlatform(): Platform

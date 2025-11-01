@@ -50,6 +50,8 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import chaintech.videoplayer.util.isMobile
+import org.asv.looplink.isPlatformMobile
 import org.asv.looplink.ui.FilePicker
 import org.asv.looplink.ui.FilePickerMode
 import org.asv.looplink.viewmodel.ChatViewModel
@@ -60,7 +62,6 @@ import java.io.File
 fun SendMessage(
     modifier: Modifier = Modifier,
     roomId: Int,
-    sendMessage: (String) -> Unit
 ) {
     var inputText by remember { mutableStateOf("") }
     var showEmojiPanel by remember { mutableStateOf(false) }
@@ -70,6 +71,7 @@ fun SendMessage(
 
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
+    val isMobile = isPlatformMobile()
 
     fun send() {
         if (inputText.isNotBlank() || attachedFilePath != null) {
@@ -168,7 +170,7 @@ fun SendMessage(
                 Row {
                     IconButton(
                         onClick = { showFilePicker = true }, modifier = Modifier
-                            .padding(end = 8.dp)
+                            .padding(end = 4.dp)
                             .pointerHoverIcon(PointerIcon.Hand)
                     ) {
                         Icon(
@@ -177,13 +179,15 @@ fun SendMessage(
                         )
                     }
 
-                    Spacer(Modifier.width(20.dp))
+                    Spacer(Modifier.width(
+                        if (isMobile) 0.dp else 20.dp
+                    ))
 
                     IconButton(
                         onClick = { send() },
                         enabled = inputText.isNotEmpty() || attachedFilePath != null,
                         modifier = Modifier
-                            .padding(end = 8.dp)
+                            .padding(end = 4.dp)
                             .pointerHoverIcon(PointerIcon.Hand)
                     ) {
                         Icon(
