@@ -198,12 +198,14 @@ private suspend fun handlePeerConnection(
     println("Server: Peer $peerName ($peerHost) added to connection list.")
 
     userRepository.addUserToCache(User(peerUid, peerName, null, peerHost, peerPort.toString()))
+
+    val isGroup = chatViewModel.isGroup(roomId)
     if (!chatViewModel.roomExists(roomId)) {
-        chatViewModel.addRoom(RoomItem(roomId, label = peerName, members = listOf(/*...uids...*/)))
+        chatViewModel.addRoom(RoomItem(roomId, label = peerName, isGroup = isGroup))
     }
 
     // 2. Launch a coroutine for connect-back and PFP download.
-    if (peerPort != null && peerPort != 0) {
+    if (peerPort != null && peerPort != 0 && !isGroup) {
         webSocketSession.launch(Dispatchers.IO) {
             try {
                 val client = createKtorClient()
@@ -245,12 +247,13 @@ private suspend fun handlePeerConnection(
     }
 
     chatViewModel.updateRoomConnection(roomId, ConnectionStatus.Connected)
+    if(isGroup) chatRepository.addSession(roomId, webSocketSession)
 
     try {
         // This loop keeps the connection alive
         for (frame in webSocketSession.incoming) {
-            println("Server: Recieved from ${webSocketSession.toString().split('@')[1]} a frame: ${frame.toString()}")
-            chatRepository.handleIncomingMessage(roomId, frame)
+//            println("Server: Recieved from ${webSocketSession.toString().split('@')[1]} a frame: ${frame.toString()}")
+            chatRepository.handleIncomingMessage(roomId, frame, webSocketSession)
         }
     } catch (e: Exception) {
         println("Server: Error in WebSocket session for $peerName: ${e.message}")

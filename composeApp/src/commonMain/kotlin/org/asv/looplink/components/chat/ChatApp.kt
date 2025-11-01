@@ -224,6 +224,10 @@ fun ChatApp(
         rooms.find { it.id == roomId }
     }
     val chatTheme = room?.chatTheme ?: ChatTheme.default()
+    val test = chatRepository.activeSessions.collectAsStateWithLifecycle().value[roomId]
+    LaunchedEffect(Unit){
+        println("ChatApp: Total Sessions in this chat: $test")
+    }
 
     AppTheme {
         Surface(

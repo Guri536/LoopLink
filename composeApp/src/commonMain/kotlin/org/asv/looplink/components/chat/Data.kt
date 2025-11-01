@@ -9,6 +9,7 @@ import kotlin.random.Random
 import kotlin.random.nextInt
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
+import org.asv.looplink.ui.GroupStructure
 
 @Serializable
 sealed interface LoopLinkEvent
@@ -86,6 +87,16 @@ enum class MessageType{
     TEXT,
     FILE
 }
+
+@Serializable
+@SerialName("group_invite")
+data class GroupInviteEvent(
+    val roomId: Int,
+    val groupName: String,
+    val groupDetails: GroupStructure,
+    val memberIds: List<String>, // List of all member UIDs
+    val hostId: String // The UID of the group's host
+) : LoopLinkEvent
 
 object ColorProvider {
     val colors = mutableListOf(

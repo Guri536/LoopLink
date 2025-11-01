@@ -5,9 +5,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.ktor.client.call.body
 import io.ktor.client.plugins.onDownload
+import io.ktor.client.plugins.websocket.webSocketSession
 import io.ktor.client.request.get
 import io.ktor.client.request.prepareGet
 import io.ktor.client.statement.bodyAsBytes
+import io.ktor.http.HttpMethod
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.core.isEmpty
 import io.ktor.utils.io.core.readBytes
@@ -29,6 +31,7 @@ import kotlinx.coroutines.launch
 import kotlinx.io.readByteArray
 import kotlinx.serialization.json.Json
 import org.asv.looplink.components.chat.Action
+import org.asv.looplink.components.chat.GroupInviteEvent
 import org.asv.looplink.components.chat.LoopLinkEvent
 import org.asv.looplink.components.chat.Message
 import org.asv.looplink.components.chat.MessageType
@@ -42,9 +45,14 @@ import org.asv.looplink.network.AppJson
 import org.asv.looplink.network.createKtorClient
 import org.asv.looplink.theme.ChatTheme
 import org.asv.looplink.ui.ConnectionStatus
+import org.asv.looplink.ui.GroupStructure
 import org.asv.looplink.ui.RoomItem
 import org.koin.java.KoinJavaComponent.get
 import java.io.File
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 class ChatViewModel(
     private val chatRepository: ChatRepository,
@@ -345,5 +353,121 @@ class ChatViewModel(
 
     private suspend fun cleanupOrphanFiles() {
         TODO()
+    }
+
+    @OptIn(ExperimentalTime::class)
+    fun createGroup(groupName: String, selectedMembers: List<RoomItem>) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val currentUserId = userRepository.getUserIdAndName().first ?: return@launch
+
+            // 1. Create a list of all member IDs (including the host)
+            val memberIds = (selectedMembers.mapNotNull { room ->
+                // Get the peer's ID from the 1-on-1 room
+                room.members.firstOrNull { it != currentUserId }
+            } + currentUserId).distinct()
+
+            // 2. Generate a new, deterministic Room ID for the group
+            val newRoomId = memberIds.sorted().joinToString().hashCode()
+
+            // 3. Create the group's structure
+            val groupDetails = GroupStructure(
+                ownerId = currentUserId,
+                creationTimeStamp = Clock.System.now().epochSeconds
+            )
+
+            // 4. Create the new RoomItem for the host
+            val newGroupRoom = RoomItem(
+                id = newRoomId,
+                label = groupName,
+                isGroup = true,
+                groupDetails = groupDetails,
+                members = memberIds,
+                status = ConnectionStatus.Connected // Host is always connected to their own group
+            )
+
+            // 5. Add the room to the host's UI immediately
+            addRoom(newGroupRoom)
+
+            // 6. Create the invite event
+            val inviteEvent = GroupInviteEvent(
+                roomId = newRoomId,
+                groupName = groupName,
+                groupDetails = groupDetails,
+                memberIds = memberIds,
+                hostId = currentUserId
+            )
+
+            val inviteJson = AppJson.encodeToString<LoopLinkEvent>(inviteEvent)
+
+            // 7. Send the invite to all selected members via their 1-on-1 chat
+            selectedMembers.forEach { memberRoom ->
+                val peerRoomId = memberRoom.id // This is the 1-on-1 chat's ID
+                chatRepository.sendMessage(peerRoomId, inviteJson)
+            }
+            println("ChatViewModel: Created group $groupName and sent invites.")
+        }
+    }
+
+    /**
+     * PHASE 3c (Client Logic): Called by the repository when a GroupInviteEvent is received.
+     */
+    fun onGroupInviteReceived(invite: GroupInviteEvent) {
+        viewModelScope.launch(Dispatchers.IO) {
+            // 1. Check if we already have this room
+            if (roomExists(invite.roomId)) {
+                println("ChatViewModel: Received invite for group we're already in.")
+                return@launch
+            }
+
+            // 2. Get host user from our repository (we should know them from a 1-on-1 chat)
+            val hostUser = userRepository.getUserById(invite.hostId)
+            if (hostUser?.hostAddress == null || hostUser.port == null) {
+                println("Error: Received group invite from unknown host ${invite.hostId}. Cannot connect.")
+                return@launch
+            }
+
+            // 3. Create the new RoomItem for the client
+            val newGroupRoom = RoomItem(
+                id = invite.roomId,
+                label = invite.groupName,
+                isGroup = true,
+                groupDetails = invite.groupDetails,
+                members = invite.memberIds,
+                status = ConnectionStatus.Connecting // We'll connect right after
+            )
+
+            // 4. Add the room to the client's UI
+            addRoom(newGroupRoom)
+
+            // 5. --- AUTO-CONNECT TO HOST ---
+            // This is the client's connection to the new group
+            try {
+                val localUserName = userRepository.getUserIdAndName().second
+                val localUserUid = userRepository.getUserIdAndName().first ?: return@launch
+                val localUserPort = userRepository.currentUserPort.value
+
+                val encodedUID = URLEncoder.encode(localUserUid, StandardCharsets.UTF_8.toString())
+                val encodedName = URLEncoder.encode(localUserName, StandardCharsets.UTF_8.toString())
+                val encodedPort = localUserPort.toString()
+
+                val client = createKtorClient()
+                println("ChatViewModel: Auto-connecting to group host ${hostUser.name} for room ${invite.roomId}")
+
+                val session = client.webSocketSession(
+                    method = HttpMethod.Get,
+                    host = hostUser.hostAddress,
+                    port = hostUser.port.toInt(),
+                    // We use /initiate, but the server will need to be smart about it
+                    path = "/looplink/initiate/${invite.roomId}?peerUid=$encodedUID&peerName=$encodedName&peerPort=$encodedPort"
+                )
+
+                // Add and listen to this new session
+                chatRepository.addAndListenToClientSession(invite.roomId, session, hostUser.hostAddress)
+
+            } catch (e: Exception) {
+                println("ChatViewModel: Auto-connect to group host failed: ${e.message}")
+                updateRoomConnection(invite.roomId, ConnectionStatus.Error("Connection failed"))
+            }
+        }
     }
 }

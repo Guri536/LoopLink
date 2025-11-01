@@ -47,7 +47,9 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import cafe.adriel.voyager.navigator.tab.Tab
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import org.asv.looplink.components.LocalAppNavigator
+import org.asv.looplink.data.repository.UserRepository
 import org.asv.looplink.network.discovery.ServiceInfo
+import org.asv.looplink.viewmodel.ChatViewModel
 import org.asv.looplink.viewmodel.PeerDiscoveryViewModel
 import org.koin.compose.koinInject
 
@@ -81,11 +83,18 @@ class GroupCreationTab : Tab {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GroupCreationPanel() {
-    val peerDiscoveryViewModel: PeerDiscoveryViewModel = koinInject()
-    val availableSessions by peerDiscoveryViewModel.discoveredServices.collectAsStateWithLifecycle()
+    val chatViewModel: ChatViewModel = koinInject()
+    val userRepository: UserRepository = koinInject() // ADDED
+    val allRooms by chatViewModel.roomsWithStatus.collectAsStateWithLifecycle()
+    val currentUserId = userRepository.getUserIdAndName().first
+
+    val availableContacts = allRooms.filter {
+        !it.isGroup && it.id != 0
+    }
 
     var groupName by remember { mutableStateOf("") }
-    val selectedMembers = remember { mutableStateListOf<ServiceInfo>() }
+    // We'll store the selected *RoomItems*
+    val selectedMembers = remember { mutableStateListOf<RoomItem>() }
 
     val navigator = LocalAppNavigator.currentOrThrow
 
@@ -132,32 +141,32 @@ fun GroupCreationPanel() {
             LazyColumn(
                 modifier = Modifier.weight(1f).fillMaxWidth()
             ) {
-                items(availableSessions) { service ->
+                items(availableContacts, key = { it.id }) { room ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                if (selectedMembers.contains(service)) {
-                                    selectedMembers.remove(service)
+                                if (selectedMembers.contains(room)) {
+                                    selectedMembers.remove(room)
                                 } else {
-                                    selectedMembers.add(service)
+                                    selectedMembers.add(room)
                                 }
                             }
                             .padding(vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Checkbox(
-                            checked = selectedMembers.contains(service),
+                            checked = selectedMembers.contains(room),
                             onCheckedChange = { isChecked ->
                                 if (isChecked) {
-                                    selectedMembers.add(service)
+                                    selectedMembers.add(room)
                                 } else {
-                                    selectedMembers.remove(service)
+                                    selectedMembers.remove(room)
                                 }
                             }
                         )
                         Spacer(modifier = Modifier.width(16.dp))
-                        Text(service.serviceName)
+                        Text(room.label)
                     }
                 }
             }
@@ -166,7 +175,7 @@ fun GroupCreationPanel() {
 
             Button(
                 onClick = {
-                    // TODO: Implement group creation logic
+                    chatViewModel.createGroup(groupName, selectedMembers)
                     navigator.pop()
                 },
                 enabled = groupName.isNotBlank() && selectedMembers.isNotEmpty(),

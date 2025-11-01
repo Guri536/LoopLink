@@ -24,6 +24,8 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import org.asv.looplink.components.chat.Action
+import org.asv.looplink.components.chat.Action.*
+import org.asv.looplink.components.chat.GroupInviteEvent
 import org.asv.looplink.components.chat.LoopLinkEvent
 import org.asv.looplink.components.chat.Message
 import org.asv.looplink.components.chat.TypingEvent
@@ -40,7 +42,7 @@ class ChatRepository {
     private val _activeSessions = MutableStateFlow<Map<Int, Set<DefaultWebSocketSession>>>(emptyMap())
     val activeSessions = _activeSessions.asStateFlow()
 
-    fun handleIncomingMessage(roomId: Int, frame: Frame) {
+    fun handleIncomingMessage(roomId: Int, frame: Frame, senderSession: DefaultWebSocketSession) {
         val chatViewModel: ChatViewModel = get(ChatViewModel::class.java)
         if (frame is Frame.Text) {
             val receivedText = frame.readText()
@@ -50,10 +52,27 @@ class ChatRepository {
                     is Message -> {
                         chatViewModel.onMessageReceived(roomId)
                         println("ChatRepo: Added message to store for $roomId and incremented unread count")
-                        store.send(Action.SendMessage(roomId = roomId, message = event))
+                        store.send(SendMessage(roomId = roomId, message = event))
+
+                        if (chatViewModel.isGroup(roomId)) {
+                            println("ChatRepo: Broadcasting group message for room $roomId")
+                            coroutineScope.launch {
+                                broadcast(roomId, receivedText, senderSession)
+                            }
+                        }
                     }
                     is TypingEvent -> {
                         chatViewModel.onTypingEvent(event.roomId, event.userId, event.isTyping)
+                        if (chatViewModel.isGroup(roomId)) {
+                            coroutineScope.launch {
+                                broadcast(roomId, receivedText, senderSession)
+                            }
+                        }
+                    }
+
+                    is GroupInviteEvent -> {
+                        println("ChatRepo: Received group invite!")
+                        chatViewModel.onGroupInviteReceived(event)
                     }
                 }
             } catch (e: Exception) {
@@ -71,7 +90,6 @@ class ChatRepository {
     suspend fun sendMessage(roomId: Int, message: String){
         _activeSessions.value[roomId]?.forEach { session ->
             println("Sending text to ${session.toString()}")
-
             session.send(Frame.Text(message))
         }
     }
@@ -83,7 +101,7 @@ class ChatRepository {
 
         // This launches the listener in the repository's scope
         session.incoming.consumeAsFlow().onEach { frame ->
-            handleIncomingMessage(roomId, frame) // Use your existing handler
+            handleIncomingMessage(roomId, frame, session) // Use your existing handler
         }.catch { e ->
             // This 'catch' block acts as the 'finally' for the client-side
             println("ChatRepo: [Client] Error/Closed session for room $roomId: ${e.message}")
