@@ -71,7 +71,6 @@ import ui.theme.AppTheme
 fun ChatAppWithScaffold(
     displayTextField: Boolean = true,
     roomId: Int,
-    session: DefaultWebSocketSession?
 ) {
     val navigator = LocalAppNavigator.currentOrThrow
     val focusRequester = remember { FocusRequester() }
@@ -193,8 +192,7 @@ fun ChatAppWithScaffold(
                 ChatApp(
                     displayTextField = displayTextField,
                     modifier = chatAppBackgroundModifier,
-                    roomId = roomId,
-                    session = session
+                    roomId = roomId
                 )
 
                 LaunchedEffect(Unit) {
@@ -211,7 +209,6 @@ fun ChatApp(
     modifier: Modifier = Modifier,
     displayTextField: Boolean = true,
     roomId: Int,
-    session: DefaultWebSocketSession?
 ) {
     val chatRepository: ChatRepository = koinInject()
     val state by chatRepository.store.stateFlow.collectAsStateWithLifecycle()

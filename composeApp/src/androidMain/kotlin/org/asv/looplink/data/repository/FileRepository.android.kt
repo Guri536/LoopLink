@@ -159,6 +159,11 @@ actual class FileRepository(private val context: Context) {
         }
     }
 
+    actual fun doesSharedFileExist(fileId: String, dir: DIRECTORIES): Boolean {
+        val directory = getDirectory(dir)
+        return File(directory, fileId).exists()
+    }
+
     actual suspend fun deleteSharedFile(fileId: String): Boolean{
         return try {
             File(filesDir, fileId).delete()

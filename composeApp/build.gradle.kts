@@ -13,7 +13,7 @@ plugins {
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.composeHotReload)
     alias(libs.plugins.kotlinxSerialization)
-    alias(libs.plugins.sqldelight)
+    id("app.cash.sqldelight") version "2.1.0"
     id("kotlin-parcelize")
 }
 

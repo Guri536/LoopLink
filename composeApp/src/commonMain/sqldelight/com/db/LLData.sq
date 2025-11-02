@@ -1,3 +1,6 @@
+import kotlin.Boolean;
+
+-- Local User Info
 CREATE TABLE LoopLinkUser (
     name TEXT NOT NULL,
     uid TEXT NOT NULL,
@@ -9,30 +12,179 @@ CREATE TABLE LoopLinkUser (
     pfpPath TEXT
 );
 
+
+-- Stores all the known users
+CREATE TABLE Peer (
+    uid TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    pfpPath TEXT
+);
+
+
+-- Stores all chat rooms (1-on-1 and groups)
+CREATE TABLE Room (
+    id INTEGER NOT NULL PRIMARY KEY,
+    label TEXT NOT NULL,
+    isGroup INTEGER AS Boolean NOT NULL DEFAULT 0,
+    pfpPath TEXT,
+    customPfpPath TEXT,
+    chatThemeJson TEXT NOT NULL
+);
+
+-- Junction table to link users (LocalUser or Peer) to rooms
+CREATE TABLE RoomMember (
+    roomId INTEGER NOT NULL,
+    userId TEXT NOT NULL,
+    PRIMARY KEY (roomId, userId),
+    FOREIGN KEY (roomId) REFERENCES Room(id)
+);
+
+-- Stores the extra details for group rooms
+CREATE TABLE GroupDetails (
+    roomId INTEGER NOT NULL PRIMARY KEY,
+    ownerId TEXT NOT NULL,
+    description TEXT,
+    creationTimeStamp INTEGER NOT NULL,
+    groupType TEXT NOT NULL,
+    FOREIGN KEY (roomId) REFERENCES Room(id)
+);
+
+-- Junction table for the list of group admins
+CREATE TABLE GroupAdmin (
+    roomId INTEGER NOT NULL,
+    adminUserId TEXT NOT NULL,
+    PRIMARY KEY (roomId, adminUserId),
+    FOREIGN KEY (roomId) REFERENCES GroupDetails(roomId)
+);
+
+-- Stores the list of tabs for a group
+CREATE TABLE GroupTab (
+    id TEXT NOT NULL PRIMARY KEY,
+    roomId INTEGER NOT NULL,
+    label TEXT NOT NULL,
+    type TEXT NOT NULL,
+    FOREIGN KEY (roomId) REFERENCES GroupDetails(roomId)
+);
+
+-- Stores every message from all rooms
+CREATE TABLE Message (
+    id INTEGER NOT NULL PRIMARY KEY,
+    roomId INTEGER NOT NULL,
+    userId TEXT NOT NULL,
+    text TEXT,
+    seconds INTEGER NOT NULL,
+    messageType TEXT NOT NULL,
+    fileId TEXT,
+    fileOriginalName TEXT,
+    fileMimeType TEXT,
+    fileSizeInBytes INTEGER,
+    FOREIGN KEY (roomId) REFERENCES Room(id)
+);
+
+-- Add indices for faster querying of messages
+CREATE INDEX idx_message_room_id ON Message(roomId);
+CREATE INDEX idx_message_user_id ON Message(userId);
+CREATE INDEX idx_message_message_type ON Message(messageType);
+CREATE INDEX idx_room_member_user_id ON RoomMember(userId);
 CREATE INDEX USERNAME ON LoopLinkUser(name);
 
-insert:
-INSERT INTO LoopLinkUser (name, uid) VALUES
-(?, ?);
 
-insertAll:
+-- Local User Queries
+insertLocalUser:
 INSERT INTO LoopLinkUser (name, uid, section, program, contact, cGPA, email, pfpPath) VALUES
 (?, ?, ?, ? , ?, ?, ?, ?);
 
-
-selectAll:
+selectLocalUserData:
 SELECT LoopLinkUser.* FROM LoopLinkUser;
 
-delete:
+deleteLocalUser:
 DELETE FROM LoopLinkUser;
 
-getSize:
+isLoggedIn:
 SELECT COUNT(*) FROM LoopLinkUser;
 
--- ADD THIS NEW QUERY HERE (from your .sqm file)
 updatePfpPath:
-UPDATE LoopLinkUser SET pfpPath = ? WHERE uid = ?;
+UPDATE LoopLinkUser SET pfpPath = ?;
 
--- ADD THIS NEW QUERY HERE (from your .sqm file)
-getPfpPath:
-SELECT pfpPath FROM LoopLinkUser LIMIT 1;
+-- --- Peer Queries ---
+getPeerByUid:
+SELECT * FROM Peer WHERE uid = ?;
+
+getAllPeers:
+SELECT * FROM Peer;
+
+insertPeer:
+INSERT OR REPLACE INTO Peer (uid, name, pfpPath)
+VALUES (?, ?, ?);
+
+updatePeerPfpPath:
+UPDATE Peer SET pfpPath = ? WHERE uid = ?;
+
+deletePeer:
+DELETE FROM Peer WHERE uid == ?;
+
+-- --- Room Queries ---
+getRoomById:
+SELECT * FROM Room WHERE id = ?;
+
+getAllRooms:
+SELECT * FROM Room;
+
+insertRoom:
+INSERT OR REPLACE INTO Room (id, label, isGroup, pfpPath, chatThemeJson, customPfpPath)
+VALUES (?, ?, ?, ?, ?, ?);
+
+updateRoomTheme:
+UPDATE Room SET chatThemeJson = ? WHERE id = ?;
+
+updateRoomPfp:
+UPDATE Room SET pfpPath = ? WHERE id = ?;
+
+updateRoomCustomPfp:
+UPDATE Room SET customPfpPath = ? WHERE id = ?;
+
+-- --- RoomMember Queries ---
+getMembersForRoom:
+SELECT userId FROM RoomMember WHERE roomId = ?;
+
+insertRoomMember:
+INSERT OR REPLACE INTO RoomMember (roomId, userId) VALUES (?, ?);
+
+-- --- GroupDetails Queries ---
+getGroupDetails:
+SELECT * FROM GroupDetails WHERE roomId = ?;
+
+insertGroupDetails:
+INSERT OR REPLACE INTO GroupDetails (roomId, ownerId, description, creationTimeStamp, groupType)
+VALUES (?, ?, ?, ?, ?);
+
+-- --- GroupAdmin Queries ---
+getGroupAdmins:
+SELECT adminUserId FROM GroupAdmin WHERE roomId = ?;
+
+insertGroupAdmin:
+INSERT OR REPLACE INTO GroupAdmin (roomId, adminUserId) VALUES (?, ?);
+
+-- --- GroupTab Queries ---
+getGroupTabs:
+SELECT * FROM GroupTab WHERE roomId = ?;
+
+insertGroupTab:
+INSERT OR REPLACE INTO GroupTab (id, roomId, label, type) VALUES (?, ?, ?, ?);
+
+-- --- Message Queries ---
+getMessagesForRoom:
+SELECT * FROM Message WHERE roomId = ? ORDER BY seconds ASC;
+
+getFilesForRoom:
+SELECT * FROM Message WHERE roomId = ? AND messageType = 'FILE' ORDER BY seconds DESC;
+
+getAnnouncementsForRoom:
+SELECT * FROM Message WHERE roomId = ? AND messageType = 'ANNOUNCEMENT' ORDER BY seconds DESC;
+
+insertMessage:
+INSERT INTO Message (id, roomId, userId, text, seconds, messageType, fileId, fileOriginalName, fileMimeType, fileSizeInBytes) -- UPDATED
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+getAllMessages:
+SELECT * FROM Message ORDER BY seconds ASC;

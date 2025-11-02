@@ -1,15 +1,19 @@
 package org.asv.looplink.data.repository
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import org.asv.looplink.DatabaseMng
+import kotlinx.coroutines.launch
+import org.asv.looplink.DatabaseManager
 import org.asv.looplink.components.chat.User
 import org.asv.looplink.data.model.UserModel
-import org.koin.java.KoinJavaComponent.get
 
-class UserRepository {
-    val database: DatabaseMng = get<DatabaseMng>(DatabaseMng::class.java)
+class UserRepository(
+    private val database: DatabaseManager,
+    private val coroutineScope: CoroutineScope // e.g., Injected by Koin
+) {
     private val _currentUser = MutableStateFlow<UserModel?>(null)
     val currentUser = _currentUser.asStateFlow()
 
@@ -19,8 +23,23 @@ class UserRepository {
     private val _currentUserPort = MutableStateFlow(0)
     val currentUserPort = _currentUserPort.asStateFlow()
 
-    fun loadUser(){
-        if(database.getSize() > 0){
+    init {
+        coroutineScope.launch(Dispatchers.IO) {
+            try {
+                val peersFromDb = database.getAllPeers()
+                println("Loading Users: ${peersFromDb}")
+                _knownUsers.update { it ->
+                    peersFromDb.associateBy { it.id }
+                }
+                println("UserRepository: Loaded ${peersFromDb.size} peers from DB.")
+            } catch (e: Exception) {
+                println("UserRepository: Error loading peers: ${e.message}")
+            }
+        }
+    }
+
+    fun loadUser() {
+        if (database.isLoggedIn() > 0) {
             val userInfo = database.getUserData()
             _currentUser.value = UserModel(
                 name = userInfo.name,
@@ -32,12 +51,21 @@ class UserRepository {
                 email = userInfo.email,
                 pfpPath = userInfo.pfpPath
             )
+            _knownUsers.update { currentUsers ->
+                currentUsers + (userInfo.uid to User(
+                    id = userInfo.uid,
+                    name = userInfo.name,
+                    pfpPath = userInfo.pfpPath
+                ))
+            }
         }
+
     }
 
-    fun getUserIdAndName(): Pair<String?, String?> = Pair(_currentUser.value?.uid, _currentUser.value?.name)
+    fun getUserIdAndName(): Pair<String?, String?> =
+        Pair(_currentUser.value?.uid, _currentUser.value?.name)
 
-    fun insertAndLoadUser(it: UserModel){
+    fun insertAndLoadUser(it: UserModel) {
         database.insertUserData(
             it.name,
             it.uid,
@@ -53,7 +81,7 @@ class UserRepository {
     }
 
 
-    fun logout(){
+    fun logout() {
         _currentUser.value = null
     }
 
@@ -65,31 +93,47 @@ class UserRepository {
         return _knownUsers.value[userId]
     }
 
-    fun getUserName(userId: String): String?{
+    fun getUserName(userId: String): String? {
         return _knownUsers.value[userId]?.name
     }
 
-    fun getUserpfpPath(userId: String): String?{
+    fun getUserpfpPath(userId: String): String? {
         return _knownUsers.value[userId]?.pfpPath
     }
 
     fun addUserToCache(user: User) {
         _knownUsers.update { currentUsers ->
-            if(currentUsers.containsKey(user.id)) return@update currentUsers
+            if (currentUsers.containsKey(user.id))
+                return@update currentUsers + (user.id to currentUsers[user.id]!!.copy(
+                    hostAddress = user.hostAddress,
+                    port = user.port
+                ))
+            coroutineScope.launch {
+                database.savePeer(user)
+            }
             currentUsers + (user.id to user)
         }
     }
 
-    fun setCurrentUserPfp(path: String){
+    fun setCurrentUserPfp(path: String) {
         _currentUser.update {
+            coroutineScope.launch {
+                database.updateLocalUserPfp(path)
+            }
             _currentUser.value?.copy(pfpPath = path)
         }
     }
 
-    fun updateUserPfpPath(userId: String, pfpPath: String){
+    fun updateUserPfpPath(userId: String, pfpPath: String) {
         _knownUsers.update { currUsers ->
             val user = currUsers[userId]
-            if(user != null){
+            if (user != null) {
+//                println("Updating $userId's pfp to $pfpPath")
+                coroutineScope.launch {
+                    database.updatePeerPfpPath(userId, pfpPath)
+                    val users = database.getPeer(userId)
+//                    println("Updated user data: $users")
+                }
                 currUsers + (userId to user.copy(pfpPath = pfpPath))
             } else {
                 currUsers
@@ -97,7 +141,7 @@ class UserRepository {
         }
     }
 
-    fun setCurrentUsrPort(port: Int){
+    fun setCurrentUsrPort(port: Int) {
         _currentUserPort.value = port
     }
 }

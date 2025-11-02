@@ -37,6 +37,8 @@ expect class FileRepository {
 
     fun doesFileExist(filePath: String): Boolean
 
+    fun doesSharedFileExist(fileId: String, dir: DIRECTORIES = DIRECTORIES.FilesDir): Boolean
+
     fun getFileInternalPath(fileId: String, dir: DIRECTORIES = DIRECTORIES.FilesDir): String
     fun openFileInDefaultApp(filePath: String)
 }

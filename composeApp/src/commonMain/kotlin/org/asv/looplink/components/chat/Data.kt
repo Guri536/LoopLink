@@ -85,7 +85,8 @@ data class TypingEvent(
 @Serializable
 enum class MessageType{
     TEXT,
-    FILE
+    FILE,
+    ANNOUNCEMENTS
 }
 
 @Serializable

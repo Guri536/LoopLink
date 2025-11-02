@@ -115,6 +115,11 @@ actual class FileRepository {
         }
     }
 
+    actual fun doesSharedFileExist(fileId: String, dir: DIRECTORIES): Boolean {
+        val directory = getDirectory(dir)
+        return File(directory, fileId).exists()
+    }
+
     actual suspend fun copyBlobToFile(
         blob: ByteArray,
         fileName: String,

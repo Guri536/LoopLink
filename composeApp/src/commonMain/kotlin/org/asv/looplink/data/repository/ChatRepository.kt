@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
+import org.asv.looplink.DatabaseManager
 import org.asv.looplink.components.chat.Action
 import org.asv.looplink.components.chat.Action.*
 import org.asv.looplink.components.chat.GroupInviteEvent
@@ -35,7 +36,9 @@ import org.asv.looplink.ui.ConnectionStatus
 import org.asv.looplink.viewmodel.ChatViewModel
 import org.koin.java.KoinJavaComponent.get
 
-class ChatRepository {
+class ChatRepository(
+    private val database: DatabaseManager
+) {
     private val coroutineScope = CoroutineScope(SupervisorJob())
     val store = coroutineScope.createStore()
 
@@ -53,6 +56,8 @@ class ChatRepository {
                         chatViewModel.onMessageReceived(roomId)
                         println("ChatRepo: Added message to store for $roomId and incremented unread count")
                         store.send(SendMessage(roomId = roomId, message = event))
+
+                        database.saveMessage(event)
 
                         if (chatViewModel.isGroup(roomId)) {
                             println("ChatRepo: Broadcasting group message for room $roomId")

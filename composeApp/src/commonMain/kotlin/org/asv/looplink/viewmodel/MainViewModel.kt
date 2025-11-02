@@ -3,7 +3,7 @@ package org.asv.looplink.viewmodel
 import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import org.asv.looplink.DatabaseMng
+import org.asv.looplink.DatabaseManager
 import org.asv.looplink.data.repository.UserRepository
 import org.asv.looplink.network.ServerManager
 import org.asv.looplink.network.discovery.LANServiceDiscovery
@@ -15,7 +15,7 @@ sealed class P2PState {
 }
 
 class MainViewModel(
-    val database: DatabaseMng,
+    val database: DatabaseManager,
     val cuimsAPI: cuimsAPI,
     val lanServiceDiscovery: LANServiceDiscovery,
     val chatViewModel: ChatViewModel,
@@ -29,7 +29,7 @@ class MainViewModel(
     init {
         println("MainViewModel: Initializing...")
         // Check if user is already logged in
-        val userData = database.getSize()
+        val userData = database.isLoggedIn()
         if (userData > 0) {
             userRepository.loadUser()
             if (_p2pState.value is P2PState.Stopped) startP2PServices()

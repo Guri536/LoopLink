@@ -6,16 +6,10 @@ import androidx.lifecycle.viewModelScope
 import io.ktor.client.call.body
 import io.ktor.client.plugins.onDownload
 import io.ktor.client.plugins.websocket.webSocketSession
-import io.ktor.client.request.get
 import io.ktor.client.request.prepareGet
-import io.ktor.client.statement.bodyAsBytes
 import io.ktor.http.HttpMethod
 import io.ktor.utils.io.ByteReadChannel
-import io.ktor.utils.io.core.isEmpty
-import io.ktor.utils.io.core.readBytes
 import io.ktor.utils.io.readRemaining
-import io.ktor.websocket.DefaultWebSocketSession
-import io.ktor.websocket.Frame
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -26,15 +20,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.io.readByteArray
-import kotlinx.serialization.json.Json
+import org.asv.looplink.DatabaseManager
 import org.asv.looplink.components.chat.Action
 import org.asv.looplink.components.chat.GroupInviteEvent
 import org.asv.looplink.components.chat.LoopLinkEvent
 import org.asv.looplink.components.chat.Message
-import org.asv.looplink.components.chat.MessageType
 import org.asv.looplink.components.chat.TypingEvent
 import org.asv.looplink.components.chat.User
 import org.asv.looplink.data.repository.ChatRepository
@@ -57,7 +49,8 @@ import java.nio.charset.StandardCharsets
 class ChatViewModel(
     private val chatRepository: ChatRepository,
     private val fileRepository: FileRepository,
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val database: DatabaseManager
 ) : ViewModel() {
     private val _rooms = MutableStateFlow<Map<Int, RoomItem>>(emptyMap())
     val rooms = _rooms.asStateFlow()
@@ -69,6 +62,26 @@ class ChatViewModel(
     val typingUsers = _typingUsers.asStateFlow()
 
     private val stopTypingJobs = mutableMapOf<Int, Job>()
+
+    init {
+        println("ChatViewModel: init - Loading data from database...")
+        viewModelScope.launch(Dispatchers.IO) {
+            val roomsFromDb = database.getAllRooms()
+            println("Getting Rooms: $roomsFromDb")
+            _rooms.update { roomsFromDb.associateBy { it.id } }
+            println("ChatViewModel: Loaded ${roomsFromDb.size} rooms.")
+
+            val messagesFromDb = database.getAllMessages()
+            messagesFromDb.forEach { (roomId, messages) ->
+                if (messages.isNotEmpty()) {
+                    messages.forEach { msg ->
+                        chatRepository.store.send(Action.SendMessage(roomId, msg))
+                    }
+                }
+            }
+            println("ChatViewModel: Loaded messages for ${messagesFromDb.size} rooms.")
+        }
+    }
 
     fun onTypingEvent(roomId: Int, userId: String, isTyping: Boolean) {
         _typingUsers.update { currentMap ->
@@ -165,6 +178,7 @@ class ChatViewModel(
         _rooms.update { curRooms ->
             val existingRoom = curRooms.containsKey(roomItem.id)
             if (!existingRoom) {
+                database.saveRoom(roomItem)
                 curRooms + (roomItem.id to roomItem)
             } else {
                 curRooms
@@ -177,6 +191,10 @@ class ChatViewModel(
             if (!curRooms.containsKey(roomId)) return@update curRooms
 
             val room = curRooms[roomId]!!
+            viewModelScope.launch {
+                database.updateRoomPfp(roomId, pfpPath)
+            }
+
             if (room.pfpPath == null) curRooms + (roomId to (room.copy(pfpPath = pfpPath)))
             else curRooms
         }
@@ -254,6 +272,12 @@ class ChatViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             val currentUserId = userRepository.getUserIdAndName().first ?: return@launch
             println("Got message from $roomId with Text: $text")
+
+            val room = getRoom(roomId)
+            val isHost = room != null && room.isGroup && room.groupDetails?.ownerId == currentUserId
+
+            val message: Message
+
             if(attachedFile != null){
                 val managedFile = fileRepository.copyFileToInternalStorage(attachedFile)
                 if(managedFile == null){
@@ -263,27 +287,26 @@ class ChatViewModel(
 
                 _downloadedFileIds.update { it +  managedFile.fileId}
 
-                val fileMessage = Message(
+                message = Message(
                     userId = currentUserId,
                     roomId = roomId,
                     fileInfo = managedFile,
                     text = text.ifBlank { null }
                 )
-                chatRepository.store.send(Action.SendMessage(roomId, fileMessage))
-                val messageJson = AppJson.encodeToString<LoopLinkEvent>(fileMessage)
-                chatRepository.sendMessage(roomId, messageJson)
             } else if(text.isNotEmpty()){
-                val textMessage = Message(
+                message = Message(
                     currentUserId,
                     roomId,
                     text
                 )
-                chatRepository.store.send(Action.SendMessage(roomId, textMessage))
-                val messageJson = AppJson.encodeToString<LoopLinkEvent>(textMessage)
-                println("Passing text to ChatRepository")
-                chatRepository.sendMessage(roomId, messageJson)
+            } else {
+                return@launch // Nothing to send
             }
 
+            database.saveMessage(message)
+            chatRepository.store.send(Action.SendMessage(roomId, message))
+            val messageJson = AppJson.encodeToString<LoopLinkEvent>(message)
+            chatRepository.sendMessage(roomId, messageJson)
         }
     }
 

@@ -27,7 +27,7 @@ fun App(
 ) {
     createKtorClient()
     val isMobile = getPlatformType() == PlatformType.ANDROID
-    val database: DatabaseMng = koinInject()
+    val database: DatabaseManager = koinInject()
 
     AppTheme {
         Column(
@@ -45,7 +45,7 @@ fun App(
                 },
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            if (database.getSize() == 0) {
+            if (database.isLoggedIn() == 0) {
                 Navigator(LoginFields(onLoginSuccess)){ nav ->
                     val appNavigator = remember{ AppNavigator(nav, null) }
                     CompositionLocalProvider(LocalAppNavigator provides appNavigator) {

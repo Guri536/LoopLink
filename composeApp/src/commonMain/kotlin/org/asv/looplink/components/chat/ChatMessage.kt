@@ -147,6 +147,8 @@ fun ChatMessage(
                                     chatTheme
                                 )
                             }
+
+                            MessageType.ANNOUNCEMENTS -> TODO()
                         }
 
                         Spacer(Modifier.size(4.dp))
@@ -192,7 +194,7 @@ fun FileMessageDisplay(
     val downloadedFileIds by chatViewModel.downloadedFileIds.collectAsStateWithLifecycle()
     val downloadProgressMap by chatViewModel.downloadProgress.collectAsStateWithLifecycle()
 
-    val isDownloaded = downloadedFileIds.contains(fileInfo.fileId)
+    val isDownloaded = fileRepository.doesSharedFileExist(fileInfo.fileId, fileInfo.dir) || downloadedFileIds.contains(fileInfo.fileId)
     val currentProgress = downloadProgressMap[fileInfo.fileId]
     val internalPath = fileRepository.getFileInternalPath(fileInfo.fileId, fileInfo.dir)
 

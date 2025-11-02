@@ -1,0 +1,69 @@
+import kotlin.Boolean;
+
+-- Stores all the known users
+CREATE TABLE Peer (
+    uid TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    pfpPath TEXT
+);
+
+
+-- Stores all chat rooms (1-on-1 and groups)
+CREATE TABLE Room (
+    id INTEGER NOT NULL PRIMARY KEY,
+    label TEXT NOT NULL,
+    isGroup INTEGER AS Boolean NOT NULL DEFAULT 0,
+    pfpPath TEXT,
+    customPfpPath TEXT,
+    chatThemeJson TEXT NOT NULL
+);
+
+-- Junction table to link users (LocalUser or Peer) to rooms
+CREATE TABLE RoomMember (
+    roomId INTEGER NOT NULL,
+    userId TEXT NOT NULL,
+    PRIMARY KEY (roomId, userId),
+    FOREIGN KEY (roomId) REFERENCES Room(id)
+);
+
+-- Stores the extra details for group rooms
+CREATE TABLE GroupDetails (
+    roomId INTEGER NOT NULL PRIMARY KEY,
+    ownerId TEXT NOT NULL,
+    description TEXT,
+    creationTimeStamp INTEGER NOT NULL,
+    groupType TEXT NOT NULL,
+    FOREIGN KEY (roomId) REFERENCES Room(id)
+);
+
+-- Junction table for the list of group admins
+CREATE TABLE GroupAdmin (
+    roomId INTEGER NOT NULL,
+    adminUserId TEXT NOT NULL,
+    PRIMARY KEY (roomId, adminUserId),
+    FOREIGN KEY (roomId) REFERENCES GroupDetails(roomId)
+);
+
+-- Stores the list of tabs for a group
+CREATE TABLE GroupTab (
+    id TEXT NOT NULL PRIMARY KEY,
+    roomId INTEGER NOT NULL,
+    label TEXT NOT NULL,
+    type TEXT NOT NULL,
+    FOREIGN KEY (roomId) REFERENCES GroupDetails(roomId)
+);
+
+-- Stores every message from all rooms
+CREATE TABLE Message (
+    id INTEGER NOT NULL PRIMARY KEY,
+    roomId INTEGER NOT NULL,
+    userId TEXT NOT NULL,
+    text TEXT,
+    seconds INTEGER NOT NULL,
+    messageType TEXT NOT NULL,
+    fileId TEXT,
+    fileOriginalName TEXT,
+    fileMimeType TEXT,
+    fileSizeInBytes INTEGER,
+    FOREIGN KEY (roomId) REFERENCES Room(id)
+);
