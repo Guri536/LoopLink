@@ -42,6 +42,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.SubcomposeAsyncImage
 import org.asv.looplink.data.repository.FileRepository
 import org.asv.looplink.data.repository.UserRepository
+import org.asv.looplink.isPlatformMobile
 import org.asv.looplink.theme.ChatTheme
 import org.asv.looplink.ui.VideoPlayer
 import org.asv.looplink.viewmodel.ChatViewModel
@@ -65,11 +66,12 @@ fun ChatMessage(
     roomId: Int,
     message: Message,
     sameUser: Boolean = false,
-    showNameOfPeer: Boolean = true
+    showNameOfPeer: Boolean = true,
+    chatViewModel: ChatViewModel = koinInject(),
+    chatTheme: ChatTheme = chatViewModel.getRoomTheme(roomId) ?: ChatTheme.default()
 ) {
-    val chatViewModel: ChatViewModel = koinInject()
     val userRepository: UserRepository = koinInject()
-    val chatTheme = chatViewModel.getRoomTheme(roomId) ?: ChatTheme.default()
+    val isMobiles = isPlatformMobile()
 
     Box(
         modifier = Modifier.fillMaxWidth()
@@ -110,7 +112,7 @@ fun ChatMessage(
                     )
                         .background(color = if (!isMyMessage) chatTheme.peerMessageColor else chatTheme.myMessageColor)
                         .padding(start = 10.dp, top = 5.dp, end = 10.dp, bottom = 5.dp)
-                        .widthIn(max = 900.dp),
+                        .widthIn(max = if(isMobiles) 300.dp else 900.dp),
                 ) {
                     Column {
                         if (!isMyMessage && !sameUser && !showNameOfPeer) {
@@ -133,7 +135,7 @@ fun ChatMessage(
                                 Text(
                                     text = message.text ?: "",
                                     style = MaterialTheme.typography.bodyMedium.copy(
-                                        fontSize = 18.sp,
+                                        fontSize = if(isMobiles) 14.sp else 18.sp,
                                         letterSpacing = 0.sp
                                     ),
                                     color = if (isMyMessage) chatTheme.myTextColor else chatTheme.peerTextColor
@@ -190,6 +192,7 @@ fun FileMessageDisplay(
     val fileRepository: FileRepository = koinInject()
     val chatViewModel: ChatViewModel = koinInject()
     val fileInfo = message.fileInfo!!
+    val isMobiles = isPlatformMobile()
 
     val downloadedFileIds by chatViewModel.downloadedFileIds.collectAsStateWithLifecycle()
     val downloadProgressMap by chatViewModel.downloadProgress.collectAsStateWithLifecycle()
@@ -228,14 +231,14 @@ fun FileMessageDisplay(
                         SubcomposeAsyncImage(
                             model = File(internalPath),
                             contentDescription = "Image preview",
-                            modifier = Modifier.widthIn(max = 500.dp)
+                            modifier = Modifier.widthIn(max = 300.dp)
                         )
                     }
 
                     fileInfo.mimeType.startsWith("video/") -> {
                         VideoPlayer(
                             filePath = internalPath,
-                            modifier = Modifier.widthIn(max = 500.dp).aspectRatio(16 / 9f)
+                            modifier = Modifier.widthIn(max = 300.dp).aspectRatio(16 / 9f)
                         )
                     }
                 }
@@ -270,11 +273,13 @@ fun FileMessageDisplay(
                 Text(
                     text = fileInfo.originalFileName,
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                    fontSize = if(isMobiles) 12.sp else 18.sp,
                     color = textColor
                 )
                 Text(
                     text = fileSizeFormatted,
                     style = MaterialTheme.typography.bodySmall,
+                    fontSize = if(isMobiles) 12.sp else 18.sp,
                     color = textColor.copy(alpha = 0.8f)
                 )
             }
@@ -303,7 +308,7 @@ fun FileMessageDisplay(
             Text(
                 text = message.text,
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    fontSize = 18.sp,
+                    fontSize = if(isMobiles) 14.sp else 18.sp,
                     letterSpacing = 0.sp
                 ),
                 color = if (isMyMessage) chatTheme.myTextColor else chatTheme.peerTextColor

@@ -2,7 +2,6 @@ package org.asv.looplink
 
 import app.cash.sqldelight.db.SqlDriver
 import com.db.LLData
-import com.db.LLDataQueries
 import com.db.LoopLinkUser
 import com.db.Room
 import org.asv.looplink.components.chat.ManagedFile
@@ -18,10 +17,11 @@ import org.asv.looplink.ui.RoomItem
 import org.asv.looplink.ui.TabType
 import java.util.Locale
 
-enum class PlatformType{
+enum class PlatformType {
     ANDROID,
     DESKTOP
 }
+
 interface Platform {
     val name: String
 }
@@ -36,7 +36,7 @@ expect class DriverFactory {
 }
 
 
-class DatabaseManager constructor(private val driver: SqlDriver){
+class DatabaseManager constructor(private val driver: SqlDriver) {
     val database = LLData(driver)
     private val queries = database.lLDataQueries
     fun insertUserData(
@@ -48,7 +48,7 @@ class DatabaseManager constructor(private val driver: SqlDriver){
         cGPA: String? = null,
         cumail: String? = null,
         pfpPath: String? = null
-    ){
+    ) {
         queries.insertLocalUser(
             name.lowercase().capitalize(Locale.UK),
             uid,
@@ -95,17 +95,17 @@ class DatabaseManager constructor(private val driver: SqlDriver){
         )
     }
 
-    fun deletePeer(uid: String){
+    fun deletePeer(uid: String) {
         queries.deletePeer(uid)
     }
 
-    fun updatePeerPfpPath(uid: String, path: String){
-        queries.updatePeerPfpPath(path ,uid)
+    fun updatePeerPfpPath(uid: String, path: String) {
+        queries.updatePeerPfpPath(path, uid)
     }
 
     // --- Message ---
 
-    fun getMessagesFromRoom(roomId: Int): List<Message>{
+    fun getMessagesFromRoom(roomId: Int): List<Message> {
         return queries.getMessagesForRoom(roomId.toLong()).executeAsList().map { dbMsg ->
             transformDbMessageToMessage(dbMsg)
         }
@@ -154,6 +154,19 @@ class DatabaseManager constructor(private val driver: SqlDriver){
         ).mapValues { it.value.toMutableList() } // Convert to the MutableList your store expects
     }
 
+    fun getFilesFromRoom(roomId: Int): List<Message> {
+        return queries.getFilesForRoom(roomId.toLong()).executeAsList().map { dbMsg ->
+            transformDbMessageToMessage(dbMsg)
+        }
+    }
+
+    // ADD THIS FUNCTION
+    fun getAnnouncementsFromRoom(roomId: Int): List<Message> {
+        return queries.getAnnouncementsForRoom(roomId.toLong()).executeAsList().map { dbMsg ->
+            transformDbMessageToMessage(dbMsg)
+        }
+    }
+
     // --- Room (Complex operations) ---
 
     fun getRoom(roomId: Int): RoomItem? {
@@ -172,12 +185,21 @@ class DatabaseManager constructor(private val driver: SqlDriver){
         queries.updateRoomTheme(themeJson, roomId.toLong())
     }
 
-    fun updateRoomPfp(roomId: Int, path: String){
+    fun updateRoomPfp(roomId: Int, path: String) {
         queries.updateRoomPfp(path, roomId.toLong())
     }
 
-    fun updateRoomCustomPfp(roomId: Int, path: String){
-        queries.updateRoomCustomPfp(path, roomId.toLong())
+    fun updateRoomCustomPfp(roomId: Int, path: String) {
+        queries.transaction {
+            queries.updateRoomCustomPfp(path, roomId.toLong())
+        }
+        println(queries.getRoomCustomPfp(roomId.toLong()).executeAsList())
+        println("Set $roomId's pfp to $path")
+        println(getRoom(roomId))
+    }
+
+    fun removeRoomCustomPfp(roomId: Int){
+        queries.removeRoomCustomPfp(roomId.toLong())
     }
 
     fun saveRoom(room: RoomItem) {
@@ -254,6 +276,7 @@ class DatabaseManager constructor(private val driver: SqlDriver){
             label = dbRoom.label,
             isGroup = dbRoom.isGroup,
             pfpPath = dbRoom.pfpPath,
+            customPfpPath = dbRoom.customPfpPath,
             chatTheme = theme,
             members = members,
             groupDetails = groupDetails
@@ -273,7 +296,7 @@ class DatabaseManager constructor(private val driver: SqlDriver){
                     fileId = dbMsg.fileId,
                     originalFileName = dbMsg.fileOriginalName!!,
                     mimeType = dbMsg.fileMimeType!!,
-                    sizeInBytes = dbMsg.fileSizeInBytes!!
+                    sizeInBytes = dbMsg.fileSizeInBytes!!,
                 )
             } else null
         )

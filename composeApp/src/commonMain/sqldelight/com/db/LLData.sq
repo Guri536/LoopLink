@@ -143,6 +143,15 @@ UPDATE Room SET pfpPath = ? WHERE id = ?;
 updateRoomCustomPfp:
 UPDATE Room SET customPfpPath = ? WHERE id = ?;
 
+getRoomCustomPfp:
+SELECT customPfpPath FROM Room WHERE id = ?;
+
+removeRoomCustomPfp:
+UPDATE Room SET customPfpPath = NULL WHERE id = ?;
+
+getFilesByRoom:
+SELECT * FROM Message WHERE roomId = ? AND messageType = 'File';
+
 -- --- RoomMember Queries ---
 getMembersForRoom:
 SELECT userId FROM RoomMember WHERE roomId = ?;

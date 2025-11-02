@@ -2,6 +2,7 @@ package org.asv.looplink.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -11,6 +12,7 @@ import androidx.compose.ui.graphics.Shader
 import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.unit.Dp
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -18,6 +20,9 @@ import java.awt.Color as AwtColor
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
+
+@Composable
+expect fun Modifier.backdropBlur(radius: Dp): Modifier
 
 
 /**

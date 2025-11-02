@@ -1,6 +1,7 @@
 package org.asv.looplink.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,18 +12,25 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.GroupAdd
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -52,6 +60,8 @@ import org.asv.looplink.network.discovery.ServiceInfo
 import org.asv.looplink.viewmodel.ChatViewModel
 import org.asv.looplink.viewmodel.PeerDiscoveryViewModel
 import org.koin.compose.koinInject
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 
 class GroupCreationScreen : Screen {
     @Composable
@@ -95,6 +105,9 @@ fun GroupCreationPanel() {
     var groupName by remember { mutableStateOf("") }
     // We'll store the selected *RoomItems*
     val selectedMembers = remember { mutableStateListOf<RoomItem>() }
+    var description by remember { mutableStateOf("") }
+    var groupType by remember { mutableStateOf(GroupType.GENERAL) }
+    val customTabs = remember { mutableStateListOf(GroupTabs(label = "Chat", type = TabType.CHAT)) }
 
     val navigator = LocalAppNavigator.currentOrThrow
 
@@ -125,64 +138,214 @@ fun GroupCreationPanel() {
             modifier = Modifier.padding(contentPadding).padding(16.dp).fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            OutlinedTextField(
-                value = groupName,
-                onValueChange = { groupName = it },
-                label = { Text("Group Name") },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text("Select Members", style = MaterialTheme.typography.titleMedium)
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            LazyColumn(
-                modifier = Modifier.weight(1f).fillMaxWidth()
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp) // Adds spacing
             ) {
-                items(availableContacts, key = { it.id }) { room ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                if (selectedMembers.contains(room)) {
-                                    selectedMembers.remove(room)
-                                } else {
-                                    selectedMembers.add(room)
-                                }
-                            }
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                OutlinedTextField(
+                    value = groupName,
+                    onValueChange = { groupName = it },
+                    label = { Text("Group Name") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text("Group Description (Optional)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                var groupTypeExpanded by remember { mutableStateOf(false) }
+                ExposedDropdownMenuBox(
+                    expanded = groupTypeExpanded,
+                    onExpandedChange = { groupTypeExpanded = !groupTypeExpanded },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    OutlinedTextField(
+                        value = groupType.name,
+                        onValueChange = {},
+                        label = { Text("Group Type") },
+                        readOnly = true,
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(groupTypeExpanded) },
+                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = groupTypeExpanded,
+                        onDismissRequest = { groupTypeExpanded = false }
                     ) {
-                        Checkbox(
-                            checked = selectedMembers.contains(room),
-                            onCheckedChange = { isChecked ->
-                                if (isChecked) {
-                                    selectedMembers.add(room)
-                                } else {
-                                    selectedMembers.remove(room)
+                        GroupType.entries.forEach { type ->
+                            DropdownMenuItem(
+                                text = { Text(type.name) },
+                                onClick = {
+                                    groupType = type
+                                    groupTypeExpanded = false
                                 }
-                            }
+                            )
+                        }
+                    }
+                }
+
+                HorizontalDivider()
+
+                Text("Group Tabs", style = MaterialTheme.typography.titleMedium)
+
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    customTabs.forEachIndexed { index, tab ->
+                        CustomTabEditorRow(
+                            tab = tab,
+                            onLabelChange = { newLabel ->
+                                customTabs[index] = tab.copy(label = newLabel)
+                            },
+                            onTypeChange = { newType ->
+                                customTabs[index] = tab.copy(type = newType)
+                            },
+                            onDelete = { customTabs.removeAt(index) },
+                            // Can't delete the main Chat tab
+                            canDelete = tab.type != TabType.CHAT
                         )
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Text(room.label)
+                    }
+                }
+                TextButton(
+                    onClick = { customTabs.add(GroupTabs(label = "Files", type = TabType.FILES)) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Add Tab")
+                    Spacer(Modifier.width(8.dp))
+                    Text("Add a Tab")
+                }
+
+                HorizontalDivider()
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text("Select Members", style = MaterialTheme.typography.titleMedium)
+
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    if (availableContacts.isEmpty()) {
+                        Text(
+                            "No contacts available to add.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
+                    }
+                    availableContacts.forEach { room ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    if (selectedMembers.contains(room)) {
+                                        selectedMembers.remove(room)
+                                    } else {
+                                        selectedMembers.add(room)
+                                    }
+                                }
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = selectedMembers.contains(room),
+                                onCheckedChange = { isChecked ->
+                                    if (isChecked) {
+                                        selectedMembers.add(room)
+                                    } else {
+                                        selectedMembers.remove(room)
+                                    }
+                                }
+                            )
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Text(room.label)
+                        }
                     }
                 }
             }
-
             Spacer(modifier = Modifier.height(16.dp))
 
             Button(
                 onClick = {
-                    chatViewModel.createGroup(groupName, selectedMembers)
+                    chatViewModel.createGroup(
+                        groupName = groupName,
+                        selectedMembers = selectedMembers.toList(),
+                        description = description.ifBlank { null },
+                        groupType = groupType,
+                        tabs = customTabs.toList()
+                    )
                     navigator.pop()
                 },
-                enabled = groupName.isNotBlank() && selectedMembers.isNotEmpty(),
+                enabled = groupName.isNotBlank(),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Create Group")
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CustomTabEditorRow(
+    tab: GroupTabs,
+    onLabelChange: (String) -> Unit,
+    onTypeChange: (TabType) -> Unit,
+    onDelete: () -> Unit,
+    canDelete: Boolean
+) {
+    var typeExpanded by remember { mutableStateOf(false) }
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        // Tab Label
+        OutlinedTextField(
+            value = tab.label,
+            onValueChange = onLabelChange,
+            label = { Text("Label") },
+            modifier = Modifier.weight(1f)
+        )
+
+        // Tab Type Dropdown
+        ExposedDropdownMenuBox(
+            expanded = typeExpanded,
+            onExpandedChange = { typeExpanded = !typeExpanded },
+            modifier = Modifier.weight(1f)
+        ) {
+            OutlinedTextField(
+                value = tab.type.name,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Type") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(typeExpanded) },
+                modifier = Modifier.menuAnchor()
+            )
+            ExposedDropdownMenu(
+                expanded = typeExpanded,
+                onDismissRequest = { typeExpanded = false }
+            ) {
+                TabType.entries.forEach { type ->
+                    DropdownMenuItem(
+                        text = { Text(type.name) },
+                        onClick = {
+                            onTypeChange(type)
+                            typeExpanded = false
+                        }
+                    )
+                }
+            }
+        }
+
+        // Delete Button
+        IconButton(onClick = onDelete, enabled = canDelete) {
+            Icon(
+                Icons.Default.Delete,
+                contentDescription = "Delete Tab",
+                tint = if (canDelete) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+            )
         }
     }
 }

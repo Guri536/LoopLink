@@ -46,8 +46,10 @@ fun UserPic(userId: String, roomId: Int) {
     val chatViewModel: ChatViewModel = koinInject()
     val userRepository: UserRepository = koinInject()
     val imageSize = 48f
+
     val pfpPath = userRepository.getUserpfpPath(userId = userId)
     val userColor = chatViewModel.getPeerDefaultColor(roomId)
+
     val painter = pfpPath?.let {
         painterFromFile(pfpPath)
     } ?: object : Painter() {

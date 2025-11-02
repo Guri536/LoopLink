@@ -38,13 +38,16 @@ import org.asv.looplink.network.createKtorClient
 import org.asv.looplink.theme.ChatTheme
 import org.asv.looplink.ui.ConnectionStatus
 import org.asv.looplink.ui.GroupStructure
+import org.asv.looplink.ui.GroupTabs
+import org.asv.looplink.ui.GroupType
 import org.asv.looplink.ui.RoomItem
+import org.asv.looplink.ui.TabType
 import org.koin.java.KoinJavaComponent.get
 import java.io.File
-import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 
 class ChatViewModel(
     private val chatRepository: ChatRepository,
@@ -63,6 +66,15 @@ class ChatViewModel(
 
     private val stopTypingJobs = mutableMapOf<Int, Job>()
 
+    private val _filesForRoom = MutableStateFlow<List<Message>>(emptyList())
+    val filesForRoom = _filesForRoom.asStateFlow()
+
+    private val _announcementsForRoom = MutableStateFlow<List<Message>>(emptyList())
+    val announcementsForRoom = _announcementsForRoom.asStateFlow()
+
+    private val _isRoomDetailsVisible = MutableStateFlow(false)
+    val isRoomDetailsVisible = _isRoomDetailsVisible.asStateFlow()
+
     init {
         println("ChatViewModel: init - Loading data from database...")
         viewModelScope.launch(Dispatchers.IO) {
@@ -80,6 +92,51 @@ class ChatViewModel(
                 }
             }
             println("ChatViewModel: Loaded messages for ${messagesFromDb.size} rooms.")
+        }
+    }
+
+    fun setRoomDetailsVisible(isVisible: Boolean) {
+        _isRoomDetailsVisible.value = isVisible
+    }
+
+    fun removeCustomRoomPfp(roomId: Int){
+        _rooms.update { rooms ->
+            if(!rooms.containsKey(roomId)) return@update rooms
+            viewModelScope.launch {
+                database.removeRoomCustomPfp(roomId)
+            }
+            rooms + (roomId to rooms[roomId]!!.copy(customPfpPath = null))
+        }
+    }
+
+    fun loadTabContent(roomId: Int, tabType: TabType) {
+        viewModelScope.launch(Dispatchers.IO) {
+            when (tabType) {
+                TabType.FILES -> {
+                    val files = database.getFilesFromRoom(roomId)
+                    _filesForRoom.update { files }
+                }
+
+                TabType.PANELS -> {
+                    val announcements = database.getAnnouncementsFromRoom(roomId)
+                    _announcementsForRoom.update { announcements }
+                }
+
+                TabType.CHAT -> {
+                    // Chat messages are already loaded in the main store
+                    // We can clear the others if we want
+                    _filesForRoom.update { emptyList() }
+                    _announcementsForRoom.update { emptyList() }
+                }
+
+                TabType.ASSIGNMENTS -> {
+                    val assignmetns = database.getAnnouncementsFromRoom(roomId)
+                    _announcementsForRoom.update { assignmetns }
+                }
+
+                else -> { /* Do nothing for other tab types for now */
+                }
+            }
         }
     }
 
@@ -156,7 +213,8 @@ class ChatViewModel(
     }
 
     val roomsWithStatus: StateFlow<List<RoomItem>> =
-        combine(_rooms,
+        combine(
+            _rooms,
             chatRepository.activeSessions,
             chatRepository.store.stateFlow
         ) { rooms, sessions, storeState ->
@@ -216,7 +274,10 @@ class ChatViewModel(
 
 
     fun updateRoomTheme(roomId: Int, newTheme: ChatTheme) {
-        updateRoomProperty(roomId) { it.copy(chatTheme = newTheme) }
+        viewModelScope.launch(Dispatchers.IO) {
+            database.updateRoomTheme(roomId, newTheme)
+            updateRoomProperty(roomId) { it.copy(chatTheme = newTheme) }
+        }
     }
 
     fun getRoomTheme(roomId: Int): ChatTheme? = _rooms.value[roomId]?.chatTheme
@@ -268,7 +329,34 @@ class ChatViewModel(
         }
     }
 
-    fun sendMessage(roomId: Int, text: String, attachedFile: String? = null){
+    fun updateRoomCustomPfp(roomId: Int, sourceImagePath: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            // 1. Copy image to internal storage
+            val managedFile =
+                fileRepository.copyFileToInternalStorage(sourceImagePath, DIRECTORIES.ConnDir)
+            val internalPath = managedFile?.let {
+                fileRepository.getFileInternalPath(it.fileId, DIRECTORIES.ConnDir)
+            }
+
+            if (internalPath == null) {
+                println("ChatViewModel: Failed to copy custom PFP.")
+                return@launch
+            }
+
+            // 2. Update the database
+            database.updateRoomCustomPfp(roomId, internalPath)
+
+
+            // 3. Update the in-memory state
+            updateRoomProperty(roomId) {
+                it.copy(customPfpPath = internalPath)
+            }
+
+            // TODO: We should probably clean up the old customPfpPath file
+        }
+    }
+
+    fun sendMessage(roomId: Int, text: String, attachedFile: String? = null) {
         viewModelScope.launch(Dispatchers.IO) {
             val currentUserId = userRepository.getUserIdAndName().first ?: return@launch
             println("Got message from $roomId with Text: $text")
@@ -278,14 +366,14 @@ class ChatViewModel(
 
             val message: Message
 
-            if(attachedFile != null){
+            if (attachedFile != null) {
                 val managedFile = fileRepository.copyFileToInternalStorage(attachedFile)
-                if(managedFile == null){
+                if (managedFile == null) {
                     println("ChatViewModel: Failed to process shared file, returned null")
                     return@launch
                 }
 
-                _downloadedFileIds.update { it +  managedFile.fileId}
+                _downloadedFileIds.update { it + managedFile.fileId }
 
                 message = Message(
                     userId = currentUserId,
@@ -293,7 +381,7 @@ class ChatViewModel(
                     fileInfo = managedFile,
                     text = text.ifBlank { null }
                 )
-            } else if(text.isNotEmpty()){
+            } else if (text.isNotEmpty()) {
                 message = Message(
                     currentUserId,
                     roomId,
@@ -331,15 +419,14 @@ class ChatViewModel(
 
         println("Downloading file ${fileInfo.originalFileName} from http://$host:$port/files/$fileId")
 
-        viewModelScope.launch(Dispatchers.IO){
-            try{
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
                 val client = createKtorClient()
                 val outputFile = File(fileRepository.getDirectory(DIRECTORIES.FilesDir), fileId)
 
 
-                client.prepareGet("http://$host:$port/files/$fileId"){
-                    onDownload {
-                        bytesSentTotal, contentLength ->
+                client.prepareGet("http://$host:$port/files/$fileId") {
+                    onDownload { bytesSentTotal, contentLength ->
                         val progress = if (contentLength != null && contentLength > 0) {
                             bytesSentTotal.toFloat() / contentLength.toFloat()
                         } else {
@@ -350,12 +437,12 @@ class ChatViewModel(
                             currentProgress + (fileId to progress)
                         }
                     }
-                }.execute{ httpResponse ->
+                }.execute { httpResponse ->
                     val channel: ByteReadChannel = httpResponse.body()
                     outputFile.outputStream().use { fileOutputStream ->
-                        while(!channel.isClosedForRead){
+                        while (!channel.isClosedForRead) {
                             val packet = channel.readRemaining(DEFAULT_BUFFER_SIZE.toLong())
-                            while(!packet.exhausted()){
+                            while (!packet.exhausted()) {
                                 val bytes = packet.readByteArray()
                                 fileOutputStream.write(bytes)
                             }
@@ -367,7 +454,7 @@ class ChatViewModel(
                 _downloadedFileIds.update { it + fileId }
                 _downloadProgress.update { it - fileId }
 
-            } catch (e: Exception){
+            } catch (e: Exception) {
                 println("Cannot download file: ${e.message}")
                 e.printStackTrace()
             }
@@ -379,7 +466,13 @@ class ChatViewModel(
     }
 
     @OptIn(ExperimentalTime::class)
-    fun createGroup(groupName: String, selectedMembers: List<RoomItem>) {
+    fun createGroup(
+        groupName: String,
+        selectedMembers: List<RoomItem>,
+        description: String?,
+        groupType: GroupType,
+        tabs: List<GroupTabs> = listOf(GroupTabs(label = "Chat", type = TabType.CHAT))
+    ) {
         viewModelScope.launch(Dispatchers.IO) {
             val currentUserId = userRepository.getUserIdAndName().first ?: return@launch
 
@@ -395,7 +488,10 @@ class ChatViewModel(
             // 3. Create the group's structure
             val groupDetails = GroupStructure(
                 ownerId = currentUserId,
-                creationTimeStamp = Clock.System.now().epochSeconds
+                description = description,
+                creationTimeStamp = Clock.System.now().epochSeconds,
+                groupType = groupType,
+                tabs = tabs
             )
 
             // 4. Create the new RoomItem for the host
@@ -405,7 +501,7 @@ class ChatViewModel(
                 isGroup = true,
                 groupDetails = groupDetails,
                 members = memberIds,
-                status = ConnectionStatus.Connected // Host is always connected to their own group
+                status = ConnectionStatus.Connected
             )
 
             // 5. Add the room to the host's UI immediately
@@ -470,7 +566,8 @@ class ChatViewModel(
                 val localUserPort = userRepository.currentUserPort.value
 
                 val encodedUID = URLEncoder.encode(localUserUid, StandardCharsets.UTF_8.toString())
-                val encodedName = URLEncoder.encode(localUserName, StandardCharsets.UTF_8.toString())
+                val encodedName =
+                    URLEncoder.encode(localUserName, StandardCharsets.UTF_8.toString())
                 val encodedPort = localUserPort.toString()
 
                 val client = createKtorClient()
@@ -485,7 +582,11 @@ class ChatViewModel(
                 )
 
                 // Add and listen to this new session
-                chatRepository.addAndListenToClientSession(invite.roomId, session, hostUser.hostAddress)
+                chatRepository.addAndListenToClientSession(
+                    invite.roomId,
+                    session,
+                    hostUser.hostAddress
+                )
 
             } catch (e: Exception) {
                 println("ChatViewModel: Auto-connect to group host failed: ${e.message}")
