@@ -78,6 +78,7 @@ import org.asv.looplink.data.repository.UserRepository
 import org.asv.looplink.getPlatformType
 import org.asv.looplink.theme.ChatTheme
 import org.asv.looplink.viewmodel.ChatViewModel
+import org.asv.looplink.viewmodel.PeerDiscoveryViewModel
 import org.koin.compose.koinInject
 import java.io.File
 import kotlin.time.Clock
@@ -221,16 +222,49 @@ private fun SidebarRoomItem(room: RoomItem) {
     val chatViewModel: ChatViewModel = koinInject()
     val chatRepository: ChatRepository = koinInject()
     val userRepository: UserRepository = koinInject()
+    val peerDiscoveryViewModel: PeerDiscoveryViewModel = koinInject()
+
+
     val roomId = room.id
+
     val lastMessageState = chatViewModel.lastMessageFor(roomId)
     val lastMessage by lastMessageState.collectAsStateWithLifecycle()
 
     val typingUsersMap by chatViewModel.typingUsers.collectAsStateWithLifecycle()
     val currentUserId = userRepository.getUserIdAndName().first
-
     val isSomeoneTyping = (typingUsersMap[room.id] ?: emptySet()).any { it != currentUserId }
 
     val navigator = LocalAppNavigator.currentOrThrow
+
+    val discoveredPeers by peerDiscoveryViewModel.discoveredServices.collectAsStateWithLifecycle()
+
+    LaunchedEffect(room.id, discoveredPeers, room.status) {
+        if (!room.isGroup) return@LaunchedEffect
+
+        val groupDetails = room.groupDetails ?: return@LaunchedEffect
+        val hostId = groupDetails.ownerId
+
+        if (hostId == currentUserId) {
+            if (room.status != ConnectionStatus.Connected) {
+                chatViewModel.updateRoomConnection(room.id, ConnectionStatus.Connected)
+            }
+            return@LaunchedEffect
+        }
+
+        val hostServiceInfo = discoveredPeers.find { it.attributes["uid"] == hostId }
+
+        if (hostServiceInfo != null) {
+            if (room.status == ConnectionStatus.Idle || room.status is ConnectionStatus.Error) {
+                println("Sidebar: Host $hostId found for group ${room.label}. Attempting reconnect...")
+                chatViewModel.reconnectToGroupHost(room, hostServiceInfo)
+            }
+        } else {
+            if (room.status == ConnectionStatus.Connected || room.status == ConnectionStatus.Connecting) {
+                println("Sidebar: Host $hostId lost for group ${room.label}. Setting status to Error.")
+                chatViewModel.updateRoomConnection(room.id, ConnectionStatus.Error("Host not found"))
+            }
+        }
+    }
 
     val navigateToRoom: () -> Unit = {
         navigator.navigateToChat(roomId)

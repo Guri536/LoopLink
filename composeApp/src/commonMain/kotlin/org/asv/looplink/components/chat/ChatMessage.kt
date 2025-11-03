@@ -161,7 +161,8 @@ fun ChatMessage(
                             Text(
                                 text = timeToString(message.seconds),
                                 textAlign = TextAlign.End,
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontSize = if(isMobiles) 10.sp else 12.sp,
                                 color = ChatColors.TIME_TEXT
                             )
                         }

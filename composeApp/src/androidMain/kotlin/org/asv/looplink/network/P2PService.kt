@@ -25,6 +25,9 @@ class P2PService: Service() {
     private val chatViewModel: ChatViewModel by inject()
     private val chatRepository: ChatRepository by inject()
 
+    private var currentUserUid: String? = null
+    private var currentUserName: String? = null
+
     private val connectionManager: ConnectionManager by inject()
     companion object {
         const val ACTION_START = "ACTION_START"
@@ -35,11 +38,34 @@ class P2PService: Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+
+        if (intent == null) {
+            println("P2PService: START_STICKY restart detected.")
+            if (currentUserUid != null && currentUserName != null) {
+                startAsForegroundService()
+                startServer(currentUserUid!!, currentUserName!!)
+            } else {
+                println("P2PService: No user info, cannot restart. Stopping.")
+                stopSelf()
+            }
+            return START_STICKY
+        }
+
         when(intent?.action){
             ACTION_START -> {
                 println("P2PService: Starting Ktor Server")
-                val uid = intent.getStringExtra("USER_UID") ?: return START_NOT_STICKY
-                val name = intent.getStringExtra("USER_NAME") ?: return START_NOT_STICKY
+                val uid = intent.getStringExtra("USER_UID")
+                val name = intent.getStringExtra("USER_NAME")
+
+                if (uid == null || name == null) {
+                    println("P2PService: Error - UID or Name is null on START.")
+                    stopSelf()
+                    return START_NOT_STICKY
+                }
+
+                currentUserUid = uid
+                currentUserName = name
+
                 startAsForegroundService()
                 startServer(uid, name)
             }

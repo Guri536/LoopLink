@@ -1,8 +1,6 @@
 package org.asv.looplink.viewmodel
 
 import io.ktor.client.plugins.websocket.webSocketSession
-import io.ktor.client.request.get
-import io.ktor.client.statement.bodyAsBytes
 import io.ktor.http.HttpMethod
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -17,7 +15,6 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import org.asv.looplink.components.chat.User
 import org.asv.looplink.data.repository.ChatRepository
-import org.asv.looplink.data.repository.DIRECTORIES
 import org.asv.looplink.data.repository.FileRepository
 import org.asv.looplink.data.repository.UserRepository
 import org.asv.looplink.network.ConnectionManager

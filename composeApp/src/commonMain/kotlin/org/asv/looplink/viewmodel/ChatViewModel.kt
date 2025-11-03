@@ -48,6 +48,8 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
+import org.asv.looplink.network.discovery.ServiceInfo
+
 
 class ChatViewModel(
     private val chatRepository: ChatRepository,
@@ -157,7 +159,6 @@ class ChatViewModel(
         }
     }
 
-    // ADDED: Function called by SendMessage.kt when the user types
     fun sendTypingEvent(roomId: Int, isTyping: Boolean) {
         // Cancel any pending "stop typing" job for this room
         stopTypingJobs[roomId]?.cancel()
@@ -176,15 +177,11 @@ class ChatViewModel(
         }
     }
 
-    // ADDED: A debounced version for the UI to call
     fun sendTypingEventDebounced(roomId: Int) {
-        // Cancel any pending "stop" job
         stopTypingJobs[roomId]?.cancel()
 
-        // Send the "is typing" event immediately
         sendTypingEvent(roomId, true)
 
-        // Launch a new job that will send "stop typing" after a delay
         stopTypingJobs[roomId] = viewModelScope.launch {
             delay(2000L) // 2-second window
             sendTypingEvent(roomId, false)
@@ -352,7 +349,6 @@ class ChatViewModel(
                 it.copy(customPfpPath = internalPath)
             }
 
-            // TODO: We should probably clean up the old customPfpPath file
         }
     }
 
@@ -478,7 +474,6 @@ class ChatViewModel(
 
             // 1. Create a list of all member IDs (including the host)
             val memberIds = (selectedMembers.mapNotNull { room ->
-                // Get the peer's ID from the 1-on-1 room
                 room.members.firstOrNull { it != currentUserId }
             } + currentUserId).distinct()
 
@@ -503,8 +498,6 @@ class ChatViewModel(
                 members = memberIds,
                 status = ConnectionStatus.Connected
             )
-
-            // 5. Add the room to the host's UI immediately
             addRoom(newGroupRoom)
 
             // 6. Create the invite event
@@ -520,16 +513,13 @@ class ChatViewModel(
 
             // 7. Send the invite to all selected members via their 1-on-1 chat
             selectedMembers.forEach { memberRoom ->
-                val peerRoomId = memberRoom.id // This is the 1-on-1 chat's ID
+                val peerRoomId = memberRoom.id
                 chatRepository.sendMessage(peerRoomId, inviteJson)
             }
             println("ChatViewModel: Created group $groupName and sent invites.")
         }
     }
 
-    /**
-     * PHASE 3c (Client Logic): Called by the repository when a GroupInviteEvent is received.
-     */
     fun onGroupInviteReceived(invite: GroupInviteEvent) {
         viewModelScope.launch(Dispatchers.IO) {
             // 1. Check if we already have this room
@@ -545,21 +535,19 @@ class ChatViewModel(
                 return@launch
             }
 
-            // 3. Create the new RoomItem for the client
             val newGroupRoom = RoomItem(
                 id = invite.roomId,
                 label = invite.groupName,
                 isGroup = true,
                 groupDetails = invite.groupDetails,
                 members = invite.memberIds,
-                status = ConnectionStatus.Connecting // We'll connect right after
+                status = ConnectionStatus.Connecting
             )
 
             // 4. Add the room to the client's UI
             addRoom(newGroupRoom)
 
-            // 5. --- AUTO-CONNECT TO HOST ---
-            // This is the client's connection to the new group
+            // Client's connection to the new group
             try {
                 val localUserName = userRepository.getUserIdAndName().second
                 val localUserUid = userRepository.getUserIdAndName().first ?: return@launch
@@ -591,6 +579,48 @@ class ChatViewModel(
             } catch (e: Exception) {
                 println("ChatViewModel: Auto-connect to group host failed: ${e.message}")
                 updateRoomConnection(invite.roomId, ConnectionStatus.Error("Connection failed"))
+            }
+        }
+    }
+
+    fun reconnectToGroupHost(room: RoomItem, hostServiceInfo: ServiceInfo) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val hostId = hostServiceInfo.attributes["uid"]
+            println("ChatViewModel: Reconnecting to group host $hostId for room ${room.id}")
+            updateRoomConnection(room.id, ConnectionStatus.Connecting)
+
+            try {
+                val localUserName = userRepository.getUserIdAndName().second
+                val localUserUid = userRepository.getUserIdAndName().first ?: return@launch
+                val localUserPort = userRepository.currentUserPort.value
+
+                if (localUserPort == 0) {
+                    println("ChatViewModel: Error - Local server port is 0. Cannot connect.")
+                    updateRoomConnection(room.id, ConnectionStatus.Error("Local server not running"))
+                    return@launch
+                }
+
+                val encodedUID = URLEncoder.encode(localUserUid, StandardCharsets.UTF_8.toString())
+                val encodedName = URLEncoder.encode(localUserName, StandardCharsets.UTF_8.toString())
+                val encodedPort = localUserPort.toString()
+
+                val client = createKtorClient()
+                val session = client.webSocketSession(
+                    method = HttpMethod.Get,
+                    host = hostServiceInfo.hostAddress,
+                    port = hostServiceInfo.port,
+                    path = "/looplink/initiate/${room.id}?peerUid=$encodedUID&peerName=$encodedName&peerPort=$encodedPort"
+                )
+
+                chatRepository.addAndListenToClientSession(
+                    room.id,
+                    session,
+                    hostServiceInfo.hostAddress
+                )
+
+            } catch (e: Exception) {
+                println("ChatViewModel: Reconnect to group host failed: ${e.message}")
+                updateRoomConnection(room.id, ConnectionStatus.Error("Connection failed"))
             }
         }
     }
