@@ -1,1 +1,1 @@
-ALTER TABLE LoopLinkUser DROP COLUMN pfpImage;
+-- ALTER TABLE LoopLinkUser DROP COLUMN pfpImage;

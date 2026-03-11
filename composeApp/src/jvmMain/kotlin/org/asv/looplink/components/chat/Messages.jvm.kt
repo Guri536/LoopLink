@@ -1,5 +1,7 @@
 package org.asv.looplink.components.chat
 
+import androidx.compose.foundation.ContextMenuArea
+import androidx.compose.foundation.ContextMenuItem
 import androidx.compose.foundation.ScrollbarStyle
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.layout.Box
@@ -72,11 +74,22 @@ internal actual fun Messages(
 
                 item(key = message.id) {
                     val showElements = prevMessage == null || prevMessage.userId != message.userId
-                    ChatMessage(
-                        isMyMessage = message.userId == currentUserId,
-                        roomId, message, !showElements,
-                        showNameOfPeer
-                    )
+                    ContextMenuArea(
+                        items = {
+                            listOf(ContextMenuItem(
+                                label = "Delete",
+                                onClick = {
+                                    chatViewModel.deleteMessage(roomId, message.id)
+                                }
+                            ) )
+                        }
+                    ) {
+                        ChatMessage(
+                            isMyMessage = message.userId == currentUserId,
+                            roomId, message, !showElements,
+                            showNameOfPeer
+                        )
+                    }
                 }
             }
             item { Box(Modifier.height(10.dp)) }

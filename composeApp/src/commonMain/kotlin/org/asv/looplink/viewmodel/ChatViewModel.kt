@@ -1,5 +1,6 @@
 package org.asv.looplink.viewmodel
 
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -324,6 +325,11 @@ class ChatViewModel(
 
 //            cleanupOrphanFiles()
         }
+    }
+
+    fun deleteMessage(roomId: Int, messageId: Long) {
+        chatRepository.store.send(Action.deleteMessage(roomId, messageId))
+
     }
 
     fun updateRoomCustomPfp(roomId: Int, sourceImagePath: String) {

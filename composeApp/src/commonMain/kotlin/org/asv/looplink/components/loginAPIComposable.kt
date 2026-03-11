@@ -48,6 +48,7 @@ import org.asv.looplink.data.repository.UserRepository
 import org.asv.looplink.errors.errorsLL
 import org.asv.looplink.ui.MainScreen
 import org.asv.looplink.webDriver.cuimsAPI
+import org.asv.looplink.webDriver.getWebViewer
 import org.koin.compose.koinInject
 import org.koin.java.KoinJavaComponent.get
 

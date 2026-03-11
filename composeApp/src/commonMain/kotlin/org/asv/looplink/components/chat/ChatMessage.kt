@@ -32,6 +32,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Density
@@ -112,7 +114,8 @@ fun ChatMessage(
                     )
                         .background(color = if (!isMyMessage) chatTheme.peerMessageColor else chatTheme.myMessageColor)
                         .padding(start = 10.dp, top = 5.dp, end = 10.dp, bottom = 5.dp)
-                        .widthIn(max = if(isMobiles) 300.dp else 900.dp),
+                        .widthIn(max = if(isMobiles) 300.dp else 900.dp)
+                    ,
                 ) {
                     Column {
                         if (!isMyMessage && !sameUser && !showNameOfPeer) {

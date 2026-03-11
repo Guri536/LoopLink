@@ -385,12 +385,12 @@ fun BottomBar(
         horizontalAlignment =
             Alignment.CenterHorizontally
     ) {
-        Button(
-            onClick = onProfileClick,
-            modifier = Modifier.fillMaxWidth(.8f)
-        ) {
-            Text("Profile")
-        }
+//        Button(
+//            onClick = onProfileClick,
+//            modifier = Modifier.fillMaxWidth(.8f)
+//        ) {
+//            Text("Profile")
+//        }
         Button(
             onClick = onSettingsClick,
             modifier = Modifier.fillMaxWidth(.8f)
