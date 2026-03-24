@@ -1,26 +1,43 @@
 package org.asv.looplink.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -32,389 +49,426 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.currentOrThrow
 import kotlinx.coroutines.launch
+import org.asv.looplink.DatabaseManager
 import org.asv.looplink.data.repository.UserRepository
 import org.asv.looplink.errors.errorsLL
 import org.asv.looplink.ui.MainScreen
 import org.asv.looplink.webDriver.cuimsAPI
-import org.asv.looplink.webDriver.getWebViewer
 import org.koin.compose.koinInject
-import org.koin.java.KoinJavaComponent.get
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Palette (keeps magic numbers in one place)
+// ─────────────────────────────────────────────────────────────────────────────
+private val BgTop        = Color(0xFF0D0F1A)
+private val BgBottom     = Color(0xFF1A1C24)
+private val CardBg       = Color(0xFF1E2030)
+private val Divider      = Color(0xFF2A2D3E)
+private val Subtle       = Color(0xFF8B8FA8)
+private val VerySubtle   = Color(0xFF4A4F68)
+private val AccentBlue   = Color(0xFF6A88FF)
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Screen
+// ─────────────────────────────────────────────────────────────────────────────
 class LoginFields(val onLoginSuccess: () -> Unit) : Screen {
 
     @Composable
     override fun Content() {
-        val cuimsAPI: cuimsAPI = koinInject()
+        val cuimsAPI: cuimsAPI       = koinInject()
+        val userRepository: UserRepository = koinInject()
+        val database: DatabaseManager      = koinInject()
         val navigator = LocalAppNavigator.currentOrThrow
 
-        var uidField by remember { mutableStateOf("") }
-        var passField by remember { mutableStateOf("") }
-        val interactionSource = remember { MutableInteractionSource() }
-        var isUIDError by remember { mutableStateOf(false) }
-        var isPassError by remember { mutableStateOf(false) }
-        var isError by remember { mutableStateOf(false) }
-        var errorMessage by remember { mutableStateOf("") }
-        val isHovered by interactionSource.collectIsHoveredAsState()
+        // ── State ──────────────────────────────────────────────────────────
+        var uidField       by remember { mutableStateOf("") }
+        var passField      by remember { mutableStateOf("") }
+        var passVisible    by remember { mutableStateOf(false) }
+        var captchaField   by remember { mutableStateOf("") }
+        var captchaImage   by remember { mutableStateOf(ImageBitmap(110, 48)) }
+        var showCaptcha    by remember { mutableStateOf(false) }
 
-        var captchaFile by remember {
-            mutableStateOf(
-                ImageBitmap(
-                    width = 110,
-                    height = 48,
-                )
-            )
+        var uidError       by remember { mutableStateOf(false) }
+        var passError      by remember { mutableStateOf(false) }
+        var captchaError   by remember { mutableStateOf(false) }
+        var isLoading      by remember { mutableStateOf(false) }
+        var errorMessage   by remember { mutableStateOf("") }
+
+        var showGuestPrompt by remember { mutableStateOf(false) }
+        var guestNameField  by remember { mutableStateOf("") }
+        var guestNameError  by remember { mutableStateOf(false) }
+
+        val scope = rememberCoroutineScope()
+
+        // ── Helpers ────────────────────────────────────────────────────────
+        fun resetErrors() {
+            uidError = false; passError = false; captchaError = false; guestNameError = false; errorMessage = ""
         }
 
-        var captchaField by remember { mutableStateOf("") }
-        var showCaptcha by remember { mutableStateOf(false) }
-        var isCaptchaError by remember { mutableStateOf(false) }
-        val scope = rememberCoroutineScope()
-        var webDriverInstance by remember { mutableStateOf(false) }
+        fun navigateToMain() {
+            navigator.navigator.replaceAll(MainScreen())
+        }
 
-        val fontSize = 20.sp
-        val fontFamily = FontFamily.Monospace
+        // ── CUIMS login flow ───────────────────────────────────────────────
+        fun handleSignIn() {
+            scope.launch {
+                isLoading = true
+                resetErrors()
 
-        val colors = OutlinedTextFieldDefaults.colors(
-            focusedContainerColor = Color.White,
-            unfocusedContainerColor = Color(0xFFFAFAFA),
-            disabledContainerColor = Color.Gray,
-            focusedLabelColor = Color.Gray,
-            errorContainerColor = Color.White,
-            unfocusedBorderColor = Color.Transparent,
-            unfocusedTextColor = Color.Black,
-            focusedTextColor = Color.Black,
-            errorTextColor = MaterialTheme.colorScheme.error,
-            cursorColor = Color.DarkGray,
-            errorBorderColor = MaterialTheme.colorScheme.error,
-        )
-        val textStyle = TextStyle(
-            fontWeight = FontWeight.Bold,
-            fontSize = fontSize,
-            fontFamily = fontFamily
-        )
+                if (!showCaptcha) {
+                    // Step 1 – validate credentials
+                    if (uidField.isBlank())  { uidError  = true; isLoading = false; return@launch }
+                    if (passField.isBlank()) { passError = true; isLoading = false; return@launch }
 
-        Column(
+                    try {
+                        val result = cuimsAPI.login(uidField, passField)
+                        if (!result.success) {
+                            errorMessage = result.message
+                        } else {
+                            val captchaResult = cuimsAPI.getCaptcha()
+                            if (captchaResult.first.success) {
+                                captchaImage = captchaResult.second!!
+                                showCaptcha  = true
+                            } else {
+                                errorMessage = captchaResult.first.message
+                            }
+                        }
+                    } catch (e: Exception) {
+                        errorMessage = errorsLL.internet_error + e.message
+                    }
+
+                } else {
+                    // Step 2 – verify captcha
+                    if (captchaField.isBlank()) { captchaError = true; isLoading = false; return@launch }
+
+                    try {
+                        val result = cuimsAPI.fillCaptcha(captchaField)
+                        if (!result.success) {
+                            errorMessage = result.message
+                            when (result.message) {
+                                "Invalid Captcha" -> {
+                                    captchaError = true
+                                    val fresh = cuimsAPI.getCaptcha()
+                                    if (fresh.first.success) captchaImage = fresh.second!!
+                                }
+                                "User Id or Password In Correct" -> {
+                                    passError = true; uidError = true
+                                    showCaptcha = false
+                                    cuimsAPI.endSession()
+                                }
+                                else -> captchaError = true
+                            }
+                        } else {
+                            val data = cuimsAPI.loadStudentData()
+                            if (data.first.success) {
+                                userRepository.insertAndLoadUser(data.second!!)
+                                onLoginSuccess()
+                                navigateToMain()
+                                cuimsAPI.destroySession()
+                            } else {
+                                errorMessage = data.first.message
+                            }
+                        }
+                    } catch (e: Exception) {
+                        errorMessage = errorsLL.unknownError
+                    }
+                }
+                isLoading = false
+            }
+        }
+
+        // ── Guest login flow ───────────────────────────────────────────────
+        // Inserts directly via DatabaseManager so pfpPath can safely be null,
+        // then reloads the user from the database via UserRepository.loadUser().
+        // ── Guest login flow ───────────────────────────────────────────────
+        fun handleGuestLogin() {
+            if (guestNameField.isBlank()) {
+                guestNameError = true
+                return
+            }
+
+            scope.launch {
+                isLoading = true
+                resetErrors()
+                try {
+                    val guestId = "guest_${System.currentTimeMillis()}"
+                    // Use the input field instead of the hardcoded "Guest" string
+                    database.insertUserData(name = guestNameField.trim(), uid = guestId)
+                    userRepository.loadUser()
+                    onLoginSuccess()
+                    navigateToMain()
+                } catch (e: Exception) {
+                    errorMessage = "Could not create a guest session. Please try again."
+                }
+                isLoading = false
+            }
+        }
+
+        // ── Layout ─────────────────────────────────────────────────────────
+        Box(
             modifier = Modifier
-                .fillMaxHeight()
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.background)
-//            .verticalScroll(rememberScrollState())
-            ,
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
+                .fillMaxSize()
+                .background(Brush.verticalGradient(listOf(BgTop, BgBottom))),
+            contentAlignment = Alignment.Center
         ) {
-            Column(
-                modifier = Modifier,
-                Arrangement.Center,
-                Alignment.CenterHorizontally
+            Card(
+                modifier = Modifier
+                    .widthIn(max = 440.dp)
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = CardBg),
+                elevation = CardDefaults.cardElevation(defaultElevation = 24.dp),
+                border = BorderStroke(1.dp, Divider)
             ) {
                 Column(
-                    modifier = Modifier
-                        .wrapContentHeight()
-                        .width(IntrinsicSize.Max),
+                    modifier = Modifier.padding(horizontal = 28.dp, vertical = 32.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Bottom
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    CustomOutlinedTextField(
-                        label = {
-                            Text(
-                                "UID", fontSize = fontSize,
-                                fontWeight = FontWeight.Bold,
-                                fontFamily = fontFamily,
-                            )
-                        },
-                        value = uidField,
-                        placeholder = {
-                            Text(
-                                "Enter UID",
-                                fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-                        },
-                        onValueChange = {
-                            uidField = it
-                        },
-                        colors = colors,
-                        singleLine = true,
-                        textStyle = textStyle,
-                        isError = isUIDError,
-                        supportingText = {
-                            if (isUIDError) {
-                                TextFieldFooterErrorMsg("UID cannot be empty")
-                            }
-                        },
-                        shape = MaterialTheme.shapes.large,
-                        interactionSource = interactionSource
-                    )
-                    CustomOutlinedTextField(
-                        label = {
-                            Text(
-                                "Password", fontSize = fontSize,
-                                fontWeight = FontWeight.Bold,
-                                fontFamily = fontFamily,
-                            )
-                        },
-                        value = passField,
-                        placeholder = {
-                            Text(
-                                "Enter Password",
-                                fontWeight = FontWeight.Bold
-                            )
-                        },
-                        onValueChange = { it ->
-                            passField = it
-                        },
-                        singleLine = true,
-                        colors = colors,
-                        visualTransformation = PasswordVisualTransformation(),
-                        textStyle = textStyle,
-                        isError = isPassError,
-                        supportingText = {
-                            if (isPassError) {
-                                TextFieldFooterErrorMsg("Password cannot be empty")
-                            }
-                        },
-                        shape = MaterialTheme.shapes.large
-                    )
-                    Row(
-                        horizontalArrangement = Arrangement.Center
+                    // Brand
+                    Box(
+                        modifier = Modifier
+                            .size(72.dp)
+                            .clip(CircleShape)
+                            .background(AccentBlue.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
                     ) {
-                        CustomOutlinedTextField(
-                            label = {
-                                Text(
-                                    "Captcha", fontSize = fontSize,
-                                    fontWeight = FontWeight.Bold,
-                                    fontFamily = fontFamily,
-                                )
-                            },
-                            value = captchaField,
-                            placeholder = {
-                                Text(
-                                    "Enter Captcha",
-                                    fontWeight = FontWeight.Bold
-                                )
-                            },
-                            onValueChange = { it ->
-                                captchaField = it
-                            },
-                            singleLine = true,
-                            colors = colors,
-                            textStyle = textStyle,
-                            isError = isCaptchaError,
-
-                            shape = RoundedCornerShape(
-                                topStart = 16.dp,
-                                topEnd = 0.dp,
-                                bottomEnd = 0.dp,
-                                bottomStart = 16.dp
-                            ),
-                            modifier = Modifier
-                                .height(49.dp)
-                                .width(190.dp)
-//                            .padding(0.dp)
-                            ,
-                            enabled = showCaptcha
-                        )
-                        Box(
-                            modifier = Modifier
-                                .padding(vertical = 8.dp)
-                                .height(40.dp)
-                                .width(90.dp)
-                                .clip(
-                                    RoundedCornerShape(
-                                        topStart = 0.dp,
-                                        topEnd = 16.dp,
-                                        bottomEnd = 16.dp,
-                                        bottomStart = 0.dp
-                                    )
-                                )
-                                .background(Color.LightGray),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            if (!webDriverInstance) {
-
-                                Image(
-                                    bitmap = captchaFile,
-                                    contentDescription = "Captcha Image",
-                                    modifier = Modifier
-                                        .fillMaxHeight()
-                                )
-                            } else {
-                                CircularProgressIndicator(
-                                    modifier = Modifier
-                                        .padding(4.dp)
-                                        .height(20.dp)
-                                        .width(20.dp),
-                                    color = Color.Black,
-                                    strokeWidth = 2.dp
-                                )
-                            }
-                        }
+                        Text("🔗", fontSize = 32.sp)
                     }
-                }
-            }
-
-
-            Box(
-            ) {
-                Button(
-                    enabled = !webDriverInstance,
-                    onClick = {
-                        scope.launch {
-                            webDriverInstance = true
-                            isUIDError = false
-                            isPassError = false
-                            isError = false
-                            isCaptchaError = false
-
-                            if (!showCaptcha) {
-                                if (uidField.isBlank()) {
-                                    isUIDError = true
-                                    errorMessage = "UID cannot be empty"
-                                    webDriverInstance = false
-                                    return@launch
-                                }
-                                if (passField.isBlank()) {
-                                    isPassError = true
-                                    errorMessage = "Password cannot be empty"
-                                    webDriverInstance = false
-                                    return@launch
-                                }
-
-                                try {
-                                    val loginSuccess = cuimsAPI.login(uidField, passField)
-
-                                    if (!loginSuccess.success) {
-                                        isError = true
-                                        errorMessage = loginSuccess.message
-                                    } else {
-                                        val imgFile = cuimsAPI.getCaptcha()
-                                        if (!imgFile.first.success) {
-                                            isError = true
-                                            errorMessage = imgFile.first.message
-                                        } else {
-                                            captchaFile = imgFile.second!!
-                                            showCaptcha = true
-                                        }
-                                    }
-                                } catch (e: Exception) {
-                                    isError = true
-                                    errorMessage = errorsLL.internet_error + e.message
-                                    throw (e)
-                                }
-                            } else {
-                                if (captchaField.isBlank()) {
-                                    isError = true
-                                    isCaptchaError = true
-                                    errorMessage = "Captcha cannot be empty"
-                                    webDriverInstance = false
-                                    return@launch
-                                }
-                                try {
-                                    val success = cuimsAPI.fillCaptcha(captchaField)
-                                    if (!success.success) {
-                                        isError = true
-                                        errorMessage = success.message
-                                        webDriverInstance = false
-
-                                        when (errorMessage) {
-                                            "Invalid Captcha" -> {
-                                                errorMessage = "Invalid Captcha"
-                                                isCaptchaError = true
-                                                val imgFile = cuimsAPI.getCaptcha()
-                                                if (!imgFile.first.success) {
-                                                    isError = true
-                                                    errorMessage = imgFile.first.message
-                                                } else {
-                                                    captchaFile = imgFile.second!!
-                                                    showCaptcha = true
-                                                }
-                                            }
-
-                                            "User Id or Password In Correct" -> {
-                                                errorMessage = "Either UID or Password is incorrect"
-                                                isPassError = true
-                                                isUIDError = true
-                                                showCaptcha = false
-                                                cuimsAPI.endSession()
-                                            }
-
-                                            else -> {
-                                                isCaptchaError = true
-                                            }
-                                        }
-                                        return@launch
-                                    }
-
-                                    val data = cuimsAPI.loadStudentData()
-                                    if (data.first.success) {
-                                        println("Insert User data")
-                                        get<UserRepository>(UserRepository::class.java).insertAndLoadUser(
-                                            data.second!!
-                                        )
-                                        onLoginSuccess()
-                                        navigator.navigator.replaceAll(MainScreen())
-                                        cuimsAPI.destroySession()
-                                    } else {
-                                        isError = true
-                                        errorMessage = data.first.message
-                                    }
-
-                                } catch (e: Exception) {
-                                    println(e.message)
-                                    isError = true
-                                    errorMessage = errorsLL.unknownError
-                                }
-                            }
-                            webDriverInstance = false
-                        }
-                    }
-                ) {
                     Text(
-                        "Submit",
-                        fontSize = 20.sp
+                        "LoopLink",
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    )
+                    Text(
+                        "Sign in with your CUIMS account",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Subtle,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(Modifier.height(4.dp))
+
+                    // UID
+                    OutlinedTextField(
+                        value = uidField,
+                        onValueChange = { uidField = it; uidError = false },
+                        label = { Text("University ID") },
+                        leadingIcon = { Icon(Icons.Default.Person, null) },
+                        singleLine = true,
+                        isError = uidError,
+                        supportingText = if (uidError) {{ Text("UID cannot be empty") }} else null,
+                        enabled = !isLoading && !showCaptcha,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+
+                    // Password
+                    OutlinedTextField(
+                        value = passField,
+                        onValueChange = { passField = it; passError = false },
+                        label = { Text("Password") },
+                        leadingIcon = { Icon(Icons.Default.Lock, null) },
+                        trailingIcon = {
+                            IconButton(onClick = { passVisible = !passVisible }) {
+                                Icon(
+                                    if (passVisible) Icons.Default.VisibilityOff
+                                    else Icons.Default.Visibility,
+                                    contentDescription = if (passVisible) "Hide password" else "Show password"
+                                )
+                            }
+                        },
+                        visualTransformation = if (passVisible) VisualTransformation.None
+                        else PasswordVisualTransformation(),
+                        singleLine = true,
+                        isError = passError,
+                        supportingText = if (passError) {{ Text("Password cannot be empty") }} else null,
+                        enabled = !isLoading && !showCaptcha,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+
+                    // Captcha – animates in after first successful sign-in step
+                    AnimatedVisibility(
+                        visible = showCaptcha,
+                        enter = fadeIn() + expandVertically(),
+                        exit  = fadeOut() + shrinkVertically()
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                "Complete the captcha to continue",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Subtle
+                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedTextField(
+                                    value = captchaField,
+                                    onValueChange = { captchaField = it; captchaError = false },
+                                    label = { Text("Captcha") },
+                                    singleLine = true,
+                                    isError = captchaError,
+                                    enabled = !isLoading,
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .size(width = 110.dp, height = 52.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(Color.White),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Image(bitmap = captchaImage, contentDescription = "Captcha")
+                                }
+                            }
+                        }
+                    }
+
+                    // Error banner
+                    AnimatedVisibility(visible = errorMessage.isNotEmpty()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(MaterialTheme.colorScheme.error.copy(alpha = 0.12f))
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Error,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = errorMessage,
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(4.dp))
+
+                    // Sign In button
+                    Button(
+                        onClick = ::handleSignIn,
+                        enabled = !isLoading,
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = Color.White,
+                                strokeWidth = 2.5.dp
+                            )
+                        } else {
+                            Text(
+                                text = if (showCaptcha) "Verify & Continue" else "Sign In",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 16.sp
+                            )
+                        }
+                    }
+
+                    // ── OR divider ─────────────────────────────────────────
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        HorizontalDivider(modifier = Modifier.weight(1f), color = Divider)
+                        Text("or", color = Subtle, fontSize = 12.sp)
+                        HorizontalDivider(modifier = Modifier.weight(1f), color = Divider)
+                    }
+
+// Guest Name Input (Animates in when prompt is triggered)
+                    AnimatedVisibility(
+                        visible = showGuestPrompt,
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically()
+                    ) {
+                        OutlinedTextField(
+                            value = guestNameField,
+                            onValueChange = { guestNameField = it; guestNameError = false },
+                            label = { Text("Enter your name") },
+                            leadingIcon = { Icon(Icons.Default.Person, null) },
+                            singleLine = true,
+                            isError = guestNameError,
+                            supportingText = if (guestNameError) {{ Text("Name cannot be empty") }} else null,
+                            enabled = !isLoading,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
+
+// Guest button
+                    OutlinedButton(
+                        onClick = {
+                            if (showGuestPrompt) {
+                                handleGuestLogin()
+                            } else {
+                                showGuestPrompt = true
+                                resetErrors()
+                            }
+                        },
+                        enabled = !isLoading,
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, Divider)
+                    ) {
+                        Icon(
+                            Icons.Default.Person,
+                            contentDescription = null,
+                            tint = Subtle,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = if (showGuestPrompt) "Start Guest Session" else "Continue as Guest",
+                            color = Subtle,
+                            fontSize = 15.sp
+                        )
+                    }
+
+                    Text(
+                        "Guest accounts can't access CUIMS features",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = VerySubtle,
+                        textAlign = TextAlign.Center
                     )
                 }
-
             }
-            Spacer(modifier = Modifier.height(16.dp))
-            if (isError) {
-                Text(
-                    text = errorMessage,
-                    color = MaterialTheme.colorScheme.error,
-                    textAlign = TextAlign.Center,
-                    fontSize = 15.sp,
-                )
-            }
-        Spacer(modifier = Modifier.height(16.dp))
-        getWebViewer(
-            cuimsAPI, modifier = Modifier
-                .fillMaxWidth()
-                .padding(30.dp)
-        )
         }
 
         DisposableEffect(Unit) {
-            onDispose {
-                cuimsAPI.endSession()
-            }
+            onDispose { cuimsAPI.endSession() }
         }
     }
 }
 
-
+// ─────────────────────────────────────────────────────────────────────────────
+// Kept for potential use elsewhere in the project
+// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun TextFieldFooterErrorMsg(text: String = "Error") {
     Text(
@@ -422,6 +476,6 @@ fun TextFieldFooterErrorMsg(text: String = "Error") {
         text = text,
         color = MaterialTheme.colorScheme.error,
         textAlign = TextAlign.Start,
-        fontSize = 15.sp,
+        fontSize = 15.sp
     )
 }
