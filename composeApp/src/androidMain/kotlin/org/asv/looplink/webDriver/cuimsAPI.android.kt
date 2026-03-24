@@ -286,7 +286,7 @@ actual class cuimsAPI(private val webView: WebView) {
 
     private suspend fun waitForElement(
         ele: String,
-        timeout: Long = 5000L,
+        timeout: Long = 50000L,
     ): Boolean {
         val startTime = System.currentTimeMillis()
         val checkEle = "document.getElementById('$ele') != null"

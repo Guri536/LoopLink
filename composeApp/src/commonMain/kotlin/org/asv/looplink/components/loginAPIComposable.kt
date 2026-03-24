@@ -398,12 +398,12 @@ class LoginFields(val onLoginSuccess: () -> Unit) : Screen {
                     fontSize = 15.sp,
                 )
             }
-//        Spacer(modifier = Modifier.height(16.dp))
-//        getWebViewer(
-//            cuimsAPI, modifier = Modifier
-//                .fillMaxWidth()
-//                .padding(30.dp)
-//        )
+        Spacer(modifier = Modifier.height(16.dp))
+        getWebViewer(
+            cuimsAPI, modifier = Modifier
+                .fillMaxWidth()
+                .padding(30.dp)
+        )
         }
 
         DisposableEffect(Unit) {
