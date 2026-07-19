@@ -1,12 +1,8 @@
 # LoopLink: A Multiplatform Peer-to-Peer Communication Framework
 
----
-
 ## 1. Introduction
 
 LoopLink is a Kotlin Multiplatform (KMP) project designed to enable **peer-to-peer (P2P) communication and data exchange** between devices connected to the same local network. It leverages service discovery protocols, direct WebSocket communication, and a shared multiplatform codebase to ensure consistent functionality across **Android mobile devices** and **JVM-based desktop platforms** (Windows, macOS, Linux).
-
----
 
 ## 2. Conceptual Design
 
@@ -135,4 +131,4 @@ LoopLink’s objective is to provide seamless P2P connectivity by allowing devic
 - **Network:** `org.asv.looplink.network`
 - **Discovery:** `org.asv.looplink.network.discovery`
 - **Database:** `org.asv.looplink.database`
-- **UI:** `App.kt
+- **UI:** `App.kt`
